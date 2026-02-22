@@ -58,7 +58,11 @@ def main():
     skipped = 0
 
     for scad_path in sorted(scad_files):
-        glb_name = scad_path.stem.replace(".scad", "") + ".glb"   # e.g. rod-17-green-v1.glb
+        # Strip version suffix to match mesh_file in part JSONs (e.g. rod-17-green.glb)
+        stem = scad_path.stem
+        if stem.endswith(("-v1", "-v2", "-v3")):
+            stem = stem.rsplit("-", 1)[0]
+        glb_name = stem + ".glb"
         glb_path = output_dir / glb_name
 
         # Skip if already up-to-date

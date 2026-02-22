@@ -54,20 +54,19 @@ All 31 tests passing. Core is fully runnable.
 
 ---
 
-## Phase 2 — Project Scaffolding & Hygiene
+## Phase 2 — Project Scaffolding & Hygiene ✅ COMPLETE
 
 ### ✅ Task 2.1: Move `schema/README.md` → root `README.md`
 - Moved to project root
 
-### Task 2.2: Add `format_version` to schema
-- Add `"format_version": {"type": "string", "const": "1.0"}` to `knex-part.json`
-- Update all 12 part JSON files to include `"format_version": "1.0"`
-- Per AGENTS.md: schema changes must bump version
+### ✅ Task 2.2: Add `format_version` to schema
+- Added `format_version` (const `"1.0"`) to `knex-part.json` schema + required array
+- Updated all 12 part JSONs with `"format_version": "1.0"`
+- Added field to `KnexPart` Pydantic model
 
-### Task 2.3: Generate GLB meshes
-- Run `python tools/generate_meshes.py --force` (requires OpenSCAD installed)
-- Verify all 12 `.glb` files are created in `parts/meshes/`
-- Add a note in README about OpenSCAD prerequisite
+### ✅ Task 2.3: Generate GLB meshes
+- Generated all 12 GLBs via OpenSCAD + trimesh
+- Fixed `generate_meshes.py` version-suffix stripping to match `mesh_file` paths in part JSONs
 
 ### ✅ Task 2.4: Add `.gitignore`
 - Added Python, Node, Tauri, IDE, OS, and generated mesh ignores

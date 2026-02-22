@@ -3,8 +3,13 @@
   "title": "K'Nex Part Definition",
   "description": "Complete metadata for any K'Nex piece (connector, rod, wheel, etc.)",
   "type": "object",
-  "required": ["id", "name", "category", "mesh_file", "ports"],
+  "required": ["format_version", "id", "name", "category", "mesh_file", "ports"],
   "properties": {
+    "format_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version for forward compatibility"
+    },
     "id": {
       "type": "string",
       "description": "Unique machine-friendly ID, e.g. 'connector-3way-yellow-v1'"

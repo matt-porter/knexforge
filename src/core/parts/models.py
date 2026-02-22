@@ -28,6 +28,7 @@ class Port(BaseModel):
 class KnexPart(BaseModel):
     """Complete definition of one K'Nex piece (matches knex-part.schema.json)."""
 
+    format_version: str = Field(default="1.0")
     id: str = Field(..., description="Unique machine ID, e.g. 'connector-3way-yellow-v1'")
     name: str
     category: Literal["connector", "rod", "wheel", "plate", "special"]
