@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-import numpy as np
-import networkx as nx
+from typing import TYPE_CHECKING
 
-from core.build import Build
+import networkx as nx
+import numpy as np
+
+if TYPE_CHECKING:
+    from core.build import Build
 
 
 def compute_stability(build: Build) -> float:

@@ -2,24 +2,25 @@
 
 from __future__ import annotations
 
-import json
-from typing import Dict, Optional, Set
+from typing import TYPE_CHECKING, Dict, Optional, Set
 
 import networkx as nx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
-from .parts.loader import PartLoader
 from .parts.models import PartInstance, Connection
-from .physics.graph import compute_stability
+
+if TYPE_CHECKING:
+    from .parts.loader import PartLoader
 
 
-class Build(BaseModel):
+class Build:
     """The main in-memory model of a K'Nex creation."""
 
-    parts: Dict[str, PartInstance] = {}
-    connections: Set[Connection] = set()
-    _graph: nx.Graph = nx.Graph()  # internal connectivity graph
-    _stability_score: float = 100.0
+    def __init__(self, library: PartLoader | None = None) -> None:
+        self.parts: dict[str, PartInstance] = {}
+        self.connections: set[Connection] = set()
+        self._graph: nx.Graph = nx.Graph()
+        self._stability_score: float = 100.0
 
     def add_part(self, instance: PartInstance) -> None:
         """Add a new part instance to the build."""
@@ -43,7 +44,7 @@ class Build(BaseModel):
         from_inst = self.parts[from_instance_id]
         to_inst = self.parts[to_instance_id]
 
-        from core.snapping import snap_ports
+        from .snapping import snap_ports
 
         conn = snap_ports(
             from_instance=from_inst,
@@ -80,12 +81,14 @@ class Build(BaseModel):
         return nx.has_path(self._graph, id1, id2)
 
     def stability_score(self) -> float:
-        """Current stability (0-100). Placeholder for future physics."""
+        """Current stability (0-100)."""
         return self._stability_score
 
     def _update_stability(self) -> None:
         """Update stability using the physics layer."""
-        self._stability_score = compute_stability(self) if len(self.parts) < 5 else 95.0
+        from .physics.graph import compute_stability
+
+        self._stability_score = compute_stability(self)
 
     def to_dict(self) -> dict:
         """Serialize for .knx file or AI."""

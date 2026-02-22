@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "knexforge"
+version = "0.1.0"
+description = "AI-Powered Open-Source K'Nex CAD Builder"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "pydantic>=2.0",
+    "networkx>=3.0",
+    "numpy>=1.26",
+    "scipy>=1.12",
+    "structlog>=24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "pyright>=1.1",
+]
+physics = [
+    "pybullet>=3.2",
+]
+meshgen = [
+    "trimesh>=4.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/core"]
+
+[tool.pytest.ini_options]
+testpaths = ["src/core/tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+pythonPlatform = "All"
