@@ -1,0 +1,12 @@
+{
+  "id": "rod-33-white-v1",
+  "name": "White Rod (33 mm)",
+  "category": "rod",
+  "mesh_file": "meshes/rod-33-white.glb",
+  "default_color": "#EEEEEE",
+  "mass_grams": 0.9,
+  "ports": [
+    { "id": "end1", "position": [0.0, 0.0, 0.0], "direction": [-1.0, 0.0, 0.0], "mate_type": "rod_end", "accepts": ["rod_hole"], "allowed_angles_deg": [0] },
+    { "id": "end2", "position": [33.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0], "mate_type": "rod_end", "accepts": ["rod_hole"], "allowed_angles_deg": [0] }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "connector-2way-straight-orange-v1",
+  "name": "2-Way Straight Connector (Orange)",
+  "category": "connector",
+  "mesh_file": "meshes/connector-2way-straight-orange.glb",
+  "default_color": "#FF8800",
+  "mass_grams": 1.8,
+  "ports": [
+    { "id": "A", "position": [12.5, 0.0, 0.0], "direction": [1.0, 0.0, 0.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 180] },
+    { "id": "B", "position": [-12.5, 0.0, 0.0], "direction": [-1.0, 0.0, 0.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 180] }
+  ]
+}
