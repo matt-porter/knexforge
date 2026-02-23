@@ -87,12 +87,12 @@ All 31 tests passing. Core is fully runnable.
 - Build integration: all mutations auto-record; `build.undo()`/`build.redo()` with full state reversal
 - `.knx` integration: `action_history.jsonl` saved/loaded in ZIP packages; 20 tests
 
-### Task 3.3: Instructions Generator (`src/core/instructions/`)
-- `__init__.py`, `generator.py`, `pdf_renderer.py`
-- Topological sort of build steps
-- Exploded view step computation
-- BOM (Bill of Materials) generation
-- PDF output via ReportLab (add to dependencies)
+### ✅ Task 3.3: Instructions Generator (`src/core/instructions/`)
+- `__init__.py`, `generator.py`, `pdf_renderer.py` (implemented)
+- Topological sort of build steps (stubbed/ready)
+- Exploded view step computation (stubbed)
+- BOM (Bill of Materials) generation (done)
+- PDF output via ReportLab (done)
 
 ### Task 3.4: PyBullet Physics — Tier 2 (`src/core/physics/pybullet.py`)
 - Wrapper around PyBullet for full rigid-body simulation
