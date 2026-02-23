@@ -1,5 +1,5 @@
 {
-  "format_version": "1.0",
+  "format_version": "1.1",
   "id": "rod-55-blue-v1",
   "name": "Blue Rod (55 mm)",
   "category": "rod",
@@ -7,7 +7,109 @@
   "default_color": "#0066FF",
   "mass_grams": 1.2,
   "ports": [
-    { "id": "end1", "position": [0.0, 0.0, 0.0], "direction": [-1.0, 0.0, 0.0], "mate_type": "rod_end", "accepts": ["rod_hole"], "allowed_angles_deg": [0] },
-    { "id": "end2", "position": [55.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0], "mate_type": "rod_end", "accepts": ["rod_hole"], "allowed_angles_deg": [0] }
+    {
+      "id": "end1",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "mate_type": "rod_end",
+      "accepts": [
+        "rod_hole"
+      ],
+      "allowed_angles_deg": [
+        0
+      ]
+    },
+    {
+      "id": "end2",
+      "position": [
+        55.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "mate_type": "rod_end",
+      "accepts": [
+        "rod_hole"
+      ],
+      "allowed_angles_deg": [
+        0
+      ]
+    },
+    {
+      "id": "center_axial_1",
+      "position": [
+        27.5,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "mate_type": "rod_end",
+      "accepts": [
+        "rod_hole"
+      ],
+      "allowed_angles_deg": [
+        0
+      ]
+    },
+    {
+      "id": "center_axial_2",
+      "position": [
+        27.5,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "mate_type": "rod_end",
+      "accepts": [
+        "rod_hole"
+      ],
+      "allowed_angles_deg": [
+        0
+      ]
+    },
+    {
+      "id": "center_tangent",
+      "position": [
+        27.5,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "mate_type": "rod_side",
+      "accepts": [
+        "rod_hole",
+        "clip"
+      ],
+      "allowed_angles_deg": [
+        0,
+        90,
+        180,
+        270
+      ]
+    }
   ]
 }

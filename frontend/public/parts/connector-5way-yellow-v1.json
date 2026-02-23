@@ -1,5 +1,5 @@
 {
-  "format_version": "1.0",
+  "format_version": "1.1",
   "id": "connector-5way-yellow-v1",
   "name": "5-Way Connector (Yellow)",
   "category": "connector",
@@ -7,10 +7,154 @@
   "default_color": "#FFCC00",
   "mass_grams": 2.4,
   "ports": [
-    { "id": "A", "position": [12.5, 0.0, 0.0], "direction": [1.0, 0.0, 0.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 72, 144, 216, 288] },
-    { "id": "B", "position": [3.85, 11.93, 0.0], "direction": [0.309, 0.951, 0.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 72, 144, 216, 288] },
-    { "id": "C", "position": [-10.11, 7.39, 0.0], "direction": [-0.809, 0.588, 0.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 72, 144, 216, 288] },
-    { "id": "D", "position": [-10.11, -7.39, 0.0], "direction": [-0.809, -0.588, 0.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 72, 144, 216, 288] },
-    { "id": "E", "position": [3.85, -11.93, 0.0], "direction": [0.309, -0.951, 0.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 72, 144, 216, 288] }
+    {
+      "id": "A",
+      "position": [
+        12.5,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "mate_type": "rod_hole",
+      "accepts": [
+        "rod_end",
+        "rod_side"
+      ],
+      "allowed_angles_deg": [
+        0,
+        72,
+        144,
+        216,
+        288
+      ]
+    },
+    {
+      "id": "B",
+      "position": [
+        3.85,
+        11.93,
+        0.0
+      ],
+      "direction": [
+        0.309,
+        0.951,
+        0.0
+      ],
+      "mate_type": "rod_hole",
+      "accepts": [
+        "rod_end",
+        "rod_side"
+      ],
+      "allowed_angles_deg": [
+        0,
+        72,
+        144,
+        216,
+        288
+      ]
+    },
+    {
+      "id": "C",
+      "position": [
+        -10.11,
+        7.39,
+        0.0
+      ],
+      "direction": [
+        -0.809,
+        0.588,
+        0.0
+      ],
+      "mate_type": "rod_hole",
+      "accepts": [
+        "rod_end",
+        "rod_side"
+      ],
+      "allowed_angles_deg": [
+        0,
+        72,
+        144,
+        216,
+        288
+      ]
+    },
+    {
+      "id": "D",
+      "position": [
+        -10.11,
+        -7.39,
+        0.0
+      ],
+      "direction": [
+        -0.809,
+        -0.588,
+        0.0
+      ],
+      "mate_type": "rod_hole",
+      "accepts": [
+        "rod_end",
+        "rod_side"
+      ],
+      "allowed_angles_deg": [
+        0,
+        72,
+        144,
+        216,
+        288
+      ]
+    },
+    {
+      "id": "E",
+      "position": [
+        3.85,
+        -11.93,
+        0.0
+      ],
+      "direction": [
+        0.309,
+        -0.951,
+        0.0
+      ],
+      "mate_type": "rod_hole",
+      "accepts": [
+        "rod_end",
+        "rod_side"
+      ],
+      "allowed_angles_deg": [
+        0,
+        72,
+        144,
+        216,
+        288
+      ]
+    },
+    {
+      "id": "center",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mate_type": "rod_hole",
+      "accepts": [
+        "rod_end",
+        "rod_side"
+      ],
+      "allowed_angles_deg": [
+        0,
+        90,
+        180,
+        270
+      ]
+    }
   ]
 }
