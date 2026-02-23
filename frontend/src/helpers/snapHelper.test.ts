@@ -253,4 +253,71 @@ describe('findNearestSnap', () => {
     expect(result.ghostPosition![1]).toBeCloseTo(0)
     expect(result.ghostPosition![2]).toBeCloseTo(0)
   })
+
+  it('picks the correct rod end based on cursor proximity', () => {
+    // Connector with port A at [12.5, 0, 0] pointing right
+    // and port B at [-12.5, 0, 0] pointing left
+    const connectorDef = makePartDef({
+      id: 'conn-1',
+      ports: [
+        makePort({ id: 'A', position: [12.5, 0, 0], direction: [1, 0, 0], mate_type: 'rod_hole', accepts: ['rod_end'] }),
+        makePort({ id: 'B', position: [-12.5, 0, 0], direction: [-1, 0, 0], mate_type: 'rod_hole', accepts: ['rod_end'] }),
+      ],
+    })
+
+    // Rod with both ends: end1 at [0,0,0] dir [-1,0,0], end2 at [55,0,0] dir [1,0,0]
+    const rodDef = makePartDef({
+      id: 'rod-1',
+      category: 'rod',
+      ports: [
+        makePort({ id: 'end1', position: [0, 0, 0], direction: [-1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'] }),
+        makePort({ id: 'end2', position: [55, 0, 0], direction: [1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'] }),
+      ],
+    })
+
+    const defs = new Map<string, KnexPartDef>()
+    defs.set('conn-1', connectorDef)
+    defs.set('rod-1', rodDef)
+
+    const existingParts: Record<string, PartInstance> = {
+      'c1': makeInstance({ instance_id: 'c1', part_id: 'conn-1', position: [0, 0, 0] }),
+    }
+
+    // Cursor to the RIGHT of port A — should snap end1 to port A
+    // (rod extends rightward from connector)
+    const resultRight = findNearestSnap([20, 0, 0], rodDef, existingParts, defs)
+    expect(resultRight.candidate).not.toBeNull()
+    expect(resultRight.candidate!.portId).toBe('A')
+    expect(resultRight.candidate!.placingPortId).toBe('end1')
+
+    // Cursor to the LEFT of port B — should snap end1 to port B
+    // (rod extends leftward from connector)
+    const resultLeft = findNearestSnap([-20, 0, 0], rodDef, existingParts, defs)
+    expect(resultLeft.candidate).not.toBeNull()
+    expect(resultLeft.candidate!.portId).toBe('B')
+    expect(resultLeft.candidate!.placingPortId).toBe('end1')
+  })
+
+  it('includes placingPortId in candidate', () => {
+    const connectorDef = makePartDef({
+      id: 'conn-1',
+      ports: [makePort({ id: 'A', position: [12.5, 0, 0], mate_type: 'rod_hole', accepts: ['rod_end'] })],
+    })
+
+    const rodDef = makePartDef({
+      id: 'rod-1',
+      ports: [makePort({ id: 'end1', mate_type: 'rod_end', accepts: ['rod_hole'] })],
+    })
+
+    const defs = new Map<string, KnexPartDef>()
+    defs.set('conn-1', connectorDef)
+    defs.set('rod-1', rodDef)
+
+    const existingParts: Record<string, PartInstance> = {
+      'c1': makeInstance({ instance_id: 'c1', part_id: 'conn-1', position: [0, 0, 0] }),
+    }
+
+    const result = findNearestSnap([13, 0, 0], rodDef, existingParts, defs)
+    expect(result.candidate!.placingPortId).toBe('end1')
+  })
 })

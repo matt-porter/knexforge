@@ -3,6 +3,7 @@ import { useGLTF } from '@react-three/drei'
 import { Quaternion, Euler, Color, type Mesh, type MeshStandardMaterial } from 'three'
 import type { KnexPartDef } from '../../types/parts'
 import { getGlbUrl } from '../../hooks/usePartLibrary'
+import { getMeshCorrection } from '../../helpers/meshCorrection'
 import { useInteractionStore } from '../../stores/interactionStore'
 
 interface GhostPreviewProps {
@@ -13,6 +14,7 @@ interface GhostPreviewProps {
  * Semi-transparent ghost preview of a part being placed.
  * Follows the cursor position from the interaction store.
  * Shows green when snapped to a valid port, blue otherwise.
+ * Applies mesh correction transform to align GLB with port data.
  */
 export function GhostPreview({ def }: GhostPreviewProps) {
   const ghostPosition = useInteractionStore((s) => s.ghostPosition)
@@ -22,6 +24,7 @@ export function GhostPreview({ def }: GhostPreviewProps) {
   const url = getGlbUrl(def)
   const { scene } = useGLTF(url)
 
+  const correction = useMemo(() => getMeshCorrection(def), [def])
   const ghostColor = isSnapped ? '#44ff88' : '#4488ff'
 
   const clonedScene = useMemo(() => {
@@ -56,7 +59,10 @@ export function GhostPreview({ def }: GhostPreviewProps) {
 
   return (
     <group position={ghostPosition} rotation={euler}>
-      <primitive object={clonedScene} />
+      {/* Inner group applies mesh correction */}
+      <group position={correction.position} rotation={correction.rotation}>
+        <primitive object={clonedScene} />
+      </group>
     </group>
   )
 }

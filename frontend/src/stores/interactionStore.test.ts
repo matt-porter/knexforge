@@ -10,6 +10,7 @@ describe('interactionStore', () => {
       ghostRotation: [0, 0, 0, 1],
       snapTargetInstanceId: null,
       snapTargetPortId: null,
+      snapPlacingPortId: null,
       isSnapped: false,
       hoveredPartId: null,
     })
@@ -141,21 +142,23 @@ describe('interactionStore', () => {
 
   describe('setSnapTarget', () => {
     it('sets snap target and isSnapped flag', () => {
-      useInteractionStore.getState().setSnapTarget('inst-1', 'A')
+      useInteractionStore.getState().setSnapTarget('inst-1', 'A', 'end1')
 
       const state = useInteractionStore.getState()
       expect(state.snapTargetInstanceId).toBe('inst-1')
       expect(state.snapTargetPortId).toBe('A')
+      expect(state.snapPlacingPortId).toBe('end1')
       expect(state.isSnapped).toBe(true)
     })
 
     it('clears snap with nulls', () => {
-      useInteractionStore.getState().setSnapTarget('inst-1', 'A')
-      useInteractionStore.getState().setSnapTarget(null, null)
+      useInteractionStore.getState().setSnapTarget('inst-1', 'A', 'end1')
+      useInteractionStore.getState().setSnapTarget(null, null, null)
 
       const state = useInteractionStore.getState()
       expect(state.isSnapped).toBe(false)
       expect(state.snapTargetInstanceId).toBeNull()
+      expect(state.snapPlacingPortId).toBeNull()
     })
   })
 

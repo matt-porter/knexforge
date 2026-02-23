@@ -67,6 +67,7 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
           useInteractionStore.getState().setSnapTarget(
             snapResult.candidate.instanceId,
             snapResult.candidate.portId,
+            snapResult.candidate.placingPortId,
           )
           return
         }
@@ -74,7 +75,7 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
 
       // No snap — just grid position
       useInteractionStore.getState().setGhostPosition(gridPos)
-      useInteractionStore.getState().setSnapTarget(null, null)
+      useInteractionStore.getState().setSnapTarget(null, null, null)
     }
   })
 
@@ -93,9 +94,13 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
     const { mode, placingPartId } = useInteractionStore.getState()
 
     if (mode === 'place' && placingPartId) {
-      const { ghostPosition, ghostRotation, snapTargetInstanceId, snapTargetPortId } =
-        useInteractionStore.getState()
-      const parts = useBuildStore.getState().parts
+      const {
+        ghostPosition,
+        ghostRotation,
+        snapTargetInstanceId,
+        snapTargetPortId,
+        snapPlacingPortId,
+      } = useInteractionStore.getState()
 
       if (!ghostPosition) return
 
@@ -108,35 +113,19 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
         rotation: ghostRotation,
       })
 
-      // If snapped, also create the connection
-      if (snapTargetInstanceId && snapTargetPortId) {
-        const placingDef = defs.get(placingPartId)
-        const targetPart = parts[snapTargetInstanceId]
-        if (placingDef && targetPart) {
-          const targetDef = defs.get(targetPart.part_id)
-          if (targetDef) {
-            const targetPort = targetDef.ports.find((p) => p.id === snapTargetPortId)
-            if (targetPort) {
-              const placingPort = placingDef.ports.find(
-                (p) =>
-                  targetPort.accepts.includes(p.mate_type) ||
-                  p.accepts.includes(targetPort.mate_type),
-              )
-              if (placingPort) {
-                useBuildStore.getState().addConnection({
-                  from_instance: instanceId,
-                  from_port: placingPort.id,
-                  to_instance: snapTargetInstanceId,
-                  to_port: snapTargetPortId,
-                })
-              }
-            }
-          }
-        }
+      // If snapped, create the connection using the exact port pair
+      // that the snap helper computed
+      if (snapTargetInstanceId && snapTargetPortId && snapPlacingPortId) {
+        useBuildStore.getState().addConnection({
+          from_instance: instanceId,
+          from_port: snapPlacingPortId,
+          to_instance: snapTargetInstanceId,
+          to_port: snapTargetPortId,
+        })
       }
       // Stay in place mode — allow placing more of the same part
     }
-  }, [defs])
+  }, [])
 
   // Right-click cancels placement
   const handleContextMenu = useCallback((e: MouseEvent) => {

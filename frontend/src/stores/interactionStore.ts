@@ -27,6 +27,8 @@ export interface InteractionStore {
   /** ID of the port being snapped to, if any. */
   snapTargetInstanceId: string | null
   snapTargetPortId: string | null
+  /** Port ID on the placing part that would connect. */
+  snapPlacingPortId: string | null
   /** Whether the ghost is currently snapped to a valid port. */
   isSnapped: boolean
   /** Hovered part instance ID. */
@@ -41,8 +43,8 @@ export interface InteractionStore {
   setGhostPosition: (pos: [number, number, number] | null) => void
   /** Update ghost preview rotation. */
   setGhostRotation: (rot: [number, number, number, number]) => void
-  /** Set snap target (port on an existing part). */
-  setSnapTarget: (instanceId: string | null, portId: string | null) => void
+  /** Set snap target (port on an existing part + port on placing part). */
+  setSnapTarget: (instanceId: string | null, portId: string | null, placingPortId?: string | null) => void
   /** Set hovered part. */
   setHoveredPart: (instanceId: string | null) => void
   /** Rotate the ghost 90° around Y axis. */
@@ -89,6 +91,7 @@ export const useInteractionStore = create<InteractionStore>()(
     ghostRotation: [0, 0, 0, 1],
     snapTargetInstanceId: null,
     snapTargetPortId: null,
+    snapPlacingPortId: null,
     isSnapped: false,
     hoveredPartId: null,
 
@@ -101,6 +104,7 @@ export const useInteractionStore = create<InteractionStore>()(
         state.ghostRotation = [0, 0, 0, 1]
         state.snapTargetInstanceId = null
         state.snapTargetPortId = null
+        state.snapPlacingPortId = null
         state.isSnapped = false
       })
     },
@@ -113,6 +117,7 @@ export const useInteractionStore = create<InteractionStore>()(
         state.ghostRotation = [0, 0, 0, 1]
         state.snapTargetInstanceId = null
         state.snapTargetPortId = null
+        state.snapPlacingPortId = null
         state.isSnapped = false
       })
     },
@@ -129,10 +134,11 @@ export const useInteractionStore = create<InteractionStore>()(
       })
     },
 
-    setSnapTarget: (instanceId: string | null, portId: string | null) => {
+    setSnapTarget: (instanceId: string | null, portId: string | null, placingPortId?: string | null) => {
       set((state) => {
         state.snapTargetInstanceId = instanceId
         state.snapTargetPortId = portId
+        state.snapPlacingPortId = placingPortId ?? null
         state.isSnapped = instanceId !== null && portId !== null
       })
     },

@@ -3,6 +3,7 @@ import { useGLTF } from '@react-three/drei'
 import { Quaternion, Euler, Color, type Mesh, type MeshStandardMaterial } from 'three'
 import type { KnexPartDef, PartInstance } from '../../types/parts'
 import { getGlbUrl } from '../../hooks/usePartLibrary'
+import { getMeshCorrection } from '../../helpers/meshCorrection'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
 import type { ThreeEvent } from '@react-three/fiber'
@@ -17,6 +18,7 @@ interface PartMeshProps {
 /**
  * Renders a single K'Nex part instance by loading its GLB mesh.
  * Applies the instance's position, rotation (quaternion), and color override.
+ * Also applies mesh correction transform to align GLB geometry with port data.
  * Supports click-to-select and hover highlighting.
  */
 export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartMeshProps) {
@@ -24,6 +26,9 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
   const { scene } = useGLTF(url)
   const hoveredPartId = useInteractionStore((s) => s.hoveredPartId)
   const isHovered = hoveredPartId === instance.instance_id
+
+  // Mesh correction for GLB→port alignment (rods: Z-axis→X-axis)
+  const correction = useMemo(() => getMeshCorrection(def), [def])
 
   // Clone the scene so each instance has its own material
   const clonedScene = useMemo(() => {
@@ -100,7 +105,10 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
-      <primitive object={clonedScene} />
+      {/* Inner group applies mesh correction (GLB orientation → port data alignment) */}
+      <group position={correction.position} rotation={correction.rotation}>
+        <primitive object={clonedScene} />
+      </group>
     </group>
   )
 }
