@@ -10,6 +10,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from .action_history import ActionHistory
 from .build import Build
 from .parts.loader import PARTS_DIR, PartLoader
 from .parts.models import Connection, PartInstance, PartLibrary
@@ -67,7 +68,7 @@ def _model_json_to_build(data: dict, library: PartLibrary) -> Build:
             quaternion=tuple(p_dict["quaternion"]),
             color=p_dict.get("color"),
         )
-        build.add_part(instance)
+        build.add_part(instance, record=False)
 
     for c_dict in data.get("connections", []):
         from_instance, from_port = c_dict["from"].rsplit(".", 1)
@@ -111,6 +112,11 @@ def save_knx(build: Build, path: Path, manifest: Manifest | None = None) -> None
             json.dumps(model_data, indent=2),
         )
 
+        # Action history (JSONL)
+        history_jsonl = build.history.to_jsonl()
+        if history_jsonl:
+            zf.writestr("action_history.jsonl", history_jsonl)
+
         # Embed required mesh files
         mesh_files_added: set[str] = set()
         for inst in build.parts.values():
@@ -142,6 +148,10 @@ def load_knx(path: Path, library: PartLibrary | None = None) -> tuple[Build, Man
 
         model_data = json.loads(zf.read("model.json"))
         build = _model_json_to_build(model_data, library)
+
+        if "action_history.jsonl" in zf.namelist():
+            history_text = zf.read("action_history.jsonl").decode("utf-8")
+            build.history = ActionHistory.from_jsonl(history_text)
 
     build._stability_score = manifest.stability_score
     return build, manifest

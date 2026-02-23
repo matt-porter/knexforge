@@ -133,6 +133,10 @@ PR Checklist (agent must verify):
  Follows separation of concerns
  Updated relevant docs (AGENTS.md, README, etc.)
  No print(), console.log() left in production paths
+ PLAN.md updated to reflect completed tasks before committing
+ Changes committed with a descriptive Conventional Commits message
+
+**Important**: After completing any task, **always** update PLAN.md to mark it done and commit your changes before moving on to the next task. Do not leave completed work uncommitted.
 
 
 7. Common Pitfalls (Avoid These!)

@@ -81,11 +81,11 @@ All 31 tests passing. Core is fully runnable.
 - `Manifest` Pydantic model for metadata; auto-populates piece_count + stability
 - Embeds required GLB meshes in ZIP; 10 tests covering all aspects
 
-### Task 3.2: Action History System
-- Pydantic model for actions: `AddPart`, `AddRod`, `RemovePart`, `Snap`
-- `ActionHistory` class: append, undo, redo, serialize to JSONL
-- Integration with `Build` — every mutation records an action
-- Required for AI training format and `.knx` replay
+### ✅ Task 3.2: Action History System (`src/core/action_history.py`)
+- `AddPartAction`, `SnapAction`, `RemovePartAction` Pydantic models (JSONL-compatible)
+- `ActionHistory` class: record, cursor-based undo/redo, JSONL round-trip
+- Build integration: all mutations auto-record; `build.undo()`/`build.redo()` with full state reversal
+- `.knx` integration: `action_history.jsonl` saved/loaded in ZIP packages; 20 tests
 
 ### Task 3.3: Instructions Generator (`src/core/instructions/`)
 - `__init__.py`, `generator.py`, `pdf_renderer.py`
