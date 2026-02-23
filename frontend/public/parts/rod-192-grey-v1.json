@@ -1,0 +1,13 @@
+{
+  "format_version": "1.0",
+  "id": "rod-192-grey-v1",
+  "name": "Grey Rod (192 mm)",
+  "category": "rod",
+  "mesh_file": "meshes/rod-192-grey.glb",
+  "default_color": "#888888",
+  "mass_grams": 2.8,
+  "ports": [
+    { "id": "end1", "position": [0.0, 0.0, 0.0], "direction": [-1.0, 0.0, 0.0], "mate_type": "rod_end", "accepts": ["rod_hole"], "allowed_angles_deg": [0] },
+    { "id": "end2", "position": [192.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0], "mate_type": "rod_end", "accepts": ["rod_hole"], "allowed_angles_deg": [0] }
+  ]
+}

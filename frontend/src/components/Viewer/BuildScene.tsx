@@ -1,54 +1,208 @@
-import { useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
-import type { Mesh } from 'three'
+import { Suspense, useMemo } from 'react'
+import type { KnexPartDef, PartInstance } from '../../types/parts'
+import { usePartDefs, preloadAllMeshes } from '../../hooks/usePartLibrary'
+import { PartMesh } from './PartMesh'
+import { InstancedParts } from './InstancedParts'
 
-export function BuildScene() {
-  const rodRef = useRef<Mesh>(null)
+/** Minimum instance count to switch from individual PartMesh to InstancedMesh. */
+const INSTANCING_THRESHOLD = 4
 
-  useFrame((_, delta) => {
-    if (rodRef.current) {
-      rodRef.current.rotation.y += delta * 0.3
+/**
+ * A demo build showing real K'Nex parts connected together.
+ * This will be replaced by data from the Zustand build store in Task 4.3.
+ */
+function createDemoBuild(): PartInstance[] {
+  return [
+    // Central 8-way white connector at origin
+    {
+      instance_id: 'hub-1',
+      part_id: 'connector-8way-white-v1',
+      position: [0, 30, 0],
+      rotation: [0, 0, 0, 1],
+    },
+    // Blue rod extending right (+X) from hub
+    {
+      instance_id: 'rod-1',
+      part_id: 'rod-55-blue-v1',
+      position: [12.5, 30, 0],
+      rotation: [0, 0, 0, 1],
+    },
+    // Blue rod extending left (-X) from hub
+    {
+      instance_id: 'rod-2',
+      part_id: 'rod-55-blue-v1',
+      position: [-67.5, 30, 0],
+      rotation: [0, 0, 0, 1],
+    },
+    // Red rod extending up (+Y) from hub
+    {
+      instance_id: 'rod-3',
+      part_id: 'rod-130-red-v1',
+      position: [0, 42.5, 0],
+      rotation: [0, 0, 0.707, 0.707], // 90° around Z
+    },
+    // Orange connector at right end of rod-1
+    {
+      instance_id: 'conn-2',
+      part_id: 'connector-2way-straight-orange-v1',
+      position: [67.5, 30, 0],
+      rotation: [0, 0, 0, 1],
+    },
+    // Orange connector at left end of rod-2
+    {
+      instance_id: 'conn-3',
+      part_id: 'connector-2way-straight-orange-v1',
+      position: [-67.5, 30, 0],
+      rotation: [0, 0, 0, 1],
+    },
+    // Yellow rod diagonal (NE from hub, roughly 45°)
+    {
+      instance_id: 'rod-4',
+      part_id: 'rod-86-yellow-v1',
+      position: [8.84, 38.84, 0],
+      rotation: [0, 0, 0.383, 0.924], // ~45° around Z
+    },
+    // 5-way connector at the top of the red rod
+    {
+      instance_id: 'conn-4',
+      part_id: 'connector-5way-yellow-v1',
+      position: [0, 172.5, 0],
+      rotation: [0, 0, 0.707, 0.707], // 90° around Z
+    },
+    // Green rod (short) as a decorative piece
+    {
+      instance_id: 'rod-5',
+      part_id: 'rod-17-green-v1',
+      position: [80, 30, 0],
+      rotation: [0, 0, 0, 1],
+    },
+    // White rod extending forward from hub (+Z via E port)
+    {
+      instance_id: 'rod-6',
+      part_id: 'rod-33-white-v1',
+      position: [0, 42.5, 0],
+      rotation: [0.5, 0.5, -0.5, 0.5], // pointing up
+    },
+    // A wheel on the ground
+    {
+      instance_id: 'wheel-1',
+      part_id: 'wheel-medium-black-v1',
+      position: [80, 0, 0],
+      rotation: [0, 0, 0, 1],
+    },
+    // Grey rod (longest) as a base element
+    {
+      instance_id: 'rod-7',
+      part_id: 'rod-192-grey-v1',
+      position: [-96, 0, 0],
+      rotation: [0, 0, 0, 1],
+    },
+    // 3-way connector
+    {
+      instance_id: 'conn-5',
+      part_id: 'connector-3way-yellow-v1',
+      position: [0, 0, 40],
+      rotation: [0, 0, 0, 1],
+    },
+    // 4-way 3D connector
+    {
+      instance_id: 'conn-6',
+      part_id: 'connector-4way-3d-silver-v1',
+      position: [0, 0, -40],
+      rotation: [0, 0, 0, 1],
+    },
+  ]
+}
+
+interface BuildSceneInnerProps {
+  parts: PartInstance[]
+  defs: Map<string, KnexPartDef>
+}
+
+/**
+ * Inner component that renders the build using either InstancedMesh
+ * (for part types with many instances) or individual PartMesh components.
+ */
+function BuildSceneInner({ parts, defs }: BuildSceneInnerProps) {
+  // Group instances by part_id
+  const grouped = useMemo(() => {
+    const map = new Map<string, PartInstance[]>()
+    for (const part of parts) {
+      const existing = map.get(part.part_id)
+      if (existing) {
+        existing.push(part)
+      } else {
+        map.set(part.part_id, [part])
+      }
     }
-  })
+    return map
+  }, [parts])
 
   return (
     <group>
-      {/* Demo: a simple K'Nex-like structure */}
-      {/* Connector hub */}
-      <mesh position={[0, 25, 0]}>
-        <dodecahedronGeometry args={[8, 0]} />
-        <meshStandardMaterial color="#FFCC00" roughness={0.3} />
-      </mesh>
+      {Array.from(grouped.entries()).map(([partId, instances]) => {
+        const def = defs.get(partId)
+        if (!def) return null
 
-      {/* Rods extending from center */}
-      <mesh ref={rodRef} position={[0, 25, 0]}>
-        <group>
-          <mesh position={[27.5, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[2, 2, 55, 16]} />
-            <meshStandardMaterial color="#0066FF" roughness={0.3} />
-          </mesh>
-          <mesh position={[-27.5, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[2, 2, 55, 16]} />
-            <meshStandardMaterial color="#FF0000" roughness={0.3} />
-          </mesh>
-          <mesh position={[0, 0, 27.5]} rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[2, 2, 55, 16]} />
-            <meshStandardMaterial color="#00CC00" roughness={0.3} />
-          </mesh>
-        </group>
-      </mesh>
+        // Use InstancedMesh for part types with many instances
+        if (instances.length >= INSTANCING_THRESHOLD) {
+          return <InstancedParts key={partId} def={def} instances={instances} />
+        }
 
-      {/* Ground connector */}
-      <mesh position={[0, 0, 0]}>
-        <dodecahedronGeometry args={[6, 0]} />
-        <meshStandardMaterial color="#FF8800" roughness={0.3} />
-      </mesh>
-
-      {/* Vertical rod */}
-      <mesh position={[0, 12.5, 0]}>
-        <cylinderGeometry args={[2, 2, 25, 16]} />
-        <meshStandardMaterial color="#FFFFFF" roughness={0.3} />
-      </mesh>
+        // Otherwise render individual PartMesh components
+        return instances.map((inst) => (
+          <PartMesh key={inst.instance_id} instance={inst} def={def} />
+        ))
+      })}
     </group>
+  )
+}
+
+/**
+ * Loading placeholder shown while GLBs are being fetched.
+ */
+function LoadingIndicator() {
+  return (
+    <mesh position={[0, 20, 0]}>
+      <sphereGeometry args={[5, 16, 16]} />
+      <meshStandardMaterial color="#4488ff" wireframe />
+    </mesh>
+  )
+}
+
+/**
+ * Top-level build scene component.
+ * Loads part definitions, then renders a demo build using real GLB meshes.
+ * Will be connected to Zustand store in Task 4.3.
+ */
+export function BuildScene() {
+  const { defs, loading, error } = usePartDefs()
+
+  // Preload all GLB meshes once definitions are available
+  useMemo(() => {
+    if (defs.size > 0) {
+      preloadAllMeshes(defs)
+    }
+  }, [defs])
+
+  const demoParts = useMemo(() => createDemoBuild(), [])
+
+  if (error) {
+    return (
+      <mesh position={[0, 20, 0]}>
+        <boxGeometry args={[20, 20, 20]} />
+        <meshStandardMaterial color="#ff4444" wireframe />
+      </mesh>
+    )
+  }
+
+  if (loading || defs.size === 0) {
+    return <LoadingIndicator />
+  }
+
+  return (
+    <Suspense fallback={<LoadingIndicator />}>
+      <BuildSceneInner parts={demoParts} defs={defs} />
+    </Suspense>
   )
 }

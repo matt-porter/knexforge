@@ -121,10 +121,16 @@ All 31 tests passing. Core is fully runnable.
 - Part palette sidebar with all 12 parts grouped by category
 - TypeScript and Rust both compile clean; Vite dev server starts on :5173
 
-### Task 4.2: Core 3D Viewer (`KnexViewer.tsx`)
-- `<Canvas>` with orbit controls, grid, lighting
-- Load and display GLB meshes from part library
-- InstancedMesh for performance (per rendering-architecture.md)
+### ✅ Task 4.2: Core 3D Viewer (`KnexViewer.tsx`)
+- `<Canvas>` with orbit controls, grid, improved lighting (directional shadows, fill light)
+- GLB mesh loading via `useGLTF` from `@react-three/drei` — all 12 part GLBs served from `public/parts/meshes/`
+- `usePartDefs` hook loads all part JSON definitions, `getGlbUrl` maps mesh_file → URL, `preloadAllMeshes` for cache warming
+- `PartMesh.tsx`: renders a single part instance (GLB + position/quaternion/color override + selection highlight)
+- `InstancedParts.tsx`: `InstancedMesh` rendering for part types with ≥4 instances (per rendering-architecture.md, 10k+ pieces @ 60 FPS)
+- `BuildScene.tsx`: groups parts by type, auto-selects InstancedMesh vs individual PartMesh, renders from a `PartInstance[]` data structure (demo build included; ready for Zustand store in Task 4.3)
+- TypeScript types (`types/parts.ts`): `Port`, `KnexPartDef`, `PartInstance`, `Connection`, `BuildState`
+- Part assets copied to `frontend/public/parts/` with manifest; all served correctly in dev and production builds
+- HDR environment, shadow-mapped directional light, Suspense fallback for loading state
 
 ### Task 4.3: Build State Store (Zustand)
 - Mirror `Build` state from Python core

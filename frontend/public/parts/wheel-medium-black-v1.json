@@ -1,0 +1,12 @@
+{
+  "format_version": "1.0",
+  "id": "wheel-medium-black-v1",
+  "name": "Medium Wheel (Black)",
+  "category": "wheel",
+  "mesh_file": "meshes/wheel-medium-black.glb",
+  "default_color": "#222222",
+  "mass_grams": 4.5,
+  "ports": [
+    { "id": "axle", "position": [0.0, 0.0, 0.0], "direction": [0.0, 0.0, 1.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 90, 180, 270] }
+  ]
+}
