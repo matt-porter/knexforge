@@ -243,12 +243,16 @@
         0.0,
         1.0
       ],
-      "mate_type": "slide_hole",
+      "mate_type": "rod_hole",
       "accepts": [
+        "rod_end",
         "rod_side"
       ],
       "allowed_angles_deg": [
-        0
+        0,
+        90,
+        180,
+        270
       ]
     }
   ]

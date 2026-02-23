@@ -48,7 +48,47 @@
       ]
     },
     {
-      "id": "center",
+      "id": "center_axial_1",
+      "position": [
+        65.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "mate_type": "rod_end",
+      "accepts": [
+        "rod_hole"
+      ],
+      "allowed_angles_deg": [
+        0
+      ]
+    },
+    {
+      "id": "center_axial_2",
+      "position": [
+        65.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "mate_type": "rod_end",
+      "accepts": [
+        "rod_hole"
+      ],
+      "allowed_angles_deg": [
+        0
+      ]
+    },
+    {
+      "id": "center_tangent",
       "position": [
         65.0,
         0.0,
@@ -61,8 +101,8 @@
       ],
       "mate_type": "rod_side",
       "accepts": [
-        "clip",
-        "slide_hole"
+        "rod_hole",
+        "clip"
       ],
       "allowed_angles_deg": [
         0,
