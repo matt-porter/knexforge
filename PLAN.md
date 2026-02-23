@@ -171,10 +171,15 @@ All 31 tests passing. Core is fully runnable.
 - Realistic, Instruction, Exploded, X-Ray, Stress (per rendering-architecture.md)
 - Toggle UI controls
 
-### Task 4.6: Port-Targeted Building Mode
+### ✅ Task 4.6: Port-Targeted Building Mode
 - 3-stage building flow: Select Part → Select Toolbox Item → Click Available Port.
 - Render visual indicators for compatible open ports on the selected part.
 - Update `interactionStore` to track `port-match` mode.
+
+### ✅ Task 4.7: Alternative Snapping & Sliding Interactions
+- Extended `knex-part.json` schema to support `center` clipping and `slide_hole` attachments on rods and connectors.
+- Multi-variant snapping via `PortIndicators`.
+- Tab-key cycling UX overlay for `activeSnapVariantIndex`.
 
 ---
 
