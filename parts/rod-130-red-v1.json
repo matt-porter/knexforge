@@ -1,5 +1,5 @@
 {
-  "format_version": "1.0",
+  "format_version": "1.1",
   "id": "rod-130-red-v1",
   "name": "Red Rod (130 mm)",
   "category": "rod",
@@ -7,7 +7,69 @@
   "default_color": "#FF0000",
   "mass_grams": 2.0,
   "ports": [
-    { "id": "end1", "position": [0.0, 0.0, 0.0], "direction": [-1.0, 0.0, 0.0], "mate_type": "rod_end", "accepts": ["rod_hole"], "allowed_angles_deg": [0] },
-    { "id": "end2", "position": [130.0, 0.0, 0.0], "direction": [1.0, 0.0, 0.0], "mate_type": "rod_end", "accepts": ["rod_hole"], "allowed_angles_deg": [0] }
+    {
+      "id": "end1",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "mate_type": "rod_end",
+      "accepts": [
+        "rod_hole"
+      ],
+      "allowed_angles_deg": [
+        0
+      ]
+    },
+    {
+      "id": "end2",
+      "position": [
+        130.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "mate_type": "rod_end",
+      "accepts": [
+        "rod_hole"
+      ],
+      "allowed_angles_deg": [
+        0
+      ]
+    },
+    {
+      "id": "center",
+      "position": [
+        65.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "mate_type": "rod_side",
+      "accepts": [
+        "clip",
+        "slide_hole"
+      ],
+      "allowed_angles_deg": [
+        0,
+        90,
+        180,
+        270
+      ]
+    }
   ]
 }

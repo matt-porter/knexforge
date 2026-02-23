@@ -3,11 +3,18 @@
   "title": "K'Nex Part Definition",
   "description": "Complete metadata for any K'Nex piece (connector, rod, wheel, etc.)",
   "type": "object",
-  "required": ["format_version", "id", "name", "category", "mesh_file", "ports"],
+  "required": [
+    "format_version",
+    "id",
+    "name",
+    "category",
+    "mesh_file",
+    "ports"
+  ],
   "properties": {
     "format_version": {
       "type": "string",
-      "const": "1.0",
+      "const": "1.1",
       "description": "Schema version for forward compatibility"
     },
     "id": {
@@ -19,7 +26,13 @@
       "description": "Human-readable name"
     },
     "category": {
-      "enum": ["connector", "rod", "wheel", "plate", "special"],
+      "enum": [
+        "connector",
+        "rod",
+        "wheel",
+        "plate",
+        "special"
+      ],
       "description": "Used for palette grouping and AI part vocabulary"
     },
     "mesh_file": {
@@ -40,7 +53,12 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["id", "position", "direction", "mate_type"],
+        "required": [
+          "id",
+          "position",
+          "direction",
+          "mate_type"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -48,30 +66,45 @@
           },
           "position": {
             "type": "array",
-            "items": { "type": "number" },
+            "items": {
+              "type": "number"
+            },
             "minItems": 3,
             "maxItems": 3,
             "description": "Relative XYZ in part-local units (same scale as mesh)"
           },
           "direction": {
             "type": "array",
-            "items": { "type": "number" },
+            "items": {
+              "type": "number"
+            },
             "minItems": 3,
             "maxItems": 3,
             "description": "Unit vector pointing OUT from the part (insertion direction for rods)"
           },
           "mate_type": {
-            "enum": ["rod_hole", "rod_end", "tab", "clip"],
+            "enum": [
+              "rod_hole",
+              "rod_end",
+              "tab",
+              "clip",
+              "rod_side",
+              "slide_hole"
+            ],
             "description": "What this port accepts or provides"
           },
           "accepts": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "description": "Optional list of compatible mate_types from other parts"
           },
           "allowed_angles_deg": {
             "type": "array",
-            "items": { "type": "number" },
+            "items": {
+              "type": "number"
+            },
             "description": "Allowed rotation steps around the direction axis (e.g. [0, 90, 180, 270])"
           },
           "tolerance_mm": {

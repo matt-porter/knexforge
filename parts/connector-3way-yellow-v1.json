@@ -1,5 +1,5 @@
 {
-  "format_version": "1.0",
+  "format_version": "1.1",
   "id": "connector-3way-yellow-v1",
   "name": "3-Way Connector (Yellow)",
   "category": "connector",
@@ -7,8 +7,94 @@
   "default_color": "#FFCC00",
   "mass_grams": 2.1,
   "ports": [
-    { "id": "A", "position": [12.5, 0.0, 0.0], "direction": [1.0, 0.0, 0.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 90, 180, 270] },
-    { "id": "B", "position": [-6.25, 10.825, 0.0], "direction": [-0.5, 0.866, 0.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 90, 180, 270] },
-    { "id": "C", "position": [-6.25, -10.825, 0.0], "direction": [-0.5, -0.866, 0.0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0, 90, 180, 270] }
+    {
+      "id": "A",
+      "position": [
+        12.5,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "mate_type": "rod_hole",
+      "accepts": [
+        "rod_end"
+      ],
+      "allowed_angles_deg": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "B",
+      "position": [
+        -6.25,
+        10.825,
+        0.0
+      ],
+      "direction": [
+        -0.5,
+        0.866,
+        0.0
+      ],
+      "mate_type": "rod_hole",
+      "accepts": [
+        "rod_end"
+      ],
+      "allowed_angles_deg": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "C",
+      "position": [
+        -6.25,
+        -10.825,
+        0.0
+      ],
+      "direction": [
+        -0.5,
+        -0.866,
+        0.0
+      ],
+      "mate_type": "rod_hole",
+      "accepts": [
+        "rod_end"
+      ],
+      "allowed_angles_deg": [
+        0,
+        90,
+        180,
+        270
+      ]
+    },
+    {
+      "id": "center",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mate_type": "slide_hole",
+      "accepts": [
+        "rod_side"
+      ],
+      "allowed_angles_deg": [
+        0
+      ]
+    }
   ]
 }

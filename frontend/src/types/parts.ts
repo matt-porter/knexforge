@@ -8,8 +8,8 @@ export interface Port {
   id: string
   position: [number, number, number]
   direction: [number, number, number]
-  mate_type: 'rod_end' | 'rod_hole'
-  accepts: ('rod_end' | 'rod_hole')[]
+  mate_type: 'rod_end' | 'rod_hole' | 'tab' | 'clip' | 'rod_side' | 'slide_hole'
+  accepts: ('rod_end' | 'rod_hole' | 'tab' | 'clip' | 'rod_side' | 'slide_hole')[]
   allowed_angles_deg: number[]
 }
 

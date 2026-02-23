@@ -33,6 +33,8 @@ export interface InteractionStore {
   snapPlacingPortId: string | null
   /** Whether the ghost is currently snapped to a valid port. */
   isSnapped: boolean
+  /** Index of the active snap variant when multiple are possible. */
+  activeSnapVariantIndex: number
   /** Hovered part instance ID. */
   hoveredPartId: string | null
 
@@ -51,6 +53,8 @@ export interface InteractionStore {
   setHoveredPart: (instanceId: string | null) => void
   /** Rotate the ghost 90° around Y axis. */
   rotateGhost: () => void
+  /** Cycles to the next snap configuration when multiple are available. */
+  cycleSnapVariant: (maxVariants: number) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -96,6 +100,7 @@ export const useInteractionStore = create<InteractionStore>()(
     snapTargetPortId: null,
     snapPlacingPortId: null,
     isSnapped: false,
+    activeSnapVariantIndex: 0,
     hoveredPartId: null,
 
     // --- Actions ---
@@ -110,6 +115,7 @@ export const useInteractionStore = create<InteractionStore>()(
         state.snapTargetPortId = null
         state.snapPlacingPortId = null
         state.isSnapped = false
+        state.activeSnapVariantIndex = 0
       })
     },
 
@@ -124,6 +130,7 @@ export const useInteractionStore = create<InteractionStore>()(
         state.snapTargetPortId = null
         state.snapPlacingPortId = null
         state.isSnapped = false
+        state.activeSnapVariantIndex = 0
       })
     },
 
@@ -141,6 +148,10 @@ export const useInteractionStore = create<InteractionStore>()(
 
     setSnapTarget: (instanceId: string | null, portId: string | null, placingPortId?: string | null) => {
       set((state) => {
+        // Only reset the variant index if we're snapping to a DIFFERENT port
+        if (state.snapTargetInstanceId !== instanceId || state.snapTargetPortId !== portId) {
+          state.activeSnapVariantIndex = 0
+        }
         state.snapTargetInstanceId = instanceId
         state.snapTargetPortId = portId
         state.snapPlacingPortId = placingPortId ?? null
@@ -157,6 +168,14 @@ export const useInteractionStore = create<InteractionStore>()(
     rotateGhost: () => {
       set((state) => {
         state.ghostRotation = multiplyQuaternions(state.ghostRotation, ROTATE_Y_90)
+      })
+    },
+
+    cycleSnapVariant: (maxVariants: number) => {
+      set((state) => {
+        if (maxVariants > 1) {
+          state.activeSnapVariantIndex = (state.activeSnapVariantIndex + 1) % maxVariants
+        }
       })
     },
   })),
