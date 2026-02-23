@@ -112,11 +112,14 @@ All 31 tests passing. Core is fully runnable.
 
 ## Phase 4 — Frontend (React + Tauri)
 
-### Task 4.1: Initialize `frontend/` project
-- `npm create vite@latest` with React + TypeScript template
-- Install: `@react-three/fiber`, `@react-three/drei`, `@rapier-rs/rapier3d-compat`, `zustand`, `immer`
-- Tauri 2 init: `npm create tauri-app@latest`
-- ESLint + Prettier config
+### ✅ Task 4.1: Initialize `frontend/` project
+- Vite + React 19 + TypeScript 5.9 template scaffolded
+- Installed: `@react-three/fiber` v9, `@react-three/drei` v10, `@dimforge/rapier3d-compat`, `zustand` v5, `immer`, `three`
+- Tauri 2.10 initialized with `knexforge` Rust crate, 1280×800 window
+- ESLint (typescript-eslint + react-hooks + react-refresh) + Prettier configured
+- Initial 3D viewer with Canvas, OrbitControls, Grid, Environment, and demo BuildScene
+- Part palette sidebar with all 12 parts grouped by category
+- TypeScript and Rust both compile clean; Vite dev server starts on :5173
 
 ### Task 4.2: Core 3D Viewer (`KnexViewer.tsx`)
 - `<Canvas>` with orbit controls, grid, lighting
