@@ -47,8 +47,10 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
 
   // Raycast to ground plane on every frame (in place mode)
   useFrame(() => {
-    const { mode, placingPartId } = useInteractionStore.getState()
-    if (mode !== 'place' || !placingPartId) return
+    const { mode, placingPartId, matchTargetId } = useInteractionStore.getState()
+
+    // In targeted mode (matchTargetId), PortIndicators calculates the position on hover.
+    if (mode !== 'place' || !placingPartId || matchTargetId) return
 
     raycaster.current.setFromCamera(mouse.current, camera)
 
@@ -91,7 +93,10 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
 
   // Handle clicks — place part or select
   const handleClick = useCallback(() => {
-    const { mode, placingPartId } = useInteractionStore.getState()
+    const { mode, placingPartId, matchTargetId } = useInteractionStore.getState()
+
+    // PortIndicators component handles its own clicks for targeted mode
+    if (matchTargetId) return
 
     if (mode === 'place' && placingPartId) {
       const {

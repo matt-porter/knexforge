@@ -45,7 +45,13 @@ export function PartPalette() {
     if (placingPartId === partId) {
       cancelPlacing()
     } else {
-      startPlacing(partId)
+      if (selectedPartId) {
+        // Targeted placement mode
+        startPlacing(partId, selectedPartId)
+      } else {
+        // Free-roam mode
+        startPlacing(partId)
+      }
     }
   }
 

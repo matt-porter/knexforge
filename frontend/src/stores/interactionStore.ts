@@ -20,6 +20,8 @@ export interface InteractionStore {
   mode: ToolMode
   /** Part ID selected for placement (only when mode === 'place'). */
   placingPartId: string | null
+  /** Instance ID of the selected part we are targeting to attach to. */
+  matchTargetId: string | null
   /** Ghost preview position in world space. */
   ghostPosition: [number, number, number] | null
   /** Ghost preview rotation (quaternion). */
@@ -35,8 +37,8 @@ export interface InteractionStore {
   hoveredPartId: string | null
 
   // --- Actions ---
-  /** Start placing a part type. Switches to place mode. */
-  startPlacing: (partId: string) => void
+  /** Start placing a part type. Switches to place mode. targetId specifies a specific instance to snap to. */
+  startPlacing: (partId: string, targetId?: string) => void
   /** Cancel placement. Returns to select mode. */
   cancelPlacing: () => void
   /** Update ghost preview position. */
@@ -87,6 +89,7 @@ export const useInteractionStore = create<InteractionStore>()(
     // --- Initial state ---
     mode: 'select',
     placingPartId: null,
+    matchTargetId: null,
     ghostPosition: null,
     ghostRotation: [0, 0, 0, 1],
     snapTargetInstanceId: null,
@@ -96,10 +99,11 @@ export const useInteractionStore = create<InteractionStore>()(
     hoveredPartId: null,
 
     // --- Actions ---
-    startPlacing: (partId: string) => {
+    startPlacing: (partId: string, targetId?: string) => {
       set((state) => {
         state.mode = 'place'
         state.placingPartId = partId
+        state.matchTargetId = targetId ?? null
         state.ghostPosition = null
         state.ghostRotation = [0, 0, 0, 1]
         state.snapTargetInstanceId = null
@@ -113,6 +117,7 @@ export const useInteractionStore = create<InteractionStore>()(
       set((state) => {
         state.mode = 'select'
         state.placingPartId = null
+        state.matchTargetId = null
         state.ghostPosition = null
         state.ghostRotation = [0, 0, 0, 1]
         state.snapTargetInstanceId = null

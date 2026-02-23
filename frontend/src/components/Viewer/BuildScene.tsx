@@ -7,6 +7,7 @@ import { PartMesh } from './PartMesh'
 import { InstancedParts } from './InstancedParts'
 import { GhostPreview } from './GhostPreview'
 import { SceneInteraction } from './SceneInteraction'
+import { PortIndicators } from './PortIndicators'
 
 /** Minimum instance count to switch from individual PartMesh to InstancedMesh. */
 const INSTANCING_THRESHOLD = 4
@@ -243,6 +244,8 @@ export function BuildScene() {
     <Suspense fallback={<LoadingIndicator />}>
       <BuildSceneInner parts={partsList} defs={defs} selectedPartId={selectedPartId} />
       <GhostLayer defs={defs} />
+      {/* Target points for port matching mode */}
+      <PortIndicators defs={defs} />
       <SceneInteraction defs={defs} />
     </Suspense>
   )
