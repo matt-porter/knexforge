@@ -101,6 +101,10 @@ All 31 tests passing. Core is fully runnable.
 - `simulate_collapse(build) -> CollapseResult`
 - Add `pybullet` to optional dependencies
 
+### ❌ Task 3.6: PyBullet Physics — Tension Data
+- The PyBullet backend currently doesn't compute/return per-rod physical stress/tension data. 
+- Needs to calculate real tension values and pipe them through to the frontend via the API for the "Stress" Visual Mode (which is currently mocked).
+
 ### ✅ Task 3.5: FastAPI Sidecar (`src/core/api.py`)
 - Implemented FastAPI router exposing core operations as HTTP endpoints
 - Endpoints: `/build`, `/snap`, `/stability`, `/export`, `/load`
@@ -163,7 +167,7 @@ All 31 tests passing. Core is fully runnable.
 - **68 unit tests** across 3 test files: buildStore (43), interactionStore (15), snapHelper (10)
 - All checks pass: `tsc`, `eslint`, `vitest run`, `vite build`
 
-### Task 4.5: Visual Modes
+### ✅ Task 4.5: Visual Modes
 - Realistic, Instruction, Exploded, X-Ray, Stress (per rendering-architecture.md)
 - Toggle UI controls
 

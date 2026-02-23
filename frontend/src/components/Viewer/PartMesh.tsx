@@ -1,11 +1,13 @@
 import { useMemo, useCallback } from 'react'
 import { useGLTF } from '@react-three/drei'
-import { Quaternion, Euler, Color, type Mesh, type MeshStandardMaterial } from 'three'
+import { Quaternion, Euler, Color, Vector3, type Mesh, type MeshStandardMaterial } from 'three'
 import type { KnexPartDef, PartInstance } from '../../types/parts'
 import { getGlbUrl } from '../../hooks/usePartLibrary'
 import { getMeshCorrection } from '../../helpers/meshCorrection'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
+import { useVisualStore } from '../../stores/visualStore'
+import { Outlines } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 
 interface PartMeshProps {
@@ -26,6 +28,7 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
   const { scene } = useGLTF(url)
   const hoveredPartId = useInteractionStore((s) => s.hoveredPartId)
   const isHovered = hoveredPartId === instance.instance_id
+  const { mode: visualMode, explosionFactor } = useVisualStore()
 
   // Mesh correction for GLB→port alignment (rods: Z-axis→X-axis)
   const correction = useMemo(() => getMeshCorrection(def), [def])
@@ -40,13 +43,32 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
         const mesh = child as Mesh
         // Clone material to avoid sharing between instances
         const mat = (mesh.material as MeshStandardMaterial).clone()
-        mat.color = color
-        mat.roughness = 0.35
-        mat.metalness = 0.05
-        if (opacity < 1) {
-          mat.transparent = true
-          mat.opacity = opacity
+
+        if (visualMode === 'stress') {
+          // Fake stress map: Use part ID hash to generate a false stress color (Blue -> Red)
+          const hash = instance.instance_id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+          const stress = (hash % 100) / 100 // 0 to 1
+          mat.color = new Color().lerpColors(new Color('#0044ff'), new Color('#ff0000'), stress)
+        } else {
+          mat.color = color
         }
+
+        if (visualMode === 'instruction') {
+          mat.roughness = 1.0
+          mat.metalness = 0.0
+        } else {
+          mat.roughness = 0.35
+          mat.metalness = 0.05
+        }
+
+        const isXRay = visualMode === 'x-ray'
+
+        if (opacity < 1 || isXRay) {
+          mat.transparent = true
+          mat.opacity = isXRay ? 0.35 : opacity
+          mat.depthWrite = !isXRay
+        }
+
         if (selected) {
           mat.emissive = new Color('#4488ff')
           mat.emissiveIntensity = 0.3
@@ -61,7 +83,7 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
     })
 
     return clone
-  }, [scene, instance.color, def.default_color, selected, isHovered, opacity])
+  }, [scene, instance.color, def.default_color, selected, isHovered, opacity, visualMode, instance.instance_id])
 
   // Convert quaternion [x, y, z, w] to Euler for the group
   const euler = useMemo(() => {
@@ -73,6 +95,28 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
     )
     return new Euler().setFromQuaternion(q)
   }, [instance.rotation])
+
+  // Exploded View math
+  const explodedPosition = useMemo(() => {
+    if (visualMode !== 'exploded' || explosionFactor === 0) return instance.position
+
+    const explodeScale = 150 * explosionFactor
+
+    // Push outwards from origin (0,0,0) radially based on current position
+    const vec = new Vector3(...instance.position)
+
+    // If exactly at origin, it won't move. Otherwise normalize and push.
+    if (vec.lengthSq() > 0.01) {
+      const dir = vec.clone().normalize()
+      return [
+        instance.position[0] + dir.x * explodeScale,
+        instance.position[1] + dir.y * explodeScale,
+        instance.position[2] + dir.z * explodeScale,
+      ] as [number, number, number]
+    }
+
+    return instance.position
+  }, [instance.position, visualMode, explosionFactor])
 
   // Click to select (only in select mode)
   const handleClick = useCallback(
@@ -99,7 +143,7 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
 
   return (
     <group
-      position={instance.position}
+      position={explodedPosition}
       rotation={euler}
       onClick={handleClick}
       onPointerOver={handlePointerOver}
@@ -108,6 +152,9 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
       {/* Inner group applies mesh correction (GLB orientation → port data alignment) */}
       <group position={correction.position} rotation={correction.rotation}>
         <primitive object={clonedScene} />
+        {visualMode === 'instruction' && (
+          <Outlines thickness={1.5} color="black" />
+        )}
       </group>
     </group>
   )

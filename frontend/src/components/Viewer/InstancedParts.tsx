@@ -13,6 +13,7 @@ import {
 import type { KnexPartDef, PartInstance } from '../../types/parts'
 import { getGlbUrl } from '../../hooks/usePartLibrary'
 import { getMeshCorrection } from '../../helpers/meshCorrection'
+import { useVisualStore } from '../../stores/visualStore'
 
 interface InstancedPartsProps {
   /** Part definition (all instances must be the same part type). */
@@ -33,6 +34,7 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
   const meshRef = useRef<InstancedMesh>(null)
   const url = getGlbUrl(def)
   const { scene } = useGLTF(url)
+  const { mode: visualMode, explosionFactor } = useVisualStore()
 
   // Mesh correction for GLB→port alignment
   const correctionMatrix = useMemo(() => {
@@ -54,14 +56,20 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
     return found
   }, [scene])
 
-  // Create a shared material with the part's default color
+  // Create a shared material that updates based on the visual mode
   const material = useMemo(() => {
+    const isInstruction = visualMode === 'instruction'
+    const isXRay = visualMode === 'x-ray'
+
     return new MeshStandardMaterial({
       color: new Color(def.default_color),
-      roughness: 0.35,
-      metalness: 0.05,
+      roughness: isInstruction ? 1.0 : 0.35,
+      metalness: isInstruction ? 0.0 : 0.05,
+      transparent: isXRay,
+      opacity: isXRay ? 0.35 : 1,
+      depthWrite: !isXRay,
     })
-  }, [def.default_color])
+  }, [def.default_color, visualMode])
 
   // Update instance matrices whenever instances change
   useEffect(() => {
@@ -74,7 +82,24 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
 
     for (let i = 0; i < instances.length; i++) {
       const inst = instances[i]
-      tempPos.set(inst.position[0], inst.position[1], inst.position[2])
+
+      // Exploded View offset
+      let finalX = inst.position[0]
+      let finalY = inst.position[1]
+      let finalZ = inst.position[2]
+
+      if (visualMode === 'exploded' && explosionFactor > 0) {
+        const explodeScale = 150 * explosionFactor
+        const vec = new Vector3(...inst.position)
+        if (vec.lengthSq() > 0.01) {
+          const dir = vec.clone().normalize()
+          finalX += dir.x * explodeScale
+          finalY += dir.y * explodeScale
+          finalZ += dir.z * explodeScale
+        }
+      }
+
+      tempPos.set(finalX, finalY, finalZ)
       tempQuat.set(inst.rotation[0], inst.rotation[1], inst.rotation[2], inst.rotation[3])
 
       // Instance world transform * mesh correction = final matrix
@@ -84,7 +109,12 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
       meshRef.current.setMatrixAt(i, instanceMatrix)
 
       // Per-instance color override
-      if (inst.color) {
+      if (visualMode === 'stress') {
+        // Fake stress map: Use part ID hash
+        const hash = inst.instance_id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+        const stress = (hash % 100) / 100 // 0 to 1
+        meshRef.current.setColorAt(i, new Color().lerpColors(new Color('#0044ff'), new Color('#ff0000'), stress))
+      } else if (inst.color) {
         meshRef.current.setColorAt(i, new Color(inst.color))
       } else {
         meshRef.current.setColorAt(i, new Color(def.default_color))
@@ -95,7 +125,7 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
     if (meshRef.current.instanceColor) {
       meshRef.current.instanceColor.needsUpdate = true
     }
-  }, [instances, def.default_color, correctionMatrix])
+  }, [instances, def.default_color, correctionMatrix, visualMode, explosionFactor])
 
   if (!geometry || instances.length === 0) return null
 
