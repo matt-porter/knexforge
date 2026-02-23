@@ -54,7 +54,7 @@ export interface InteractionStore {
   /** Rotate the ghost 90° around Y axis. */
   rotateGhost: () => void
   /** Cycles to the next snap configuration when multiple are available. */
-  cycleSnapVariant: (maxVariants: number) => void
+  cycleSnapVariant: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -171,11 +171,9 @@ export const useInteractionStore = create<InteractionStore>()(
       })
     },
 
-    cycleSnapVariant: (maxVariants: number) => {
+    cycleSnapVariant: () => {
       set((state) => {
-        if (maxVariants > 1) {
-          state.activeSnapVariantIndex = (state.activeSnapVariantIndex + 1) % maxVariants
-        }
+        state.activeSnapVariantIndex += 1
       })
     },
   })),

@@ -70,19 +70,18 @@ function PlacementHintOverlay() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // We don't know the exact number of variants here, so we pass a high number 
-      // and PortIndicators will modulo it down to length. 
-      // (A better way is to store maxVariants in store, but this works given the % length logic inside PortIndicators)
-      // Actually, since the React state isn't driving the variants length directly in the store, 
-      // let's pass an arbitrarily large MAX number so the integer climbs, and the UI can modulo it.
-      if (e.key === 'Tab') {
+      // Use e.code === 'Tab' for better cross-layout support and prevent focus shifting
+      if (e.code === 'Tab') {
         e.preventDefault()
-        useInteractionStore.getState().cycleSnapVariant(100) // arbitrarily large wrap
+        e.stopPropagation()
+        // We unconditionally increment; PortIndicators modulo down works 
+        useInteractionStore.getState().cycleSnapVariant()
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    // Use capture phase to intercept Tab before the browser tries to shift focus away from the canvas
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
   }, [])
 
   if (mode !== 'place' || !placingPartId) return null
