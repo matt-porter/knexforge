@@ -94,19 +94,19 @@ All 31 tests passing. Core is fully runnable.
 - BOM (Bill of Materials) generation (done)
 - PDF output via ReportLab (done)
 
-### Task 3.4: PyBullet Physics — Tier 2 (`src/core/physics/pybullet.py`)
+### ✅ Task 3.4: PyBullet Physics — Tier 2 (`src/core/physics/pybullet.py`)
 - Wrapper around PyBullet for full rigid-body simulation
 - Auto-generate convex hulls from GLB meshes
 - Joint creation at validated ports
 - `simulate_collapse(build) -> CollapseResult`
 - Add `pybullet` to optional dependencies
 
-### Task 3.5: FastAPI Sidecar (`src/core/api.py`)
-- FastAPI router exposing core operations as HTTP endpoints
+### ✅ Task 3.5: FastAPI Sidecar (`src/core/api.py`)
+- Implemented FastAPI router exposing core operations as HTTP endpoints
 - Endpoints: `/build`, `/snap`, `/stability`, `/export`, `/load`
 - Pydantic request/response models
 - WebSocket for real-time stability updates
-- Add `fastapi`, `uvicorn` to dependencies
+- Added `fastapi`, `uvicorn` to dependencies
 
 ---
 
