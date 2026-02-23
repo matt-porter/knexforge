@@ -1,6 +1,7 @@
-import { Suspense, useMemo } from 'react'
+import { Suspense, useMemo, useEffect } from 'react'
 import type { KnexPartDef, PartInstance } from '../../types/parts'
 import { usePartDefs, preloadAllMeshes } from '../../hooks/usePartLibrary'
+import { useBuildStore } from '../../stores/buildStore'
 import { PartMesh } from './PartMesh'
 import { InstancedParts } from './InstancedParts'
 
@@ -9,7 +10,7 @@ const INSTANCING_THRESHOLD = 4
 
 /**
  * A demo build showing real K'Nex parts connected together.
- * This will be replaced by data from the Zustand build store in Task 4.3.
+ * Used as fallback when the build store is empty (no build loaded).
  */
 function createDemoBuild(): PartInstance[] {
   return [
@@ -117,13 +118,14 @@ function createDemoBuild(): PartInstance[] {
 interface BuildSceneInnerProps {
   parts: PartInstance[]
   defs: Map<string, KnexPartDef>
+  selectedPartId: string | null
 }
 
 /**
  * Inner component that renders the build using either InstancedMesh
  * (for part types with many instances) or individual PartMesh components.
  */
-function BuildSceneInner({ parts, defs }: BuildSceneInnerProps) {
+function BuildSceneInner({ parts, defs, selectedPartId }: BuildSceneInnerProps) {
   // Group instances by part_id
   const grouped = useMemo(() => {
     const map = new Map<string, PartInstance[]>()
@@ -145,13 +147,21 @@ function BuildSceneInner({ parts, defs }: BuildSceneInnerProps) {
         if (!def) return null
 
         // Use InstancedMesh for part types with many instances
-        if (instances.length >= INSTANCING_THRESHOLD) {
+        // (InstancedMesh doesn't support per-instance selection highlight,
+        //  so only use it when nothing in the group is selected)
+        const hasSelection = instances.some((i) => i.instance_id === selectedPartId)
+        if (instances.length >= INSTANCING_THRESHOLD && !hasSelection) {
           return <InstancedParts key={partId} def={def} instances={instances} />
         }
 
         // Otherwise render individual PartMesh components
         return instances.map((inst) => (
-          <PartMesh key={inst.instance_id} instance={inst} def={def} />
+          <PartMesh
+            key={inst.instance_id}
+            instance={inst}
+            def={def}
+            selected={inst.instance_id === selectedPartId}
+          />
         ))
       })}
     </group>
@@ -172,11 +182,14 @@ function LoadingIndicator() {
 
 /**
  * Top-level build scene component.
- * Loads part definitions, then renders a demo build using real GLB meshes.
- * Will be connected to Zustand store in Task 4.3.
+ * Reads parts from the Zustand build store. Falls back to a demo build
+ * when the store is empty (no build loaded yet).
  */
 export function BuildScene() {
   const { defs, loading, error } = usePartDefs()
+  const storeParts = useBuildStore((s) => s.parts)
+  const selectedPartId = useBuildStore((s) => s.selectedPartId)
+  const loadBuild = useBuildStore((s) => s.loadBuild)
 
   // Preload all GLB meshes once definitions are available
   useMemo(() => {
@@ -185,7 +198,16 @@ export function BuildScene() {
     }
   }, [defs])
 
+  // Load demo build into store if store is empty and defs are ready
   const demoParts = useMemo(() => createDemoBuild(), [])
+  useEffect(() => {
+    if (defs.size > 0 && Object.keys(storeParts).length === 0) {
+      loadBuild(demoParts, [])
+    }
+  }, [defs.size, storeParts, loadBuild, demoParts])
+
+  // Build the parts list from the store
+  const partsList = useMemo(() => Object.values(storeParts), [storeParts])
 
   if (error) {
     return (
@@ -202,7 +224,7 @@ export function BuildScene() {
 
   return (
     <Suspense fallback={<LoadingIndicator />}>
-      <BuildSceneInner parts={demoParts} defs={defs} />
+      <BuildSceneInner parts={partsList} defs={defs} selectedPartId={selectedPartId} />
     </Suspense>
   )
 }

@@ -132,10 +132,20 @@ All 31 tests passing. Core is fully runnable.
 - Part assets copied to `frontend/public/parts/` with manifest; all served correctly in dev and production builds
 - HDR environment, shadow-mapped directional light, Suspense fallback for loading state
 
-### Task 4.3: Build State Store (Zustand)
-- Mirror `Build` state from Python core
-- Undo/redo stack using Immer patches
-- Tauri command bridge to Python sidecar
+### ✅ Task 4.3: Build State Store (Zustand)
+- `buildStore.ts`: Zustand v5 + Immer middleware store mirroring Python core `Build` state
+- State: `parts` (Record by instance_id), `connections`, `stabilityScore`, `selectedPartId`
+- Actions: `addPart`, `removePart`, `addConnection`, `selectPart`, `loadBuild`, `clearBuild`, `setStabilityScore`
+- Full snapshot-based undo/redo stack (`undoStack` / `redoStack`) with `undo()`, `redo()`, `canUndo()`, `canRedo()`
+- Duplicate/invalid guards: ignores duplicate instance IDs, rejects connections to missing parts, deduplicates connections
+- `clearBuild` is undoable; `loadBuild` resets undo/redo stacks entirely
+- `SidecarBridge` service (`services/sidecarBridge.ts`): Tauri command bridge to Python FastAPI sidecar with HTTP fallback for web dev mode
+- Bridge methods: `connect`, `requestSnap`, `requestStability`, `exportBuild`, `loadBuild`
+- `BuildScene.tsx` wired to store: reads parts/selection from Zustand, loads demo build on first render, supports per-instance selection highlight
+- Instancing auto-downgrades to individual `PartMesh` when a part in the group is selected (for highlight support)
+- Vitest test infrastructure: `vitest` + `@testing-library/react` + `jsdom` configured
+- **43 unit tests** covering all store operations (add, remove, snap, select, undo, redo, load, clear, snapshot, derived getters)
+- All checks pass: `tsc`, `eslint`, `vitest run`, `vite build`
 
 ### Task 4.4: Part Palette & Drag-and-Drop
 - Sidebar with parts grouped by category
