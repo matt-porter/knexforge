@@ -21,7 +21,8 @@
       ],
       "mate_type": "rod_hole",
       "accepts": [
-        "rod_end"
+        "rod_end",
+        "rod_side"
       ],
       "allowed_angles_deg": [
         0,
@@ -42,7 +43,8 @@
       ],
       "mate_type": "rod_hole",
       "accepts": [
-        "rod_end"
+        "rod_end",
+        "rod_side"
       ],
       "allowed_angles_deg": [
         0,
