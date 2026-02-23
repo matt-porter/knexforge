@@ -75,11 +75,11 @@ All 31 tests passing. Core is fully runnable.
 
 ## Phase 3 — Core Feature Gaps
 
-### Task 3.1: `.knx` File I/O (`src/core/file_io.py`)
-- `save_knx(build: Build, path: Path, metadata: dict)` — ZIP creation per `docs/file-formats.md`
-  - `manifest.json`, `model.json`, `action_history.jsonl`, `thumbnails/`, `meshes/`
-- `load_knx(path: Path, library: PartLibrary) -> tuple[Build, dict]`
-- Round-trip tests
+### ✅ Task 3.1: `.knx` File I/O (`src/core/file_io.py`)
+- Implemented `save_knx()` and `load_knx()` with full round-trip support
+- Compact model.json format (part_id refs, dotted connection notation)
+- `Manifest` Pydantic model for metadata; auto-populates piece_count + stability
+- Embeds required GLB meshes in ZIP; 10 tests covering all aspects
 
 ### Task 3.2: Action History System
 - Pydantic model for actions: `AddPart`, `AddRod`, `RemovePart`, `Snap`
