@@ -2,8 +2,11 @@ import { Suspense, useMemo, useEffect } from 'react'
 import type { KnexPartDef, PartInstance } from '../../types/parts'
 import { usePartDefs, preloadAllMeshes } from '../../hooks/usePartLibrary'
 import { useBuildStore } from '../../stores/buildStore'
+import { useInteractionStore } from '../../stores/interactionStore'
 import { PartMesh } from './PartMesh'
 import { InstancedParts } from './InstancedParts'
+import { GhostPreview } from './GhostPreview'
+import { SceneInteraction } from './SceneInteraction'
 
 /** Minimum instance count to switch from individual PartMesh to InstancedMesh. */
 const INSTANCING_THRESHOLD = 4
@@ -181,6 +184,20 @@ function LoadingIndicator() {
 }
 
 /**
+ * Renders the ghost preview when a part is being placed.
+ */
+function GhostLayer({ defs }: { defs: Map<string, KnexPartDef> }) {
+  const placingPartId = useInteractionStore((s) => s.placingPartId)
+
+  if (!placingPartId) return null
+
+  const def = defs.get(placingPartId)
+  if (!def) return null
+
+  return <GhostPreview def={def} />
+}
+
+/**
  * Top-level build scene component.
  * Reads parts from the Zustand build store. Falls back to a demo build
  * when the store is empty (no build loaded yet).
@@ -225,6 +242,8 @@ export function BuildScene() {
   return (
     <Suspense fallback={<LoadingIndicator />}>
       <BuildSceneInner parts={partsList} defs={defs} selectedPartId={selectedPartId} />
+      <GhostLayer defs={defs} />
+      <SceneInteraction defs={defs} />
     </Suspense>
   )
 }

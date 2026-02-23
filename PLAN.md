@@ -147,10 +147,21 @@ All 31 tests passing. Core is fully runnable.
 - **43 unit tests** covering all store operations (add, remove, snap, select, undo, redo, load, clear, snapshot, derived getters)
 - All checks pass: `tsc`, `eslint`, `vitest run`, `vite build`
 
-### Task 4.4: Part Palette & Drag-and-Drop
-- Sidebar with parts grouped by category
-- Drag from palette → ghost preview → snap to nearest port
-- Keyboard shortcuts (WASD + numpad per docs)
+### ✅ Task 4.4: Part Palette & Drag-and-Drop
+- **PartPalette rewrite**: reads real part definitions from `usePartDefs`, grouped by category (Rods, Connectors, Wheels), sorted by size
+- Click a part in the palette → enters **place mode** with ghost preview following cursor
+- **GhostPreview component**: semi-transparent GLB mesh at cursor position; green when snapped, blue otherwise
+- **SceneInteraction component**: per-frame ground-plane raycasting, grid-snap (10mm), port proximity snap detection
+- **Port snap-to-nearest**: `snapHelper.ts` computes world-space port positions, finds nearest compatible port (rod_end ↔ rod_hole), aligns ghost rotation + position to target port
+- Click to place part at ghost position; automatically creates `Connection` if snapped to a port
+- Stay in place mode after placing — allows rapid placement of multiple parts
+- **Right-click or Escape** cancels placement; **R key** rotates ghost 90° around Y
+- **Click-to-select** on existing parts (in select mode): `PartMesh` handles click → `selectPart`, with selection highlight (blue emissive) and hover highlight (white emissive)
+- **Keyboard shortcuts** (`useKeyboardShortcuts` hook): Ctrl+Z undo, Ctrl+Y/Ctrl+Shift+Z redo, Delete/Backspace remove selected, Escape cancel/deselect, R rotate
+- **Toolbar** in palette footer: undo/redo/delete/clear buttons with disabled states, part count + connection count display, placement status hint
+- **InteractionStore** (Zustand + Immer): tracks `mode` (select/place), `placingPartId`, `ghostPosition`, `ghostRotation`, `snapTarget`, `hoveredPartId`, with `rotateGhost` quaternion math
+- **68 unit tests** across 3 test files: buildStore (43), interactionStore (15), snapHelper (10)
+- All checks pass: `tsc`, `eslint`, `vitest run`, `vite build`
 
 ### Task 4.5: Visual Modes
 - Realistic, Instruction, Exploded, X-Ray, Stress (per rendering-architecture.md)
