@@ -70,13 +70,10 @@ export function getPortWorldPose(
   return { position: worldPos, direction: worldDir }
 }
 
-/**
- * Check if two port types are compatible for snapping.
- * rod_end ↔ rod_hole is the primary compatible pair.
- */
+/** Checks if two ports can physically mate. */
 function arePortsCompatible(placingPort: Port, targetPort: Port): boolean {
   return (
-    targetPort.accepts.includes(placingPort.mate_type) ||
+    targetPort.accepts.includes(placingPort.mate_type) &&
     placingPort.accepts.includes(targetPort.mate_type)
   )
 }

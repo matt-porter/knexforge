@@ -117,8 +117,7 @@
       ],
       "mate_type": "rod_hole",
       "accepts": [
-        "rod_end",
-        "rod_side"
+        "rod_end"
       ],
       "allowed_angles_deg": [
         0,
