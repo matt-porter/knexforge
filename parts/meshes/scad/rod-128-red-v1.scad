@@ -1,6 +1,6 @@
-// K'NEX Yellow Rod – 86mm
+// K'NEX Red Rod – 128mm
 $fn = 48;
-length = 86;
+length = 128;
 rod_r = 2.5;
 cap_r = 2.8;
 cap_h = 1.5;

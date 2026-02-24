@@ -4,112 +4,53 @@
   "name": "Yellow Rod (86 mm)",
   "category": "rod",
   "mesh_file": "meshes/rod-86-yellow.glb",
-  "default_color": "#FFDD00",
+  "default_color": "#FFD700",
   "mass_grams": 1.5,
   "ports": [
     {
       "id": "end1",
-      "position": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "direction": [
-        -1.0,
-        0.0,
-        0.0
-      ],
+      "position": [0.0, 0.0, 0.0],
+      "direction": [-1.0, 0.0, 0.0],
       "mate_type": "rod_end",
-      "accepts": [
-        "rod_hole"
-      ],
-      "allowed_angles_deg": [
-        0
-      ]
+      "accepts": ["rod_hole"],
+      "allowed_angles_deg": [0],
+      "tolerance_mm": 0.2
     },
     {
       "id": "end2",
-      "position": [
-        86.0,
-        0.0,
-        0.0
-      ],
-      "direction": [
-        1.0,
-        0.0,
-        0.0
-      ],
+      "position": [86.0, 0.0, 0.0],
+      "direction": [1.0, 0.0, 0.0],
       "mate_type": "rod_end",
-      "accepts": [
-        "rod_hole"
-      ],
-      "allowed_angles_deg": [
-        0
-      ]
+      "accepts": ["rod_hole"],
+      "allowed_angles_deg": [0],
+      "tolerance_mm": 0.2
     },
     {
       "id": "center_axial_1",
-      "position": [
-        43.0,
-        0.0,
-        0.0
-      ],
-      "direction": [
-        -1.0,
-        0.0,
-        0.0
-      ],
+      "position": [43.0, 0.0, 0.0],
+      "direction": [-1.0, 0.0, 0.0],
       "mate_type": "rod_end",
-      "accepts": [
-        "rod_hole"
-      ],
-      "allowed_angles_deg": [
-        0
-      ]
+      "accepts": ["rod_hole"],
+      "allowed_angles_deg": [0],
+      "tolerance_mm": 0.2
     },
     {
       "id": "center_axial_2",
-      "position": [
-        43.0,
-        0.0,
-        0.0
-      ],
-      "direction": [
-        1.0,
-        0.0,
-        0.0
-      ],
+      "position": [43.0, 0.0, 0.0],
+      "direction": [1.0, 0.0, 0.0],
       "mate_type": "rod_end",
-      "accepts": [
-        "rod_hole"
-      ],
-      "allowed_angles_deg": [
-        0
-      ]
+      "accepts": ["rod_hole"],
+      "allowed_angles_deg": [0],
+      "tolerance_mm": 0.2
     },
     {
       "id": "center_tangent",
-      "position": [
-        43.0,
-        0.0,
-        0.0
-      ],
-      "direction": [
-        0.0,
-        1.0,
-        0.0
-      ],
+      "position": [43.0, 0.0, 0.0],
+      "direction": [0.0, 1.0, 0.0],
       "mate_type": "rod_side",
-      "accepts": [
-        "rod_hole",
-        "clip"
-      ],
-      "allowed_angles_deg": [
-        0,
-        90,
-        180,
-        270
-      ]
+      "accepts": ["rod_hole", "clip"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
     }
   ]
 }

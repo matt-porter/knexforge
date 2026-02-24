@@ -1,4 +1,4 @@
-// K'NEX White 8-Way Connector (45° spacing)
+// K'NEX Red 2-Way 90° Connector
 $fn = 72;
 
 hub_r = 7.5;
@@ -27,16 +27,15 @@ module arm() {
     }
 }
 
-module connector_8way() {
+module connector_2way_90() {
     difference() {
         union() {
             cylinder(h=hub_h, r=hub_r, center=true);
-            for (a = [0:45:315]) {
-                rotate([0, 0, a]) arm();
-            }
+            arm();
+            rotate([0, 0, 90]) arm();
         }
         cylinder(h=hub_h+2, r=hole_r, center=true);
     }
 }
 
-connector_8way();
+connector_2way_90();

@@ -1,4 +1,4 @@
-// K'NEX White 8-Way Connector (45° spacing)
+// K'NEX Orange 2-Way Straight Connector (180°)
 $fn = 72;
 
 hub_r = 7.5;
@@ -27,11 +27,11 @@ module arm() {
     }
 }
 
-module connector_8way() {
+module connector_2way_straight() {
     difference() {
         union() {
             cylinder(h=hub_h, r=hub_r, center=true);
-            for (a = [0:45:315]) {
+            for (a = [0, 180]) {
                 rotate([0, 0, a]) arm();
             }
         }
@@ -39,4 +39,4 @@ module connector_8way() {
     }
 }
 
-connector_8way();
+connector_2way_straight();

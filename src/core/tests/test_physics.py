@@ -20,7 +20,7 @@ def empty_build(library):
 
 
 def _aligned_rod(library, connector_inst, port_id, instance_id="r1"):
-    rod_part = library.get("rod-130-red-v1")
+    rod_part = library.get("rod-128-red-v1")
     temp = PartInstance(instance_id=instance_id, part=rod_part)
     new_pos, new_quat = align_rod_to_hole(temp, "end1", connector_inst, port_id)
     return PartInstance(instance_id=instance_id, part=rod_part, position=new_pos, quaternion=new_quat)
@@ -29,8 +29,8 @@ def _aligned_rod(library, connector_inst, port_id, instance_id="r1"):
 @pytest.fixture
 def disconnected_build(library):
     build = Build(library)
-    build.add_part(PartInstance(instance_id="c1", part=library.get("connector-3way-yellow-v1"), position=(0, 0, 0)))
-    build.add_part(PartInstance(instance_id="c2", part=library.get("connector-3way-yellow-v1"), position=(0, 0, 300)))
+    build.add_part(PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"), position=(0, 0, 0)))
+    build.add_part(PartInstance(instance_id="c2", part=library.get("connector-3way-green-v1"), position=(0, 0, 300)))
     return build
 
 
@@ -38,9 +38,9 @@ def disconnected_build(library):
 def good_triangle(library):
     """Equilateral triangle: 3 connectors + 3 rods, all on the ground plane."""
     build = Build(library)
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-yellow-v1"), position=(0, 0, 0))
-    c2 = PartInstance(instance_id="c2", part=library.get("connector-3way-yellow-v1"), position=(130, 0, 0))
-    c3 = PartInstance(instance_id="c3", part=library.get("connector-3way-yellow-v1"), position=(65, 112.58, 0))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"), position=(0, 0, 0))
+    c2 = PartInstance(instance_id="c2", part=library.get("connector-3way-green-v1"), position=(130, 0, 0))
+    c3 = PartInstance(instance_id="c3", part=library.get("connector-3way-green-v1"), position=(65, 112.58, 0))
 
     r1 = _aligned_rod(library, c1, "A", "r1")
     r2 = _aligned_rod(library, c2, "B", "r2")
@@ -64,9 +64,9 @@ def good_triangle(library):
 @pytest.fixture
 def tall_tower(library):
     build = Build(library)
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-yellow-v1"), position=(0, 0, 0))
-    c2 = PartInstance(instance_id="c2", part=library.get("connector-3way-yellow-v1"), position=(0, 0, 260))
-    r1 = PartInstance(instance_id="r1", part=library.get("rod-192-grey-v1"), position=(0, 0, 130))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"), position=(0, 0, 0))
+    c2 = PartInstance(instance_id="c2", part=library.get("connector-3way-green-v1"), position=(0, 0, 260))
+    r1 = PartInstance(instance_id="r1", part=library.get("rod-190-grey-v1"), position=(0, 0, 130))
     build.add_part(c1)
     build.add_part(c2)
     build.add_part(r1)
@@ -96,7 +96,7 @@ def test_compute_stability_tall_tower_lower_score(tall_tower):
 
 def test_build_stability_score_calls_physics(empty_build, library):
     """Build.stability_score() delegates to the physics layer."""
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-yellow-v1"), position=(0, 0, 0))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"), position=(0, 0, 0))
     r1 = _aligned_rod(library, c1, "A")
 
     empty_build.add_part(c1)
