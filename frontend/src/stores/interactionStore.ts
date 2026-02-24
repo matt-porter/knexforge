@@ -148,8 +148,11 @@ export const useInteractionStore = create<InteractionStore>()(
 
     setSnapTarget: (instanceId: string | null, portId: string | null, placingPortId?: string | null) => {
       set((state) => {
-        // Only reset the variant index if we're snapping to a DIFFERENT port
-        if (state.snapTargetInstanceId !== instanceId || state.snapTargetPortId !== portId) {
+        // Only reset the variant index if we're snapping to a DIFFERENT instance.
+        // Port changes on the same instance happen when PortIndicators cycles
+        // through variants at the same position (e.g., center_axial_1 → center_tangent),
+        // and we must NOT reset the index in that case or Tab cycling breaks.
+        if (state.snapTargetInstanceId !== instanceId) {
           state.activeSnapVariantIndex = 0
         }
         state.snapTargetInstanceId = instanceId

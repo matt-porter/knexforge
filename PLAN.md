@@ -188,7 +188,9 @@ All 31 tests passing. Core is fully runnable.
 - Updated stale Python tests for new port counts (connectors now have center port, rods have 5 ports including center_axial + center_tangent).
 - Added 4 new Python snapping tests: side-clip connector onto rod, rod_side/rod_hole compatibility, align_part_to_port geometry, wrong-direction rejection.
 - Added comprehensive frontend simulation test (`portIndicatorSim.test.ts`) proving that PortIndicators generates both through-hole AND side-clip variants at the rod center indicator, verifying Tab cycling covers all 8 variants.
-- All 71 Python tests pass, all 81 frontend tests pass.
+- **Fixed Tab cycling bug**: `setSnapTarget` was resetting `activeSnapVariantIndex` to 0 whenever the target port ID changed, even when cycling variants at the same position (e.g., `center_axial_1` → `center_tangent`). Fixed by only resetting when the target *instance* changes. Added variant index reset in `PortIndicators.handlePointerOver` for when the user moves to a different indicator position.
+- Added 3 dedicated Tab cycling regression tests (`tabCycling.test.ts`).
+- All 71 Python tests pass, all 84 frontend tests pass.
 
 ---
 

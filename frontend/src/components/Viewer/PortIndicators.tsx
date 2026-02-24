@@ -245,12 +245,21 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
     const handlePointerOver = useCallback(
         (e: ThreeEvent<PointerEvent>, ind: typeof indicators[0]) => {
             e.stopPropagation()
+
+            // Reset variant index when moving to a different indicator position
+            const store = useInteractionStore.getState()
+            const prevHovered = hoveredPortId
+            if (prevHovered !== ind.positionKey) {
+                // Use set() directly to avoid triggering the setSnapTarget reset logic
+                useInteractionStore.setState({ activeSnapVariantIndex: 0 })
+            }
+
             setHoveredPortId(ind.positionKey)
 
             // The useEffect above will catch the hoveredPortId state change and instantly calculate and apply 
             // the transform based on the current activeSnapVariantIndex.
         },
-        [matchTargetId, activeSnapVariantIndex]
+        [matchTargetId, activeSnapVariantIndex, hoveredPortId]
     )
 
     const handlePointerOut = useCallback((e: ThreeEvent<PointerEvent>) => {
