@@ -81,7 +81,6 @@ def main():
             result = subprocess.run(
                 [
                     args.openscad,
-                    "--render",           # force full render (not preview)
                     "-o", str(tmp_stl_path),
                     str(scad_path)
                 ],

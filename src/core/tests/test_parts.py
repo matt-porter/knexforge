@@ -18,15 +18,15 @@ def test_part_loader_loads_all_16_core_parts(clean_part_library):
     assert len(library.get_by_category("wheel")) == 1
 
 
-def test_part_loader_returns_correct_3way_connector(clean_part_library):
-    """Detailed check on the green 3-way connector (3 edge ports + center)."""
-    part: KnexPart = clean_part_library.get("connector-3way-green-v1")
+def test_part_loader_returns_correct_4way_connector(clean_part_library):
+    """Detailed check on the green 4-way connector (4 edge ports + center)."""
+    part: KnexPart = clean_part_library.get("connector-4way-green-v1")
 
-    assert part.name == "Green 3-Way Connector (120°)"
+    assert part.name == "Green 4-Way Connector (135°)"
     assert part.category == "connector"
     assert part.default_color == "#00B050"
     assert part.mass_grams == 1.5
-    assert len(part.ports) == 4  # A, B, C edge ports + center hole
+    assert len(part.ports) == 5  # A, B, C, D edge ports + center hole
 
     # Port A (positive X) — edge clip accepts rod_end and rod_side
     a = next(p for p in part.ports if p.id == "A")
@@ -36,10 +36,10 @@ def test_part_loader_returns_correct_3way_connector(clean_part_library):
     assert a.accepts == ["rod_end", "rod_side"]
     assert a.allowed_angles_deg == [0, 90, 180, 270]
 
-    # Port B (120°)
+    # Port B (45°)
     b = next(p for p in part.ports if p.id == "B")
-    assert b.position == (-6.35, 11.0, 0.0)
-    assert b.direction == (-0.5, 0.866, 0.0)  # cos(120°), sin(120°)
+    assert b.position == (8.98, 8.98, 0.0)
+    assert b.direction == (0.707, 0.707, 0.0)  # cos(45°), sin(45°)
 
     # Center hole — only accepts rod_end (for axial through-connections)
     center = next(p for p in part.ports if p.id == "center")

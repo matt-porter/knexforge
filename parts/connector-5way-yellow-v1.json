@@ -1,11 +1,11 @@
 {
   "format_version": "1.1",
-  "id": "connector-3way-green-v1",
-  "name": "Green 3-Way Connector (120°)",
+  "id": "connector-5way-yellow-v1",
+  "name": "Yellow 5-Way Connector (180°)",
   "category": "connector",
-  "mesh_file": "meshes/connector-3way-green.glb",
-  "default_color": "#00B050",
-  "mass_grams": 1.5,
+  "mesh_file": "meshes/connector-5way-yellow.glb",
+  "default_color": "#FFD700",
+  "mass_grams": 1.8,
   "ports": [
     {
       "id": "A",
@@ -18,8 +18,8 @@
     },
     {
       "id": "B",
-      "position": [-6.35, 11.0, 0.0],
-      "direction": [-0.5, 0.866, 0.0],
+      "position": [8.98, 8.98, 0.0],
+      "direction": [0.707, 0.707, 0.0],
       "mate_type": "rod_hole",
       "accepts": ["rod_end", "rod_side"],
       "allowed_angles_deg": [0, 90, 180, 270],
@@ -27,8 +27,26 @@
     },
     {
       "id": "C",
-      "position": [-6.35, -11.0, 0.0],
-      "direction": [-0.5, -0.866, 0.0],
+      "position": [0.0, 12.7, 0.0],
+      "direction": [0.0, 1.0, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "D",
+      "position": [-8.98, 8.98, 0.0],
+      "direction": [-0.707, 0.707, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "E",
+      "position": [-12.7, 0.0, 0.0],
+      "direction": [-1.0, 0.0, 0.0],
       "mate_type": "rod_hole",
       "accepts": ["rod_end", "rod_side"],
       "allowed_angles_deg": [0, 90, 180, 270],

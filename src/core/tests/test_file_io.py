@@ -21,7 +21,7 @@ def library(clean_part_library):
 def sample_build(library):
     """A small build: one connector + one rod snapped together."""
     build = Build()
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
     rod_part = library.get("rod-128-red-v1")
     temp = PartInstance(instance_id="r1", part=rod_part)
     pos, quat = align_rod_to_hole(temp, "end1", c1, "A")
@@ -69,7 +69,7 @@ def test_save_model_json_uses_compact_format(sample_build, tmp_path):
 
     assert len(model["parts"]) == 2
     part_entry = next(p for p in model["parts"] if p["instance_id"] == "c1")
-    assert part_entry["part_id"] == "connector-3way-green-v1"
+    assert part_entry["part_id"] == "connector-4way-green-v1"
     assert "part" not in part_entry  # compact format, no nested part object
 
     assert len(model["connections"]) == 1
@@ -87,7 +87,7 @@ def test_save_embeds_mesh_files(sample_build, tmp_path):
 
     assert len(mesh_files) == 2
     mesh_names = {Path(m).name for m in mesh_files}
-    assert "connector-3way-green.glb" in mesh_names
+    assert "connector-4way-green.glb" in mesh_names
     assert "rod-128-red.glb" in mesh_names
 
 

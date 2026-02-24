@@ -35,7 +35,7 @@ def test_build_starts_empty(empty_build):
 def test_add_part_increases_count(empty_build, library):
     connector = PartInstance(
         instance_id="c1",
-        part=library.get("connector-3way-green-v1"),
+        part=library.get("connector-4way-green-v1"),
     )
     empty_build.add_part(connector)
     assert len(empty_build.parts) == 1
@@ -43,7 +43,7 @@ def test_add_part_increases_count(empty_build, library):
 
 
 def test_attempt_snap_successful(empty_build, library):
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
     rod = _aligned_rod(library, c1, "A")
 
     empty_build.add_part(c1)
@@ -69,7 +69,7 @@ def test_attempt_snap_fails_on_invalid_mate(empty_build, library):
 
 
 def test_remove_part_cleans_connections(empty_build, library):
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
     r1 = _aligned_rod(library, c1, "A")
 
     empty_build.add_part(c1)
@@ -83,7 +83,7 @@ def test_remove_part_cleans_connections(empty_build, library):
 
 
 def test_get_connected_parts(empty_build, library):
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
     r1 = _aligned_rod(library, c1, "A", instance_id="r1")
     r2 = _aligned_rod(library, c1, "B", instance_id="r2")
 
@@ -99,7 +99,7 @@ def test_get_connected_parts(empty_build, library):
 
 
 def test_build_to_dict_and_from_dict_roundtrip(empty_build, library):
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
     r1 = _aligned_rod(library, c1, "A")
 
     empty_build.add_part(c1)

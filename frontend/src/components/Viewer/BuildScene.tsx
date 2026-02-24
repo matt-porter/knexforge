@@ -46,18 +46,18 @@ function createDemoBuild(): PartInstance[] {
       position: [0, 42.7, 0],
       rotation: [0, 0, 0.707, 0.707], // 90° around Z
     },
-    // Orange connector at right end of rod-1
+    // Orange connector at right end of rod-1 (port B at local [-12.7,0,0] aligns with rod end2)
     {
       instance_id: 'conn-2',
       part_id: 'connector-2way-orange-v1',
-      position: [66.7, 30, 0],
+      position: [79.4, 30, 0],
       rotation: [0, 0, 0, 1],
     },
-    // Orange connector at left end of rod-2
+    // Orange connector at left end of rod-2 (port A at local [12.7,0,0] aligns with rod end1)
     {
       instance_id: 'conn-3',
       part_id: 'connector-2way-orange-v1',
-      position: [-66.7, 30, 0],
+      position: [-79.4, 30, 0],
       rotation: [0, 0, 0, 1],
     },
     // Yellow rod diagonal (NE from hub, roughly 45°)
@@ -70,7 +70,7 @@ function createDemoBuild(): PartInstance[] {
     // Yellow 4-way connector at the top of the red rod
     {
       instance_id: 'conn-4',
-      part_id: 'connector-4way-yellow-v1',
+      part_id: 'connector-5way-yellow-v1',
       position: [0, 170.7, 0],
       rotation: [0, 0, 0.707, 0.707], // 90° around Z
     },
@@ -105,7 +105,7 @@ function createDemoBuild(): PartInstance[] {
     // Green 3-way connector
     {
       instance_id: 'conn-5',
-      part_id: 'connector-3way-green-v1',
+      part_id: 'connector-4way-green-v1',
       position: [0, 0, 40],
       rotation: [0, 0, 0, 1],
     },

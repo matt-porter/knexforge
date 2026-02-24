@@ -15,7 +15,7 @@ def library(clean_part_library):
 
 @pytest.fixture
 def connector(library):
-    part = library.get("connector-3way-green-v1")
+    part = library.get("connector-4way-green-v1")
     return PartInstance(instance_id="c1", part=part, position=(0.0, 0.0, 0.0))
 
 
@@ -131,7 +131,7 @@ def test_snap_to_any_3way_port_works(connector, rod, port_id):
 def test_side_clip_connector_onto_rod_succeeds(library):
     """A connector edge port can side-clip onto a rod's center_tangent port."""
     rod_part = library.get("rod-128-red-v1")
-    conn_part = library.get("connector-3way-green-v1")
+    conn_part = library.get("connector-4way-green-v1")
 
     rod_inst = PartInstance(instance_id="r1", part=rod_part, position=(0.0, 0.0, 0.0))
 
@@ -175,7 +175,7 @@ def test_align_part_to_port_side_clip(library):
     from core.snapping import align_part_to_port
 
     rod_part = library.get("rod-128-red-v1")
-    conn_part = library.get("connector-3way-green-v1")
+    conn_part = library.get("connector-4way-green-v1")
 
     rod_inst = PartInstance(instance_id="r1", part=rod_part, position=(0.0, 0.0, 0.0))
     conn_temp = PartInstance(instance_id="c1", part=conn_part)
@@ -197,7 +197,7 @@ def test_align_part_to_port_side_clip(library):
 def test_side_clip_wrong_direction_fails(library):
     """Side clip fails when connector is not aligned to rod's tangent direction."""
     rod_part = library.get("rod-128-red-v1")
-    conn_part = library.get("connector-3way-green-v1")
+    conn_part = library.get("connector-4way-green-v1")
 
     rod_inst = PartInstance(instance_id="r1", part=rod_part, position=(0.0, 0.0, 0.0))
 

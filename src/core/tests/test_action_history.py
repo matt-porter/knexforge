@@ -25,7 +25,7 @@ def library(clean_part_library):
 def _make_build_with_snap(library):
     """Helper: build with c1 + r1 snapped at port A."""
     build = Build()
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
     rod_part = library.get("rod-128-red-v1")
     temp = PartInstance(instance_id="r1", part=rod_part)
     pos, quat = align_rod_to_hole(temp, "end1", c1, "A")
@@ -167,13 +167,13 @@ def test_parse_action_unknown_raises():
 
 def test_build_records_add_part(library):
     build = Build()
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
     build.add_part(c1)
 
     assert len(build.history) == 1
     action = build.history.committed_actions[0]
     assert isinstance(action, AddPartAction)
-    assert action.part_id == "connector-3way-green-v1"
+    assert action.part_id == "connector-4way-green-v1"
     assert action.instance_id == "c1"
 
 
@@ -200,7 +200,7 @@ def test_build_records_remove_part(library):
 
 def test_build_undo_add_part(library):
     build = Build()
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
     build.add_part(c1)
     assert len(build.parts) == 1
 
@@ -230,7 +230,7 @@ def test_build_undo_remove_part(library):
 
 def test_build_redo_after_undo(library):
     build = Build()
-    c1 = PartInstance(instance_id="c1", part=library.get("connector-3way-green-v1"))
+    c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
     build.add_part(c1)
     build.undo()
     assert len(build.parts) == 0

@@ -6,6 +6,8 @@ Build, simulate, share, and **AI-generate** professional K'Nex models with step-
 
 ![K'NexForge Screenshot](https://via.placeholder.com/800x400/FFCC00/000000?text=K%27NexForge+Screenshot+Coming+Soon)
 
+
+Credit to https://www.printables.com/model/143840-knex-parts-customizable/files for SCAD models
 ---
 
 ## ✨ Features

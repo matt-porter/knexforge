@@ -181,18 +181,19 @@ function computeIndicators(
 
 // ---- Test data (real part defs) ----
 
-const connector3way: KnexPartDef = {
+const connector4way: KnexPartDef = {
   format_version: '1.1',
-  id: 'connector-3way-green-v1',
-  name: 'Green 3-Way Connector (120°)',
+  id: 'connector-4way-green-v1',
+  name: 'Green 4-Way Connector (135°)',
   category: 'connector',
-  mesh_file: 'meshes/connector-3way-green.glb',
+  mesh_file: 'meshes/connector-4way-green.glb',
   default_color: '#00B050',
   mass_grams: 1.5,
   ports: [
     { id: 'A', position: [12.7, 0, 0], direction: [1, 0, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
-    { id: 'B', position: [-6.35, 11.0, 0], direction: [-0.5, 0.866, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
-    { id: 'C', position: [-6.35, -11.0, 0], direction: [-0.5, -0.866, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'B', position: [8.98, 8.98, 0], direction: [0.707, 0.707, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'C', position: [0, 12.7, 0], direction: [0, 1, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'D', position: [-8.98, 8.98, 0], direction: [-0.707, 0.707, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
     { id: 'center', position: [0, 0, 0], direction: [0, 0, 1], mate_type: 'rod_hole', accepts: ['rod_end'], allowed_angles_deg: [0, 90, 180, 270] },
   ],
 }
@@ -223,9 +224,9 @@ const rodInstance: PartInstance = {
 
 // ---- Tests ----
 
-describe('PortIndicators: placing 3-way connector onto rod', () => {
+describe('PortIndicators: placing 4-way connector onto rod', () => {
   it('generates indicators at rod center, end1, and end2', () => {
-    const indicators = computeIndicators(connector3way, rod54, rodInstance)
+    const indicators = computeIndicators(connector4way, rod54, rodInstance)
     const posKeys = indicators.map((ind) => ind.positionKey)
 
     // Should have indicators at 3 distinct positions: end1 [0,0,0], end2 [54,0,0], center [27,0,0]
@@ -236,7 +237,7 @@ describe('PortIndicators: placing 3-way connector onto rod', () => {
   })
 
   it('center indicator has through-hole variants (from center_axial)', () => {
-    const indicators = computeIndicators(connector3way, rod54, rodInstance)
+    const indicators = computeIndicators(connector4way, rod54, rodInstance)
     const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.00_0.00_0.00')!
 
     const throughHole = centerInd.variants.filter(
@@ -251,20 +252,20 @@ describe('PortIndicators: placing 3-way connector onto rod', () => {
   })
 
   it('center indicator has side-clip variants (from center_tangent)', () => {
-    const indicators = computeIndicators(connector3way, rod54, rodInstance)
+    const indicators = computeIndicators(connector4way, rod54, rodInstance)
     const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.00_0.00_0.00')!
 
     const sideClip = centerInd.variants.filter((v) => v.targetPortId === 'center_tangent')
     expect(sideClip.length).toBeGreaterThan(0)
 
-    // Side-clip must use a connector edge port (A, B, or C), NOT center
+    // Side-clip must use a connector edge port (A, B, C, or D), NOT center
     for (const v of sideClip) {
-      expect(['A', 'B', 'C']).toContain(v.placingPortId)
+      expect(['A', 'B', 'C', 'D']).toContain(v.placingPortId)
     }
   })
 
   it('Tab cycles through both through-hole AND side-clip at the center indicator', () => {
-    const indicators = computeIndicators(connector3way, rod54, rodInstance)
+    const indicators = computeIndicators(connector4way, rod54, rodInstance)
     const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.00_0.00_0.00')!
 
     const throughHole = centerInd.variants.filter(
