@@ -181,6 +181,15 @@ All 31 tests passing. Core is fully runnable.
 - Multi-variant snapping via `PortIndicators`.
 - Tab-key cycling UX overlay for `activeSnapVariantIndex`.
 
+### ✅ Task 4.8: Side-Clip Connector-onto-Rod Support
+- Added `rod_side` and `slide_hole` to Python `MateType` literal — part JSONs with these types now load and validate correctly in the Python core.
+- Updated `snap_ports()` to handle side-on clip connections (rod_side ↔ rod_hole) with anti-parallel direction checks, alongside existing end-on logic.
+- Added `align_part_to_port()` generic helper supporting both end-on and side-on alignment with configurable twist angle.
+- Updated stale Python tests for new port counts (connectors now have center port, rods have 5 ports including center_axial + center_tangent).
+- Added 4 new Python snapping tests: side-clip connector onto rod, rod_side/rod_hole compatibility, align_part_to_port geometry, wrong-direction rejection.
+- Added comprehensive frontend simulation test (`portIndicatorSim.test.ts`) proving that PortIndicators generates both through-hole AND side-clip variants at the rod center indicator, verifying Tab cycling covers all 8 variants.
+- All 71 Python tests pass, all 81 frontend tests pass.
+
 ---
 
 ## Phase 5 — AI Layer

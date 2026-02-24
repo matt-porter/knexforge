@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import Literal, List, Optional
 
 
-MateType = Literal["rod_hole", "rod_end", "tab", "clip"]
+MateType = Literal["rod_hole", "rod_end", "tab", "clip", "rod_side", "slide_hole"]
 
 
 class Port(BaseModel):

@@ -19,21 +19,21 @@ def test_part_loader_loads_all_12_core_parts(clean_part_library):
 
 
 def test_part_loader_returns_correct_3way_connector(clean_part_library):
-    """Detailed check on the most complex part (3-way yellow connector)."""
+    """Detailed check on the 3-way yellow connector (3 edge ports + center)."""
     part: KnexPart = clean_part_library.get("connector-3way-yellow-v1")
 
     assert part.name == "3-Way Connector (Yellow)"
     assert part.category == "connector"
     assert part.default_color == "#FFCC00"
     assert part.mass_grams == 2.1
-    assert len(part.ports) == 3
+    assert len(part.ports) == 4  # A, B, C edge ports + center hole
 
-    # Port A (positive X)
+    # Port A (positive X) — edge clip accepts rod_end and rod_side
     a = next(p for p in part.ports if p.id == "A")
     assert a.position == (12.5, 0.0, 0.0)
     assert a.direction == (1.0, 0.0, 0.0)
     assert a.mate_type == "rod_hole"
-    assert a.accepts == ["rod_end"]
+    assert a.accepts == ["rod_end", "rod_side"]
     assert a.allowed_angles_deg == [0, 90, 180, 270]
 
     # Port B (120°)
@@ -41,12 +41,19 @@ def test_part_loader_returns_correct_3way_connector(clean_part_library):
     assert b.position == (-6.25, 10.825, 0.0)
     assert b.direction == (-0.5, 0.866, 0.0)  # cos(120°), sin(120°)
 
+    # Center hole — only accepts rod_end (for axial through-connections)
+    center = next(p for p in part.ports if p.id == "center")
+    assert center.position == (0.0, 0.0, 0.0)
+    assert center.direction == (0.0, 0.0, 1.0)
+    assert center.mate_type == "rod_hole"
+    assert center.accepts == ["rod_end"]
+
 
 def test_part_loader_rod_port_geometry(clean_part_library):
-    """Rods have exactly two opposite 'rod_end' ports with correct length."""
+    """Rods have end ports, center axial ports, and a center tangent (side-clip) port."""
     rod = clean_part_library.get("rod-130-red-v1")
     assert rod.category == "rod"
-    assert len(rod.ports) == 2
+    assert len(rod.ports) == 5  # end1, end2, center_axial_1, center_axial_2, center_tangent
 
     end1 = next(p for p in rod.ports if p.id == "end1")
     end2 = next(p for p in rod.ports if p.id == "end2")
@@ -54,6 +61,12 @@ def test_part_loader_rod_port_geometry(clean_part_library):
     assert end1.mate_type == "rod_end"
     assert end2.mate_type == "rod_end"
     assert end2.position[0] == 130.0  # exact length from JSON
+
+    # Center tangent port for side-on clipping
+    tangent = next(p for p in rod.ports if p.id == "center_tangent")
+    assert tangent.mate_type == "rod_side"
+    assert tangent.accepts == ["rod_hole", "clip"]
+    assert tangent.position[0] == 65.0  # midpoint of rod
 
 
 def test_part_loader_get_mesh_path_returns_correct_path(clean_part_library):
