@@ -6,7 +6,7 @@ import type { PartInstance, Connection } from '../types/parts'
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makePart(id: string, partId: string = 'rod-55-blue-v1'): PartInstance {
+function makePart(id: string, partId: string = 'rod-54-blue-v1'): PartInstance {
   return {
     instance_id: id,
     part_id: partId,

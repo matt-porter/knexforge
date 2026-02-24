@@ -1,11 +1,11 @@
 {
   "format_version": "1.1",
-  "id": "rod-86-yellow-v1",
-  "name": "Yellow Rod (86 mm)",
+  "id": "rod-54-blue-v1",
+  "name": "Blue Rod (54 mm)",
   "category": "rod",
-  "mesh_file": "meshes/rod-86-yellow.glb",
-  "default_color": "#FFD700",
-  "mass_grams": 1.5,
+  "mesh_file": "meshes/rod-54-blue.glb",
+  "default_color": "#0070C0",
+  "mass_grams": 1.2,
   "ports": [
     {
       "id": "end1",
@@ -18,7 +18,7 @@
     },
     {
       "id": "end2",
-      "position": [86.0, 0.0, 0.0],
+      "position": [54.0, 0.0, 0.0],
       "direction": [1.0, 0.0, 0.0],
       "mate_type": "rod_end",
       "accepts": ["rod_hole"],
@@ -27,7 +27,7 @@
     },
     {
       "id": "center_axial_1",
-      "position": [43.0, 0.0, 0.0],
+      "position": [27.0, 0.0, 0.0],
       "direction": [-1.0, 0.0, 0.0],
       "mate_type": "rod_end",
       "accepts": ["rod_hole"],
@@ -36,7 +36,7 @@
     },
     {
       "id": "center_axial_2",
-      "position": [43.0, 0.0, 0.0],
+      "position": [27.0, 0.0, 0.0],
       "direction": [1.0, 0.0, 0.0],
       "mate_type": "rod_end",
       "accepts": ["rod_hole"],
@@ -45,7 +45,7 @@
     },
     {
       "id": "center_tangent",
-      "position": [43.0, 0.0, 0.0],
+      "position": [27.0, 0.0, 0.0],
       "direction": [0.0, 1.0, 0.0],
       "mate_type": "rod_side",
       "accepts": ["rod_hole", "clip"],

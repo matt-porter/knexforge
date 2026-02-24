@@ -28,64 +28,64 @@ function createDemoBuild(): PartInstance[] {
     // Blue rod extending right (+X) from hub
     {
       instance_id: 'rod-1',
-      part_id: 'rod-55-blue-v1',
-      position: [12.5, 30, 0],
+      part_id: 'rod-54-blue-v1',
+      position: [12.7, 30, 0],
       rotation: [0, 0, 0, 1],
     },
     // Blue rod extending left (-X) from hub
     {
       instance_id: 'rod-2',
-      part_id: 'rod-55-blue-v1',
-      position: [-67.5, 30, 0],
+      part_id: 'rod-54-blue-v1',
+      position: [-66.7, 30, 0],
       rotation: [0, 0, 0, 1],
     },
     // Red rod extending up (+Y) from hub
     {
       instance_id: 'rod-3',
-      part_id: 'rod-130-red-v1',
-      position: [0, 42.5, 0],
+      part_id: 'rod-128-red-v1',
+      position: [0, 42.7, 0],
       rotation: [0, 0, 0.707, 0.707], // 90° around Z
     },
     // Orange connector at right end of rod-1
     {
       instance_id: 'conn-2',
-      part_id: 'connector-2way-straight-orange-v1',
-      position: [67.5, 30, 0],
+      part_id: 'connector-2way-orange-v1',
+      position: [66.7, 30, 0],
       rotation: [0, 0, 0, 1],
     },
     // Orange connector at left end of rod-2
     {
       instance_id: 'conn-3',
-      part_id: 'connector-2way-straight-orange-v1',
-      position: [-67.5, 30, 0],
+      part_id: 'connector-2way-orange-v1',
+      position: [-66.7, 30, 0],
       rotation: [0, 0, 0, 1],
     },
     // Yellow rod diagonal (NE from hub, roughly 45°)
     {
       instance_id: 'rod-4',
       part_id: 'rod-86-yellow-v1',
-      position: [8.84, 38.84, 0],
+      position: [8.98, 38.98, 0],
       rotation: [0, 0, 0.383, 0.924], // ~45° around Z
     },
-    // 5-way connector at the top of the red rod
+    // Yellow 4-way connector at the top of the red rod
     {
       instance_id: 'conn-4',
-      part_id: 'connector-5way-yellow-v1',
-      position: [0, 172.5, 0],
+      part_id: 'connector-4way-yellow-v1',
+      position: [0, 170.7, 0],
       rotation: [0, 0, 0.707, 0.707], // 90° around Z
     },
     // Green rod (short) as a decorative piece
     {
       instance_id: 'rod-5',
-      part_id: 'rod-17-green-v1',
+      part_id: 'rod-16-green-v1',
       position: [80, 30, 0],
       rotation: [0, 0, 0, 1],
     },
-    // White rod extending forward from hub (+Z via E port)
+    // White rod extending forward from hub (+Z)
     {
       instance_id: 'rod-6',
-      part_id: 'rod-33-white-v1',
-      position: [0, 42.5, 0],
+      part_id: 'rod-32-white-v1',
+      position: [0, 42.7, 0],
       rotation: [0.5, 0.5, -0.5, 0.5], // pointing up
     },
     // A wheel on the ground
@@ -98,21 +98,21 @@ function createDemoBuild(): PartInstance[] {
     // Grey rod (longest) as a base element
     {
       instance_id: 'rod-7',
-      part_id: 'rod-192-grey-v1',
-      position: [-96, 0, 0],
+      part_id: 'rod-190-grey-v1',
+      position: [-95, 0, 0],
       rotation: [0, 0, 0, 1],
     },
-    // 3-way connector
+    // Green 3-way connector
     {
       instance_id: 'conn-5',
-      part_id: 'connector-3way-yellow-v1',
+      part_id: 'connector-3way-green-v1',
       position: [0, 0, 40],
       rotation: [0, 0, 0, 1],
     },
-    // 4-way 3D connector
+    // Purple 4-way 3D connector
     {
       instance_id: 'conn-6',
-      part_id: 'connector-4way-3d-silver-v1',
+      part_id: 'connector-4way-3d-purple-v1',
       position: [0, 0, -40],
       rotation: [0, 0, 0, 1],
     },

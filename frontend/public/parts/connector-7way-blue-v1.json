@@ -1,0 +1,83 @@
+{
+  "format_version": "1.1",
+  "id": "connector-7way-blue-v1",
+  "name": "Blue 7-Way 3D Connector",
+  "category": "connector",
+  "mesh_file": "meshes/connector-7way-blue.glb",
+  "default_color": "#0070C0",
+  "mass_grams": 2.8,
+  "ports": [
+    {
+      "id": "A",
+      "position": [12.7, 0.0, 0.0],
+      "direction": [1.0, 0.0, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "B",
+      "position": [6.35, 11.0, 0.0],
+      "direction": [0.5, 0.866, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "C",
+      "position": [-6.35, 11.0, 0.0],
+      "direction": [-0.5, 0.866, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "D",
+      "position": [-12.7, 0.0, 0.0],
+      "direction": [-1.0, 0.0, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "E",
+      "position": [-6.35, -11.0, 0.0],
+      "direction": [-0.5, -0.866, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "F",
+      "position": [6.35, -11.0, 0.0],
+      "direction": [0.5, -0.866, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "Up",
+      "position": [0.0, 0.0, 12.7],
+      "direction": [0.0, 0.0, 1.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "center",
+      "position": [0.0, 0.0, 0.0],
+      "direction": [0.0, 0.0, 1.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    }
+  ]
+}

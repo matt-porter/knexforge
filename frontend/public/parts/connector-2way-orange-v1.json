@@ -1,0 +1,38 @@
+{
+  "format_version": "1.1",
+  "id": "connector-2way-orange-v1",
+  "name": "Orange 2-Way Connector (180°)",
+  "category": "connector",
+  "mesh_file": "meshes/connector-2way-orange.glb",
+  "default_color": "#FF6600",
+  "mass_grams": 1.2,
+  "ports": [
+    {
+      "id": "A",
+      "position": [12.7, 0.0, 0.0],
+      "direction": [1.0, 0.0, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "B",
+      "position": [-12.7, 0.0, 0.0],
+      "direction": [-1.0, 0.0, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "center",
+      "position": [0.0, 0.0, 0.0],
+      "direction": [0.0, 0.0, 1.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    }
+  ]
+}

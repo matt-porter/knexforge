@@ -183,40 +183,40 @@ function computeIndicators(
 
 const connector3way: KnexPartDef = {
   format_version: '1.1',
-  id: 'connector-3way-yellow-v1',
-  name: '3-Way Connector (Yellow)',
+  id: 'connector-3way-green-v1',
+  name: 'Green 3-Way Connector (120°)',
   category: 'connector',
-  mesh_file: 'meshes/connector-3way-yellow.glb',
-  default_color: '#FFCC00',
-  mass_grams: 2.1,
+  mesh_file: 'meshes/connector-3way-green.glb',
+  default_color: '#00B050',
+  mass_grams: 1.5,
   ports: [
-    { id: 'A', position: [12.5, 0, 0], direction: [1, 0, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
-    { id: 'B', position: [-6.25, 10.825, 0], direction: [-0.5, 0.866, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
-    { id: 'C', position: [-6.25, -10.825, 0], direction: [-0.5, -0.866, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'A', position: [12.7, 0, 0], direction: [1, 0, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'B', position: [-6.35, 11.0, 0], direction: [-0.5, 0.866, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'C', position: [-6.35, -11.0, 0], direction: [-0.5, -0.866, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
     { id: 'center', position: [0, 0, 0], direction: [0, 0, 1], mate_type: 'rod_hole', accepts: ['rod_end'], allowed_angles_deg: [0, 90, 180, 270] },
   ],
 }
 
-const rod55: KnexPartDef = {
+const rod54: KnexPartDef = {
   format_version: '1.1',
-  id: 'rod-55-blue-v1',
-  name: 'Blue Rod (55 mm)',
+  id: 'rod-54-blue-v1',
+  name: 'Blue Rod (54 mm)',
   category: 'rod',
-  mesh_file: 'meshes/rod-55-blue.glb',
-  default_color: '#0066FF',
+  mesh_file: 'meshes/rod-54-blue.glb',
+  default_color: '#0070C0',
   mass_grams: 1.2,
   ports: [
     { id: 'end1', position: [0, 0, 0], direction: [-1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'], allowed_angles_deg: [0] },
-    { id: 'end2', position: [55, 0, 0], direction: [1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'], allowed_angles_deg: [0] },
-    { id: 'center_axial_1', position: [27.5, 0, 0], direction: [-1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'], allowed_angles_deg: [0] },
-    { id: 'center_axial_2', position: [27.5, 0, 0], direction: [1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'], allowed_angles_deg: [0] },
-    { id: 'center_tangent', position: [27.5, 0, 0], direction: [0, 1, 0], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'end2', position: [54, 0, 0], direction: [1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'], allowed_angles_deg: [0] },
+    { id: 'center_axial_1', position: [27, 0, 0], direction: [-1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'], allowed_angles_deg: [0] },
+    { id: 'center_axial_2', position: [27, 0, 0], direction: [1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'], allowed_angles_deg: [0] },
+    { id: 'center_tangent', position: [27, 0, 0], direction: [0, 1, 0], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
   ],
 }
 
 const rodInstance: PartInstance = {
   instance_id: 'rod-1',
-  part_id: 'rod-55-blue-v1',
+  part_id: 'rod-54-blue-v1',
   position: [0, 0, 0],
   rotation: [0, 0, 0, 1],
 }
@@ -225,19 +225,19 @@ const rodInstance: PartInstance = {
 
 describe('PortIndicators: placing 3-way connector onto rod', () => {
   it('generates indicators at rod center, end1, and end2', () => {
-    const indicators = computeIndicators(connector3way, rod55, rodInstance)
+    const indicators = computeIndicators(connector3way, rod54, rodInstance)
     const posKeys = indicators.map((ind) => ind.positionKey)
 
-    // Should have indicators at 3 distinct positions: end1 [0,0,0], end2 [55,0,0], center [27.5,0,0]
+    // Should have indicators at 3 distinct positions: end1 [0,0,0], end2 [54,0,0], center [27,0,0]
     expect(indicators.length).toBeGreaterThanOrEqual(3)
     expect(posKeys).toContain('pos_0.00_0.00_0.00')   // end1
-    expect(posKeys).toContain('pos_55.00_0.00_0.00')   // end2
-    expect(posKeys).toContain('pos_27.50_0.00_0.00')   // center
+    expect(posKeys).toContain('pos_54.00_0.00_0.00')   // end2
+    expect(posKeys).toContain('pos_27.00_0.00_0.00')   // center
   })
 
   it('center indicator has through-hole variants (from center_axial)', () => {
-    const indicators = computeIndicators(connector3way, rod55, rodInstance)
-    const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.50_0.00_0.00')!
+    const indicators = computeIndicators(connector3way, rod54, rodInstance)
+    const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.00_0.00_0.00')!
 
     const throughHole = centerInd.variants.filter(
       (v) => v.targetPortId === 'center_axial_1' || v.targetPortId === 'center_axial_2',
@@ -251,8 +251,8 @@ describe('PortIndicators: placing 3-way connector onto rod', () => {
   })
 
   it('center indicator has side-clip variants (from center_tangent)', () => {
-    const indicators = computeIndicators(connector3way, rod55, rodInstance)
-    const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.50_0.00_0.00')!
+    const indicators = computeIndicators(connector3way, rod54, rodInstance)
+    const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.00_0.00_0.00')!
 
     const sideClip = centerInd.variants.filter((v) => v.targetPortId === 'center_tangent')
     expect(sideClip.length).toBeGreaterThan(0)
@@ -264,8 +264,8 @@ describe('PortIndicators: placing 3-way connector onto rod', () => {
   })
 
   it('Tab cycles through both through-hole AND side-clip at the center indicator', () => {
-    const indicators = computeIndicators(connector3way, rod55, rodInstance)
-    const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.50_0.00_0.00')!
+    const indicators = computeIndicators(connector3way, rod54, rodInstance)
+    const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.00_0.00_0.00')!
 
     const throughHole = centerInd.variants.filter(
       (v) => v.targetPortId === 'center_axial_1' || v.targetPortId === 'center_axial_2',

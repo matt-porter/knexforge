@@ -22,11 +22,11 @@ describe('interactionStore', () => {
 
   describe('startPlacing', () => {
     it('switches to place mode with the given part ID', () => {
-      useInteractionStore.getState().startPlacing('rod-55-blue-v1')
+      useInteractionStore.getState().startPlacing('rod-54-blue-v1')
 
       const state = useInteractionStore.getState()
       expect(state.mode).toBe('place')
-      expect(state.placingPartId).toBe('rod-55-blue-v1')
+      expect(state.placingPartId).toBe('rod-54-blue-v1')
     })
 
     it('resets ghost state when starting placement', () => {
@@ -34,7 +34,7 @@ describe('interactionStore', () => {
       useInteractionStore.getState().setGhostPosition([10, 20, 30])
       useInteractionStore.getState().setSnapTarget('inst-1', 'A')
 
-      useInteractionStore.getState().startPlacing('rod-55-blue-v1')
+      useInteractionStore.getState().startPlacing('rod-54-blue-v1')
 
       const state = useInteractionStore.getState()
       expect(state.ghostPosition).toBeNull()
@@ -44,7 +44,7 @@ describe('interactionStore', () => {
     })
 
     it('can switch between part types', () => {
-      useInteractionStore.getState().startPlacing('rod-55-blue-v1')
+      useInteractionStore.getState().startPlacing('rod-54-blue-v1')
       useInteractionStore.getState().startPlacing('connector-8way-white-v1')
 
       expect(useInteractionStore.getState().placingPartId).toBe('connector-8way-white-v1')
@@ -53,7 +53,7 @@ describe('interactionStore', () => {
 
   describe('cancelPlacing', () => {
     it('returns to select mode', () => {
-      useInteractionStore.getState().startPlacing('rod-55-blue-v1')
+      useInteractionStore.getState().startPlacing('rod-54-blue-v1')
       useInteractionStore.getState().cancelPlacing()
 
       const state = useInteractionStore.getState()
@@ -62,7 +62,7 @@ describe('interactionStore', () => {
     })
 
     it('clears ghost state', () => {
-      useInteractionStore.getState().startPlacing('rod-55-blue-v1')
+      useInteractionStore.getState().startPlacing('rod-54-blue-v1')
       useInteractionStore.getState().setGhostPosition([10, 0, 20])
 
       useInteractionStore.getState().cancelPlacing()

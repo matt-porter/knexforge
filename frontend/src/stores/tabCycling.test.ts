@@ -11,7 +11,7 @@ describe('Tab cycling does not reset activeSnapVariantIndex', () => {
     const store = useInteractionStore.getState()
 
     // Start placement targeting rod-1
-    store.startPlacing('connector-3way-yellow-v1', 'rod-1')
+    store.startPlacing('connector-3way-green-v1', 'rod-1')
 
     // Initial snap to center_axial_1 (variant 0)
     store.setSnapTarget('rod-1', 'center_axial_1', 'center')
@@ -31,7 +31,7 @@ describe('Tab cycling does not reset activeSnapVariantIndex', () => {
   it('setSnapTarget DOES reset index when instance changes', () => {
     const store = useInteractionStore.getState()
 
-    store.startPlacing('connector-3way-yellow-v1', 'rod-1')
+    store.startPlacing('connector-3way-green-v1', 'rod-1')
     store.setSnapTarget('rod-1', 'center_axial_1', 'center')
     store.cycleSnapVariant()
     expect(useInteractionStore.getState().activeSnapVariantIndex).toBe(1)
@@ -43,7 +43,7 @@ describe('Tab cycling does not reset activeSnapVariantIndex', () => {
 
   it('Tab can cycle through all 8 variants without resetting', () => {
     const store = useInteractionStore.getState()
-    store.startPlacing('connector-3way-yellow-v1', 'rod-1')
+    store.startPlacing('connector-3way-green-v1', 'rod-1')
 
     // Simulate hovering center indicator → initial snap
     store.setSnapTarget('rod-1', 'center_axial_1', 'center')

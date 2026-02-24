@@ -4,17 +4,21 @@ import type { KnexPartDef } from '../types/parts'
 
 /** All part definition file names (matched to public/parts/*.json). */
 const PART_IDS = [
-  'connector-2way-straight-orange-v1',
-  'connector-3way-yellow-v1',
-  'connector-4way-3d-silver-v1',
-  'connector-5way-yellow-v1',
+  'connector-1way-grey-v1',
+  'connector-2way-orange-v1',
+  'connector-2way-red-v1',
+  'connector-3way-green-v1',
+  'connector-4way-yellow-v1',
+  'connector-4way-3d-purple-v1',
+  'connector-5way-blue-v1',
+  'connector-7way-blue-v1',
   'connector-8way-white-v1',
-  'rod-130-red-v1',
-  'rod-17-green-v1',
-  'rod-192-grey-v1',
-  'rod-33-white-v1',
-  'rod-55-blue-v1',
+  'rod-16-green-v1',
+  'rod-32-white-v1',
+  'rod-54-blue-v1',
   'rod-86-yellow-v1',
+  'rod-128-red-v1',
+  'rod-190-grey-v1',
   'wheel-medium-black-v1',
 ]
 
@@ -81,8 +85,8 @@ export function usePartDefs(): {
 
 /**
  * Returns the URL for a part's GLB mesh file.
- * Part JSON mesh_file is like "meshes/rod-55-blue.glb",
- * which maps to "/parts/meshes/rod-55-blue.glb" in public/.
+ * Part JSON mesh_file is like "meshes/rod-54-blue.glb",
+ * which maps to "/parts/meshes/rod-54-blue.glb" in public/.
  */
 export function getGlbUrl(def: KnexPartDef): string {
   return `/parts/${def.mesh_file}`

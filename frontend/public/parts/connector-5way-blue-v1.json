@@ -1,0 +1,65 @@
+{
+  "format_version": "1.1",
+  "id": "connector-5way-blue-v1",
+  "name": "Blue 5-Way Connector (72°)",
+  "category": "connector",
+  "mesh_file": "meshes/connector-5way-blue.glb",
+  "default_color": "#0070C0",
+  "mass_grams": 2.0,
+  "ports": [
+    {
+      "id": "A",
+      "position": [12.7, 0.0, 0.0],
+      "direction": [1.0, 0.0, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 72, 144, 216, 288],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "B",
+      "position": [3.92, 12.08, 0.0],
+      "direction": [0.309, 0.951, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 72, 144, 216, 288],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "C",
+      "position": [-10.27, 7.46, 0.0],
+      "direction": [-0.809, 0.588, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 72, 144, 216, 288],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "D",
+      "position": [-10.27, -7.46, 0.0],
+      "direction": [-0.809, -0.588, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 72, 144, 216, 288],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "E",
+      "position": [3.92, -12.08, 0.0],
+      "direction": [0.309, -0.951, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 72, 144, 216, 288],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "center",
+      "position": [0.0, 0.0, 0.0],
+      "direction": [0.0, 0.0, 1.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    }
+  ]
+}
