@@ -74,7 +74,13 @@ class PyBulletSimulator:
         else:
             # fallback: simple box
             collision_shape = p.createCollisionShape(p.GEOM_BOX, halfExtents=[5, 5, 5])
-        body_id = p.createMultiBody(baseMass=1.0, baseCollisionShapeIndex=collision_shape)
+        
+        body_id = p.createMultiBody(
+            baseMass=1.0,
+            baseCollisionShapeIndex=collision_shape,
+            basePosition=part_instance.position,
+            baseOrientation=part_instance.quaternion
+        )
         return body_id
 
     def create_joints(self):
