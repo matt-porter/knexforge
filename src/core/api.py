@@ -38,11 +38,14 @@ class SnapResponse(BaseModel):
     connection: dict | None
 
 class StabilityRequest(BaseModel):
-    build_id: str
+    build_id: str | None = None
+    parts: list | None = None
+    connections: list | None = None
 
 class StabilityResponse(BaseModel):
     stability: float
     details: dict
+    stress_data: Dict[str, float] | None = None
 
 class ExportRequest(BaseModel):
     build_id: str
@@ -84,12 +87,45 @@ def snap(req: SnapRequest):
 
 @app.post("/stability", response_model=StabilityResponse)
 def stability(req: StabilityRequest):
-    build = build_store.get(req.build_id)
-    if not build:
-        raise HTTPException(status_code=404, detail="Build not found")
-    # Use real stability computation
-    stability_score = compute_stability(build)
-    return StabilityResponse(stability=stability_score, details={})
+    from .parts.loader import PartLoader
+    from .parts.models import PartInstance, Connection
+    library = PartLoader.load()
+    
+    if req.parts is not None and req.connections is not None:
+        build = Build()
+        try:
+            for p in req.parts:
+                part_def = library.get(p["part_id"])
+                inst = PartInstance(
+                    instance_id=p["instance_id"],
+                    part=part_def,
+                    position=tuple(p["position"]),
+                    quaternion=tuple(p["rotation"]),
+                    color=p.get("color")
+                )
+                build.add_part(inst, record=False)
+            for c in req.connections:
+                build.connections.add(Connection(**c))
+                build._graph.add_edge(c["from_instance"], c["to_instance"])
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid build data: {e}")
+    else:
+        build = build_store.get(req.build_id)
+        if not build:
+            raise HTTPException(status_code=404, detail="Build not found")
+
+    try:
+        from .physics.pybullet import simulate_collapse
+        result = simulate_collapse(build)
+        return StabilityResponse(
+            stability=result.score * 100.0,
+            details={"unstable_parts": result.unstable_parts},
+            stress_data=result.stress_data
+        )
+    except ImportError:
+        # Fallback to graph
+        stability_score = compute_stability(build)
+        return StabilityResponse(stability=stability_score, details={}, stress_data={})
 
 @app.post("/export", response_model=ExportResponse)
 def export(req: ExportRequest):

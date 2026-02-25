@@ -20,11 +20,14 @@ except ImportError:
     p = None
 
 from ..build import Build
-from .graph import StabilityScore
+from dataclasses import dataclass
 
-class CollapseResult(StabilityScore):
-    """Result of a collapse simulation, extends StabilityScore."""
-    pass
+@dataclass
+class CollapseResult:
+    """Result of a collapse simulation."""
+    score: float
+    unstable_parts: list[str]
+    stress_data: dict[str, float]
 
 class PyBulletSimulator:
     def __init__(self, build: Build, mesh_dir: Optional[Path] = None):
@@ -34,11 +37,13 @@ class PyBulletSimulator:
         self.mesh_dir = mesh_dir
         self.client = None
         self.part_bodies = {}
+        self.joint_constraints = []
 
     def __enter__(self):
         self.client = p.connect(p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.setGravity(0, 0, -9.81)
+        self.plane_id = p.loadURDF("plane.urdf")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -90,7 +95,7 @@ class PyBulletSimulator:
             joint_pos = [
                 (f + t) / 2 for f, t in zip(from_pos, to_pos)
             ]
-            p.createConstraint(
+            joint_id = p.createConstraint(
                 parentBodyUniqueId=parent_body,
                 parentLinkIndex=-1,
                 childBodyUniqueId=child_body,
@@ -100,15 +105,23 @@ class PyBulletSimulator:
                 parentFramePosition=[c - f for c, f in zip(joint_pos, from_pos)],
                 childFramePosition=[c - t for c, t in zip(joint_pos, to_pos)]
             )
+            p.changeConstraint(joint_id, maxForce=5000)
+            self.joint_constraints.append({
+                "id": joint_id,
+                "parts": [from_inst.instance_id, to_inst.instance_id]
+            })
 
     def simulate(self, steps: int = 240, movement_threshold: float = 2.0) -> CollapseResult:
-        """Runs the simulation and returns a CollapseResult based on part movement."""
+        """Runs the simulation and returns a CollapseResult based on part movement and stress."""
         initial_positions = {}
         for inst_id, body_id in self.part_bodies.items():
             pos, _ = p.getBasePositionAndOrientation(body_id)
             initial_positions[inst_id] = pos
+
+        # Let simulation settle
         for _ in range(steps):
             p.stepSimulation()
+
         unstable_parts = []
         for inst_id, body_id in self.part_bodies.items():
             final_pos, _ = p.getBasePositionAndOrientation(body_id)
@@ -116,14 +129,32 @@ class PyBulletSimulator:
             dist = sum((f - i) ** 2 for f, i in zip(final_pos, init_pos)) ** 0.5
             if dist > movement_threshold:
                 unstable_parts.append(inst_id)
+
+        # Calculate stress
+        stress_data = {inst_id: 0.0 for inst_id in self.part_bodies.keys()}
+        max_stress = 1.0 # Avoid division by zero
+        for joint in self.joint_constraints:
+            state = p.getConstraintState(joint["id"])
+            if len(state) >= 3:
+                fx, fy, fz = state[0:3]
+                force_mag = (fx**2 + fy**2 + fz**2)**0.5
+                for part_id in joint["parts"]:
+                    stress_data[part_id] += force_mag
+                    if stress_data[part_id] > max_stress:
+                        max_stress = stress_data[part_id]
+
+        # Normalize stress data to 0-1
+        for part_id in stress_data:
+            stress_data[part_id] = stress_data[part_id] / max_stress
+
         score = 1.0 if not unstable_parts else 0.0
-        return CollapseResult(score=score, unstable_parts=unstable_parts)
+        return CollapseResult(score=score, unstable_parts=unstable_parts, stress_data=stress_data)
 
 def simulate_collapse(build: Build, mesh_dir: Optional[Path] = None) -> CollapseResult:
     """Simulate collapse using PyBullet. Returns CollapseResult."""
     with PyBulletSimulator(build, mesh_dir) as sim:
-        for part in build.parts:
-            sim.part_bodies[part.id] = sim.load_part_mesh(part)
+        for inst_id, part_inst in build.parts.items():
+            sim.part_bodies[inst_id] = sim.load_part_mesh(part_inst)
         sim.create_joints()
         result = sim.simulate()
     return result

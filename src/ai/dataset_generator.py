@@ -10,7 +10,7 @@ from pathlib import Path
 from src.core.build import Build
 from src.core.parts.models import PartLibrary, PartInstance
 from src.core.parts.loader import PartLoader
-from src.core.snapping import align_part_to_port, are_ports_compatible, check_rod_overlap, snap_ports
+from src.core.snapping import align_part_to_port, are_ports_compatible, check_part_overlap, snap_ports
 from src.core.physics.graph import compute_stability
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -121,10 +121,10 @@ def generate_procedural_build(library: PartLibrary, max_parts: int = 20) -> Buil
         if result is None:
             continue  # Bad connection; skip and retry
 
-        # --- Collision detection: ensure no rod overlap ---
+        # --- Collision detection: ensure no part overlap ---
         connected_ids = {target_instance_id}
-        if not check_rod_overlap(new_instance, build.parts, connected_ids):
-            continue  # Would overlap existing rods; skip
+        if not check_part_overlap(new_instance, build.parts, connected_ids):
+            continue  # Would overlap existing parts; skip
 
         build.add_part(new_instance)
 

@@ -9,6 +9,7 @@
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import type { PartInstance, Connection } from '../types/parts'
+import { sidecarBridge } from '../services/sidecarBridge'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,6 +37,8 @@ export interface BuildStore {
   connections: Connection[]
   /** Current stability score (0–100, from Python core). */
   stabilityScore: number
+  /** Tension / stress data for parts (0-1). */
+  stressData: Record<string, number>
   /** Currently selected part instance ID, if any. */
   selectedPartId: string | null
   /** Undo stack (most recent action at end). */
@@ -64,6 +67,10 @@ export interface BuildStore {
   clearBuild: () => void
   /** Set stability score (from sidecar response). */
   setStabilityScore: (score: number) => void
+  /** Set stress data. */
+  setStressData: (data: Record<string, number>) => void
+  /** Recalculate stability using the backend bridge. */
+  recalculateStability: () => Promise<void>
   /** Set sidecar connection status. */
   setSidecarConnected: (connected: boolean) => void
 
@@ -120,6 +127,7 @@ export const useBuildStore = create<BuildStore>()(
     parts: {},
     connections: [],
     stabilityScore: 100,
+    stressData: {},
     selectedPartId: null,
     undoStack: [],
     redoStack: [],
@@ -135,6 +143,7 @@ export const useBuildStore = create<BuildStore>()(
         state.undoStack.push({ type: 'add_part', before })
         state.redoStack = []
       })
+      get().recalculateStability()
     },
 
     removePart: (instanceId: string) => {
@@ -154,6 +163,7 @@ export const useBuildStore = create<BuildStore>()(
         state.undoStack.push({ type: 'remove_part', before })
         state.redoStack = []
       })
+      get().recalculateStability()
     },
 
     addConnection: (connection: Connection) => {
@@ -176,6 +186,7 @@ export const useBuildStore = create<BuildStore>()(
         state.undoStack.push({ type: 'snap', before })
         state.redoStack = []
       })
+      get().recalculateStability()
     },
 
     selectPart: (instanceId: string | null) => {
@@ -194,6 +205,7 @@ export const useBuildStore = create<BuildStore>()(
         applySnapshot(state, action.before)
         state.redoStack.push({ type: action.type, before: currentSnapshot })
       })
+      get().recalculateStability()
       return true
     },
 
@@ -207,6 +219,7 @@ export const useBuildStore = create<BuildStore>()(
         applySnapshot(state, action.before)
         state.undoStack.push({ type: action.type, before: currentSnapshot })
       })
+      get().recalculateStability()
       return true
     },
 
@@ -222,10 +235,12 @@ export const useBuildStore = create<BuildStore>()(
         }
         state.connections = connections
         state.stabilityScore = stabilityScore
+        state.stressData = {}
         state.selectedPartId = null
         state.undoStack = []
         state.redoStack = []
       })
+      get().recalculateStability()
     },
 
     clearBuild: () => {
@@ -234,17 +249,44 @@ export const useBuildStore = create<BuildStore>()(
         state.parts = {}
         state.connections = []
         state.stabilityScore = 100
+        state.stressData = {}
         state.selectedPartId = null
         // Keep undo so user can undo the clear
         state.undoStack.push({ type: 'remove_part', before })
         state.redoStack = []
       })
+      get().recalculateStability()
     },
 
     setStabilityScore: (score: number) => {
       set((state) => {
         state.stabilityScore = score
       })
+    },
+
+    setStressData: (data: Record<string, number>) => {
+      set((state) => {
+        state.stressData = data
+      })
+    },
+
+    recalculateStability: async () => {
+      const state = get()
+      const partsList = Object.values(state.parts)
+      if (partsList.length === 0) {
+        state.setStabilityScore(100)
+        state.setStressData({})
+        return
+      }
+      try {
+        const result = await sidecarBridge.requestStability(partsList, state.connections)
+        state.setStabilityScore(result.stability)
+        if (result.stress_data) {
+          state.setStressData(result.stress_data)
+        }
+      } catch (err) {
+        console.error('Failed to recalculate stability', err)
+      }
     },
 
     setSidecarConnected: (connected: boolean) => {

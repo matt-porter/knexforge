@@ -230,30 +230,45 @@ def _segment_min_distance(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray, p4: np
     return float(np.linalg.norm(closest))
 
 
-def check_rod_overlap(
+def check_part_overlap(
     new_instance: PartInstance,
     existing_parts: dict[str, PartInstance],
     connected_ids: set[str],
-    min_clearance_mm: float = 3.0,
+    connector_clearance_mm: float = 15.0,
+    rod_clearance_mm: float = 3.0,
 ) -> bool:
-    """Return True if the new part does NOT overlap existing rods.
+    """Return True if the new part does NOT overlap any existing parts.
 
-    Checks line-segment distance between rods, skipping parts that share
-    a direct connection (which are expected to touch).
+    Checks:
+    - Connector vs connector: bounding-sphere overlap (centers too close)
+    - Rod vs rod: line-segment minimum distance
+    Skips parts in ``connected_ids`` (directly attached, expected to touch).
     """
+    # --- Rod vs Rod ---
     new_seg = _rod_segment(new_instance)
-    if new_seg is None:
-        return True
+    if new_seg is not None:
+        for inst_id, inst in existing_parts.items():
+            if inst_id in connected_ids:
+                continue
+            seg = _rod_segment(inst)
+            if seg is None:
+                continue
+            dist = _segment_min_distance(new_seg[0], new_seg[1], seg[0], seg[1])
+            if dist < rod_clearance_mm:
+                return False
 
-    for inst_id, inst in existing_parts.items():
-        if inst_id in connected_ids:
-            continue
-        seg = _rod_segment(inst)
-        if seg is None:
-            continue
-        dist = _segment_min_distance(new_seg[0], new_seg[1], seg[0], seg[1])
-        if dist < min_clearance_mm:
-            return False
+    # --- Connector / non-rod vs same-category overlap ---
+    if new_instance.part.category != "rod":
+        new_pos = np.array(new_instance.position)
+        for inst_id, inst in existing_parts.items():
+            if inst_id in connected_ids:
+                continue
+            if inst.part.category == "rod":
+                continue
+            dist = float(np.linalg.norm(new_pos - np.array(inst.position)))
+            if dist < connector_clearance_mm:
+                return False
+
     return True
 
 

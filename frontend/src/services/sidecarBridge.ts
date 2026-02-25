@@ -27,8 +27,9 @@ export interface SnapResponse {
 }
 
 export interface StabilityResponse {
-  score: number
-  is_stable: boolean
+  stability: number
+  details: Record<string, any>
+  stress_data?: Record<string, number>
 }
 
 export interface BuildExport {
@@ -125,7 +126,7 @@ export class SidecarBridge {
    */
   async requestStability(parts: PartInstance[], connections: Connection[]): Promise<StabilityResponse> {
     if (!this._connected) {
-      return { score: 100, is_stable: true }
+      return { stability: 100, details: {} }
     }
 
     try {
@@ -140,7 +141,7 @@ export class SidecarBridge {
       })
       return (await resp.json()) as StabilityResponse
     } catch {
-      return { score: 100, is_stable: true }
+      return { stability: 100, details: {} }
     }
   }
 

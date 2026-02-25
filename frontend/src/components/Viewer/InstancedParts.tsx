@@ -14,6 +14,7 @@ import type { KnexPartDef, PartInstance } from '../../types/parts'
 import { getGlbUrl } from '../../hooks/usePartLibrary'
 import { getMeshCorrection } from '../../helpers/meshCorrection'
 import { useVisualStore } from '../../stores/visualStore'
+import { useBuildStore } from '../../stores/buildStore'
 
 interface InstancedPartsProps {
   /** Part definition (all instances must be the same part type). */
@@ -35,6 +36,7 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
   const url = getGlbUrl(def)
   const { scene } = useGLTF(url)
   const { mode: visualMode, explosionFactor } = useVisualStore()
+  const stressData = useBuildStore((state) => state.stressData)
 
   // Mesh correction for GLB→port alignment
   const correctionMatrix = useMemo(() => {
@@ -110,9 +112,7 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
 
       // Per-instance color override
       if (visualMode === 'stress') {
-        // Fake stress map: Use part ID hash
-        const hash = inst.instance_id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-        const stress = (hash % 100) / 100 // 0 to 1
+        const stress = stressData?.[inst.instance_id] || 0.0 // 0 to 1
         meshRef.current.setColorAt(i, new Color().lerpColors(new Color('#0044ff'), new Color('#ff0000'), stress))
       } else if (inst.color) {
         meshRef.current.setColorAt(i, new Color(inst.color))
@@ -125,7 +125,7 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
     if (meshRef.current.instanceColor) {
       meshRef.current.instanceColor.needsUpdate = true
     }
-  }, [instances, def.default_color, correctionMatrix, visualMode, explosionFactor])
+  }, [instances, def.default_color, correctionMatrix, visualMode, explosionFactor, stressData])
 
   if (!geometry || instances.length === 0) return null
 
