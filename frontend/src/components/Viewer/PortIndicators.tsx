@@ -247,7 +247,6 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
             e.stopPropagation()
 
             // Reset variant index when moving to a different indicator position
-            const store = useInteractionStore.getState()
             const prevHovered = hoveredPortId
             if (prevHovered !== ind.positionKey) {
                 // Use set() directly to avoid triggering the setSnapTarget reset logic

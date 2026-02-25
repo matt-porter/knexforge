@@ -181,7 +181,19 @@ All 31 tests passing. Core is fully runnable.
 - Multi-variant snapping via `PortIndicators`.
 - Tab-key cycling UX overlay for `activeSnapVariantIndex`.
 
-### ✅ Task 4.8: Side-Clip Connector-onto-Rod Support
+### ✅ Task 4.9: Model Browser UI
+- New **Model Browser** tab in the main app alongside the existing Builder tab.
+- `dataset.jsonl` served at `/dataset.jsonl` in dev and copied into `dist/` for production (new `serveDatasetPlugin` in `vite.config.ts`).
+- `src/types/dataset.ts` — TypeScript types (`DatasetEntry`, `DatasetAddPartAction`, `DatasetSnapAction`).
+- `src/stores/datasetStore.ts` — Zustand store: lazy JSONL fetch, free-text search, stability filter (`all/stable/unstable`), selected model index.
+- `src/hooks/useDataset.ts` — `useDatasetLoader` hook (triggers one-shot fetch), `datasetEntryToBuild` (converts action stream → `PartInstance[]` + `Connection[]`), `countParts`.
+- `src/components/ModelBrowser/ModelBrowser.tsx` — full-page component: filterable sidebar of model cards with stability badges + piece counts; 3D viewer pane showing the selected model; "Open in Builder" button fires `knexforge:open-builder` CustomEvent.
+- `App.tsx` rewritten with a tab bar (🔧 Builder / 📂 Model Browser); live stability indicator; tabs share the same `KnexViewer`/`BuildStore` so a model loaded in the browser opens instantly in the builder.
+- `BuildScene` and `KnexViewer` gained `loadDemoWhenEmpty` prop so the browser's empty-state doesn't trigger the demo build.
+- **42 new tests** (25 datasetStore + 17 useDataset) — all 126 tests green.
+- Fixed pre-existing unused-variable TypeScript error in `PortIndicators.tsx`.
+
+
 - Added `rod_side` and `slide_hole` to Python `MateType` literal — part JSONs with these types now load and validate correctly in the Python core.
 - Updated `snap_ports()` to handle side-on clip connections (rod_side ↔ rod_hole) with anti-parallel direction checks, alongside existing end-on logic.
 - Added `align_part_to_port()` generic helper supporting both end-on and side-on alignment with configurable twist angle.

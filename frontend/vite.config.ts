@@ -37,6 +37,37 @@ function servePartsPlugin(): Plugin {
   }
 }
 
+/**
+ * Serves dataset.jsonl from the project root at /dataset.jsonl in dev,
+ * and copies it into the build output for production.
+ */
+function serveDatasetPlugin(): Plugin {
+  const datasetPath = path.resolve(__dirname, '..', 'dataset.jsonl')
+
+  return {
+    name: 'serve-dataset',
+
+    configureServer(server) {
+      server.middlewares.use('/dataset.jsonl', (_req, res, next) => {
+        if (fs.existsSync(datasetPath)) {
+          res.setHeader('Content-Type', 'application/x-ndjson')
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          fs.createReadStream(datasetPath).pipe(res)
+        } else {
+          next()
+        }
+      })
+    },
+
+    closeBundle() {
+      const destPath = path.resolve(__dirname, 'dist', 'dataset.jsonl')
+      if (fs.existsSync(datasetPath)) {
+        fs.copyFileSync(datasetPath, destPath)
+      }
+    },
+  }
+}
+
 function copyDirSync(src: string, dest: string) {
   fs.mkdirSync(dest, { recursive: true })
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
@@ -51,7 +82,7 @@ function copyDirSync(src: string, dest: string) {
 }
 
 export default defineConfig({
-  plugins: [react(), servePartsPlugin()],
+  plugins: [react(), servePartsPlugin(), serveDatasetPlugin()],
   clearScreen: false,
   server: {
     port: 5173,

@@ -198,12 +198,21 @@ function GhostLayer({ defs }: { defs: Map<string, KnexPartDef> }) {
   return <GhostPreview def={def} />
 }
 
+interface BuildSceneProps {
+  /**
+   * When true, a demo build is loaded automatically if the store is empty.
+   * Set to false when the viewer is embedded in the Model Browser so an
+   * empty-store is a valid "no model selected" state.
+   */
+  loadDemoWhenEmpty?: boolean
+}
+
 /**
  * Top-level build scene component.
  * Reads parts from the Zustand build store. Falls back to a demo build
- * when the store is empty (no build loaded yet).
+ * when the store is empty (no build loaded yet) and loadDemoWhenEmpty is true.
  */
-export function BuildScene() {
+export function BuildScene({ loadDemoWhenEmpty = true }: BuildSceneProps) {
   const { defs, loading, error } = usePartDefs()
   const storeParts = useBuildStore((s) => s.parts)
   const selectedPartId = useBuildStore((s) => s.selectedPartId)
@@ -219,10 +228,10 @@ export function BuildScene() {
   // Load demo build into store if store is empty and defs are ready
   const demoParts = useMemo(() => createDemoBuild(), [])
   useEffect(() => {
-    if (defs.size > 0 && Object.keys(storeParts).length === 0) {
+    if (loadDemoWhenEmpty && defs.size > 0 && Object.keys(storeParts).length === 0) {
       loadBuild(demoParts, [])
     }
-  }, [defs.size, storeParts, loadBuild, demoParts])
+  }, [loadDemoWhenEmpty, defs.size, storeParts, loadBuild, demoParts])
 
   // Build the parts list from the store
   const partsList = useMemo(() => Object.values(storeParts), [storeParts])

@@ -10,7 +10,7 @@ import { useEffect } from 'react'
  * Provides the Canvas, lighting, grid, orbit controls, and environment.
  * The BuildScene renders actual K'Nex parts from GLB meshes.
  */
-export function KnexViewer() {
+export function KnexViewer({ loadDemoWhenEmpty = true }: { loadDemoWhenEmpty?: boolean }) {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Canvas
@@ -38,7 +38,7 @@ export function KnexViewer() {
         <directionalLight position={[-80, 100, -60]} intensity={0.3} />
 
         {/* The build scene renders all K'Nex parts */}
-        <BuildScene />
+        <BuildScene loadDemoWhenEmpty={loadDemoWhenEmpty} />
 
         {/* Reference grid on the ground plane */}
         <Grid
