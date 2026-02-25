@@ -116,10 +116,20 @@ def test_snap_ports_uses_port_specific_tolerance(connector, rod):
 
 
 @pytest.mark.parametrize("port_id", ["A", "B", "C"])
-def test_snap_to_any_3way_port_works(connector, rod, port_id):
-    """All three ports on 3-way connector are snappable when properly aligned."""
+def test_snap_to_first_three_ports_of_4way_green(connector, rod, port_id):
+    """Ports A, B, C on the green 4-way connector are each snappable when properly aligned."""
     aligned = _aligned_rod(rod, connector, port_id)
     result = snap_ports(aligned, "end1", connector, port_id, 0.2)
+    assert isinstance(result, Connection)
+
+
+@pytest.mark.parametrize("port_id", ["A", "B", "C"])
+def test_snap_to_all_ports_of_3way_red_connector(library, rod, port_id):
+    """All three edge ports (A=0 deg, B=45 deg, C=90 deg) on the red 3-way connector snap correctly."""
+    conn_part = library.get("connector-3way-red-v1")
+    conn_inst = PartInstance(instance_id="c_red", part=conn_part, position=(0.0, 0.0, 0.0))
+    aligned = _aligned_rod(rod, conn_inst, port_id)
+    result = snap_ports(aligned, "end1", conn_inst, port_id, 0.2)
     assert isinstance(result, Connection)
 
 

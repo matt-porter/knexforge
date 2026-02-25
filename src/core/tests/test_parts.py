@@ -49,6 +49,42 @@ def test_part_loader_returns_correct_4way_connector(clean_part_library):
     assert center.accepts == ["rod_end"]
 
 
+
+
+def test_part_loader_returns_correct_3way_red_connector(clean_part_library):
+    """Detailed check on the red 3-way connector (3 edge ports at 0°/45°/90° + center)."""
+    part: KnexPart = clean_part_library.get("connector-3way-red-v1")
+
+    assert part.name == "Red 3-Way Connector (90°)"
+    assert part.category == "connector"
+    assert part.default_color == "#E21B1B"
+    assert len(part.ports) == 4  # A (0°), B (45°), C (90°) edge ports + center hole
+
+    # Port A at 0° (positive X)
+    a = next(p for p in part.ports if p.id == "A")
+    assert a.position == (12.7, 0.0, 0.0)
+    assert a.direction == (1.0, 0.0, 0.0)
+    assert a.mate_type == "rod_hole"
+    assert a.accepts == ["rod_end", "rod_side"]
+
+    # Port B at 45°
+    b = next(p for p in part.ports if p.id == "B")
+    assert b.position == (8.98, 8.98, 0.0)
+    assert b.direction == (0.707, 0.707, 0.0)
+    assert b.mate_type == "rod_hole"
+
+    # Port C at 90° (positive Y)
+    c = next(p for p in part.ports if p.id == "C")
+    assert c.position == (0.0, 12.7, 0.0)
+    assert c.direction == (0.0, 1.0, 0.0)
+    assert c.mate_type == "rod_hole"
+
+    # Center hole — only accepts rod_end
+    center = next(p for p in part.ports if p.id == "center")
+    assert center.position == (0.0, 0.0, 0.0)
+    assert center.direction == (0.0, 0.0, 1.0)
+    assert center.accepts == ["rod_end"]
+
 def test_part_loader_rod_port_geometry(clean_part_library):
     """Rods have end ports, center axial ports, and a center tangent (side-clip) port."""
     rod = clean_part_library.get("rod-128-red-v1")

@@ -6,7 +6,7 @@ import type { KnexPartDef } from '../types/parts'
 const PART_IDS = [
   'connector-1way-grey-v1',
   'connector-2way-orange-v1',
-  'connector-2way-red-v1',
+  'connector-3way-red-v1',
   'connector-4way-green-v1',
   'connector-5way-yellow-v1',
   'connector-4way-3d-purple-v1',

@@ -199,7 +199,7 @@ describe('datasetEntryToBuild — real dataset entry (proc_0001)', () => {
       { step: 9, action: 'snap', from_port: '0806aba9.D', to_port: 'f39cabc4.center_axial_1' },
       { step: 10, action: 'add_part', part_id: 'connector-5way-yellow-v1', instance_id: '50c84772', position: [-45, -62, -39], quaternion: [0, 0, -0.64, 0.76], color: null },
       { step: 11, action: 'snap', from_port: 'b96b8573.end1', to_port: '50c84772.D' },
-      { step: 12, action: 'add_part', part_id: 'connector-2way-red-v1', instance_id: 'ebc459ba', position: [0, 12.7, 0], quaternion: [0, 0, -1, 0], color: null },
+      { step: 12, action: 'add_part', part_id: 'connector-3way-red-v1', instance_id: 'ebc459ba', position: [0, 12.7, 0], quaternion: [0, 0, -1, 0], color: null },
       { step: 13, action: 'snap', from_port: 'ab4b13f4.center_tangent', to_port: 'ebc459ba.B' },
     ],
   }
