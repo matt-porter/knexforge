@@ -27,10 +27,13 @@ dev = [
 ]
 physics = [
     "pybullet>=3.2",
-    "pybullet = { version = \"^3.2.5\", optional = true }"
 ]
 meshgen = [
     "trimesh>=4.0",
+]
+ai = [
+    "ollama>=0.1",
+    "tqdm>=4.66"
 ]
 
 [tool.hatch.build.targets.wheel]

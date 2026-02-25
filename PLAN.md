@@ -196,22 +196,24 @@ All 31 tests passing. Core is fully runnable.
 
 ## Phase 5 — AI Layer
 
-### Task 5.1: Initialize `ai/` directory
-- Fork/adapt LegoGPT architecture (per ai-training-plan.md)
-- Dataset generator script (JSONL output)
-- `--dry-run` flag for testing
+### ✅ Task 5.1: Initialize `ai/` directory
+- `src/ai/__init__.py`, `dataset_generator.py`, `inference.py` created
+- Dataset generator outputs JSONL with `--dry-run` flag
+- All imports aligned to actual core API (`PartLoader.load()`, `Build.add_part(PartInstance)`, `attempt_snap()`, `compute_stability()`)
+- 2 dataset tests + 3 inference tests passing (76 total + 2 skipped)
 
-### Task 5.2: Training Data Pipeline
-- Procedural K'Nex model generation using core
-- Stability filtering via physics sim
-- Multi-view rendering → captioning
-- Output: 60k+ (prompt, action-sequence) pairs
+### ✅ Task 5.2: Training Data Pipeline (Basic)
+- `generate_procedural_build()`: random valid builds via port-compatibility matching + `align_part_to_port()`
+- `generate_dataset()`: JSONL output with stability scoring, action history export, captions
+- Stability filtering via `compute_stability()` (Tier 1 graph physics)
+- ❌ **Not yet done**: Multi-view rendering → captioning, scale to 60k+ pairs
 
-### Task 5.3: Inference Loop
-- JSON action stream prediction
-- Core validation at each step
-- Rollback on invalid/unstable actions
-- Ollama integration for local inference
+### ✅ Task 5.3: Inference Loop (Basic)
+- `InferenceEngine` class with autoregressive JSON action stream via Ollama
+- Core validation at each step (unknown part IDs rejected, invalid snaps rejected)
+- Rollback on unstable builds (`compute_stability < 50`)
+- Consecutive failure limit (3) to prevent infinite loops
+- ❌ **Not yet done**: Fine-tuned model, prompt engineering for quality, multi-view conditioning
 
 ---
 
