@@ -89,7 +89,8 @@
               "tab",
               "clip",
               "rod_side",
-              "slide_hole"
+              "slide_hole",
+              "connector_slot"
             ],
             "description": "What this port accepts or provides"
           },

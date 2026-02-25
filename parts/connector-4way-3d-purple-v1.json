@@ -8,7 +8,7 @@
   "mass_grams": 1.8,
   "ports": [
     {
-      "id": "N",
+      "id": "A",
       "position": [12.7, 0.0, 0.0],
       "direction": [1.0, 0.0, 0.0],
       "mate_type": "rod_hole",
@@ -17,7 +17,16 @@
       "tolerance_mm": 0.2
     },
     {
-      "id": "E",
+      "id": "B",
+      "position": [8.98, 8.98, 0.0],
+      "direction": [0.7071, 0.7071, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "C",
       "position": [0.0, 12.7, 0.0],
       "direction": [0.0, 1.0, 0.0],
       "mate_type": "rod_hole",
@@ -26,21 +35,21 @@
       "tolerance_mm": 0.2
     },
     {
-      "id": "S",
-      "position": [-12.7, 0.0, 0.0],
-      "direction": [-1.0, 0.0, 0.0],
+      "id": "D",
+      "position": [-8.98, 8.98, 0.0],
+      "direction": [-0.7071, 0.7071, 0.0],
       "mate_type": "rod_hole",
       "accepts": ["rod_end", "rod_side"],
       "allowed_angles_deg": [0, 90, 180, 270],
       "tolerance_mm": 0.2
     },
     {
-      "id": "Up",
-      "position": [0.0, 0.0, 12.7],
-      "direction": [0.0, 0.0, 1.0],
-      "mate_type": "rod_hole",
-      "accepts": ["rod_end", "rod_side"],
-      "allowed_angles_deg": [0, 90, 180, 270],
+      "id": "slot",
+      "position": [0.0, 0.0, 0.0],
+      "direction": [-1.0, 0.0, 0.0],
+      "mate_type": "connector_slot",
+      "accepts": ["connector_slot"],
+      "allowed_angles_deg": [90, 270],
       "tolerance_mm": 0.2
     },
     {
