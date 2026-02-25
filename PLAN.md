@@ -204,6 +204,26 @@ All 31 tests passing. Core is fully runnable.
 - Added 3 dedicated Tab cycling regression tests (`tabCycling.test.ts`).
 - All 71 Python tests pass, all 84 frontend tests pass.
 
+### Task 4.10: More user interactions
+
+- Where parts can slide (e.g. rod-through-hole, or side on click), the user should be able to freely choose where the part sits along the length of the rod. We need new UI for this, unless it can be done by constraints based on other parts.
+- Maybe this sliding/rotating of freely movable parts could be acheived by having a way to attach the other end of a rod, after the rod is already attached to the model at one end.
+- Similarly, when a part could rotate, e.g. connector with a rod through hole, or connector on the end of rod, it would be uesful to be able to rotate it, even after it's attached
+- When using tab or r to rotate or select alternative attachment points, it would be nice if the part movement was animated
+
+### Task 4.11: More modelling changes/additions
+
+- Green micro rods aren't long enough to clip connectors on to, so shouldn't have that option.
+- Wheel should only have the hole as attachment point, can't attach rods.
+- New modelling for 3D parts "blue ball" "purple quarter ball" "blue/purple half ball"
+- New models for spacers, beige locking clips etc
+
+
+# Task 4.12: Improved physics
+
+- enable gravity when considering model stability/strength/tension
+- Freely movable parts, e.g. wheels, pivots - how to show in UI?
+
 ---
 
 ## Phase 5 — AI Layer
@@ -226,6 +246,7 @@ All 31 tests passing. Core is fully runnable.
 - Rollback on unstable builds (`compute_stability < 50`)
 - Consecutive failure limit (3) to prevent infinite loops
 - ❌ **Not yet done**: Fine-tuned model, prompt engineering for quality, multi-view conditioning
+- Sketch or description input -> model output
 
 ---
 
@@ -248,6 +269,13 @@ All 31 tests passing. Core is fully runnable.
 - `CONTRIBUTING.md`
 - User-facing docs / tutorial
 - API reference (auto-generated from docstrings)
+- Github project page, donation support
+
+### Task 6.5 Go live / Promotion
+
+- Find user / discussion groups online
+- Research interests
+- Get feedback
 
 ---
 
