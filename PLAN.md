@@ -292,3 +292,5 @@ Phase 6 (Polish)
 5. **Task 1.5** — Run tests, get to green
 6. **Task 2.1** — Move README to root
 7. **Task 2.4** — Add `.gitignore`
+- Removed purple 3D connector from UI and dataset generator (planned/fixed)
+- Task: Fix purple 3D connector and blue 7-way connector models (geometry, port layout, UI and dataset support)

@@ -22,12 +22,101 @@ def _port_world_pose(instance: PartInstance, port_id: str) -> tuple[np.ndarray, 
     return pos_world, dir_world
 
 
+def are_ports_compatible(port_a: Port, port_b: Port) -> bool:
+    """Check if two ports can physically mate (both must accept each other)."""
+    return port_a.mate_type in port_b.accepts and port_b.mate_type in port_a.accepts
+
+
 def _is_side_on_connection(from_port: Port, to_port: Port) -> bool:
     """Return True if this is a side-on clip connection (rod_side ↔ rod_hole)."""
     return (
         (from_port.mate_type == "rod_side" and to_port.mate_type == "rod_hole")
         or (from_port.mate_type == "rod_hole" and to_port.mate_type == "rod_side")
     )
+
+
+def _get_world_axis(instance: PartInstance, local_axis: np.ndarray) -> np.ndarray:
+    """Transform a local axis vector to world space using the instance's rotation."""
+    rot = R.from_quat(instance.quaternion)
+    return rot.apply(local_axis)
+
+
+def validate_physical_constraints(
+    placing_instance: PartInstance,
+    placing_port: Port,
+    target_instance: PartInstance,
+    target_port: Port,
+) -> bool:
+    """Validate physical orientation constraints for a rod↔connector connection.
+
+    Mirrors the frontend's PortIndicators.tsx constraints (lines 129-191) to ensure:
+    - Side-on clips (rod_side) have correct rod axis orientation relative to connector
+    - Center axial ports only connect through center holes
+    - End-on snaps have correct rod axis alignment
+    """
+    placing_def = placing_instance.part
+    target_def = target_instance.part
+
+    # Only applies to rod↔connector connections
+    is_rod_connector = (
+        (placing_def.category == "rod" and target_def.category == "connector")
+        or (placing_def.category == "connector" and target_def.category == "rod")
+    )
+    if not is_rod_connector:
+        return True
+
+    is_placing_rod = placing_def.category == "rod"
+
+    # Rod main axis = local X; connector normal = local Z
+    rod_world_main_axis = _get_world_axis(
+        placing_instance if is_placing_rod else target_instance,
+        np.array([1.0, 0.0, 0.0]),
+    )
+    connector_world_z = _get_world_axis(
+        target_instance if is_placing_rod else placing_instance,
+        np.array([0.0, 0.0, 1.0]),
+    )
+
+    connector_dir = target_port.direction if is_placing_rod else placing_port.direction
+    rod_mate_type = placing_port.mate_type if is_placing_rod else target_port.mate_type
+    rod_port_id = placing_port.id if is_placing_rod else target_port.id
+    connector_port_id = target_port.id if is_placing_rod else placing_port.id
+
+    is_flat_connector_edge = abs(connector_dir[2]) < 0.1
+    is_3d_connector_edge = abs(connector_dir[2]) > 0.9
+
+    # 1. Side-on clipping (rod_side)
+    if rod_mate_type == "rod_side":
+        if is_flat_connector_edge:
+            # Must be vertical (orthogonal to connector plane)
+            if abs(np.dot(rod_world_main_axis, connector_world_z)) < 0.99:
+                return False
+        elif is_3d_connector_edge:
+            # Must be horizontal (in connector plane)
+            if abs(np.dot(rod_world_main_axis, connector_world_z)) > 0.1:
+                return False
+
+    # 2. Axial sliding (center_axial) — only through center holes
+    if rod_port_id.startswith("center_axial"):
+        if connector_port_id != "center":
+            return False
+        # Must be perfectly orthogonal to connector plane (along Z)
+        if abs(np.dot(rod_world_main_axis, connector_world_z)) < 0.99:
+            return False
+
+    # 3. End-on snapping (rod_end, not center_axial)
+    if rod_mate_type == "rod_end" and not rod_port_id.startswith("center_axial"):
+        if connector_port_id != "center":
+            # Edge clip: rod must lie flat in the connector plane
+            if is_flat_connector_edge:
+                if abs(np.dot(rod_world_main_axis, connector_world_z)) > 0.1:
+                    return False
+        else:
+            # Center hole: rod must be orthogonal (straight through)
+            if abs(np.dot(rod_world_main_axis, connector_world_z)) < 0.99:
+                return False
+
+    return True
 
 
 def snap_ports(
@@ -47,8 +136,8 @@ def snap_ports(
     from_port = from_instance.get_port(from_port_id)
     to_port = to_instance.get_port(to_port_id)
 
-    # Mate-type compatibility (bidirectional check)
-    if from_port.mate_type not in to_port.accepts and to_port.mate_type not in from_port.accepts:
+    # Mate-type compatibility (bidirectional — both ports must accept each other)
+    if not are_ports_compatible(from_port, to_port):
         return None
 
     # World poses
@@ -74,12 +163,98 @@ def snap_ports(
         if angle_deg > 5.0:
             return None
 
+    # Physical orientation constraints (rod↔connector rules)
+    if not validate_physical_constraints(from_instance, from_port, to_instance, to_port):
+        return None
+
     return Connection(
         from_instance=from_instance.instance_id,
         from_port=from_port_id,
         to_instance=to_instance.instance_id,
         to_port=to_port_id,
     )
+
+
+def _rod_segment(instance: PartInstance) -> tuple[np.ndarray, np.ndarray] | None:
+    """Return world-space (start, end) segment for a rod from its rod_end ports."""
+    if instance.part.category != "rod":
+        return None
+    ends = [p for p in instance.part.ports if p.mate_type == "rod_end" and not p.id.startswith("center_axial")]
+    if len(ends) < 2:
+        return None
+    rot = R.from_quat(instance.quaternion)
+    pos = np.array(instance.position)
+    p1 = pos + rot.apply(np.array(ends[0].position))
+    p2 = pos + rot.apply(np.array(ends[1].position))
+    return p1, p2
+
+
+def _segment_min_distance(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray, p4: np.ndarray) -> float:
+    """Minimum distance between two line segments (p1-p2) and (p3-p4)."""
+    d1 = p2 - p1
+    d2 = p4 - p3
+    r = p1 - p3
+
+    a = float(np.dot(d1, d1))
+    e = float(np.dot(d2, d2))
+    f = float(np.dot(d2, r))
+
+    EPS = 1e-8
+    if a <= EPS and e <= EPS:
+        return float(np.linalg.norm(r))
+
+    if a <= EPS:
+        s = 0.0
+        t = np.clip(f / e, 0.0, 1.0)
+    else:
+        c = float(np.dot(d1, r))
+        if e <= EPS:
+            t = 0.0
+            s = np.clip(-c / a, 0.0, 1.0)
+        else:
+            b = float(np.dot(d1, d2))
+            denom = a * e - b * b
+            if abs(denom) > EPS:
+                s = np.clip((b * f - c * e) / denom, 0.0, 1.0)
+            else:
+                s = 0.0
+            t = (b * s + f) / e
+            if t < 0.0:
+                t = 0.0
+                s = np.clip(-c / a, 0.0, 1.0)
+            elif t > 1.0:
+                t = 1.0
+                s = np.clip((b - c) / a, 0.0, 1.0)
+
+    closest = r + d1 * s - d2 * t
+    return float(np.linalg.norm(closest))
+
+
+def check_rod_overlap(
+    new_instance: PartInstance,
+    existing_parts: dict[str, PartInstance],
+    connected_ids: set[str],
+    min_clearance_mm: float = 3.0,
+) -> bool:
+    """Return True if the new part does NOT overlap existing rods.
+
+    Checks line-segment distance between rods, skipping parts that share
+    a direct connection (which are expected to touch).
+    """
+    new_seg = _rod_segment(new_instance)
+    if new_seg is None:
+        return True
+
+    for inst_id, inst in existing_parts.items():
+        if inst_id in connected_ids:
+            continue
+        seg = _rod_segment(inst)
+        if seg is None:
+            continue
+        dist = _segment_min_distance(new_seg[0], new_seg[1], seg[0], seg[1])
+        if dist < min_clearance_mm:
+            return False
+    return True
 
 
 def align_rod_to_hole(

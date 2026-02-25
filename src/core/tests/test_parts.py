@@ -9,11 +9,11 @@ from core.parts.loader import PartLoader
 from core.parts.models import KnexPart, Port
 
 
-def test_part_loader_loads_all_16_core_parts(clean_part_library):
-    """Verify all 16 parts from our JSON files are loaded correctly."""
+def test_part_loader_loads_all_active_parts(clean_part_library):
+    """Verify all active parts (non-underscore-prefixed) are loaded correctly."""
     library = clean_part_library
-    assert len(library.parts) == 16
-    assert len(library.get_by_category("connector")) == 9
+    assert len(library.parts) == 13
+    assert len(library.get_by_category("connector")) == 6
     assert len(library.get_by_category("rod")) == 6
     assert len(library.get_by_category("wheel")) == 1
 

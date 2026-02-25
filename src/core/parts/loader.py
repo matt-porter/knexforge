@@ -30,7 +30,7 @@ class PartLoader:
 
         library = PartLibrary()
 
-        for json_file in sorted(PARTS_DIR.glob("*.json")):
+        for json_file in sorted(PARTS_DIR.glob("[!_]*.json")):
             raw = json.loads(json_file.read_text(encoding="utf-8"))
             part = KnexPart.model_validate(raw)
 

@@ -10,30 +10,18 @@ from pathlib import Path
 from src.core.build import Build
 from src.core.parts.models import PartLibrary, PartInstance
 from src.core.parts.loader import PartLoader
-from src.core.snapping import align_part_to_port, are_ports_compatible, check_rod_overlap, snap_ports
+from src.core.snapping import align_part_to_port
 from src.core.physics.graph import compute_stability
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
-def _choose_valid_twist_deg(placing_port, target_port):
-    """Choose a twist angle from intersection of allowed_angles, or fallback to target's allowed."""
-    angle_set_1 = set(placing_port.allowed_angles_deg)
-    angle_set_2 = set(target_port.allowed_angles_deg)
-    intersection = angle_set_1 & angle_set_2
-    if intersection:
-        return random.choice(sorted(list(intersection)))
-    else:
-        # Fallback to just the target's allowed angles
-        return random.choice(sorted(list(angle_set_2)))
-
-
 def generate_procedural_build(library: PartLibrary, max_parts: int = 20) -> Build:
-    """Generate a random but valid K'Nex build, with validated orientation."""
+    """Generate a random but valid K'Nex build."""
     build = Build()
 
-    part_types = [pid for pid, p in library.parts.items() if p.category != "wheel"]
+    part_types = list(library.parts.keys())
     if not part_types:
         return build
 
@@ -57,7 +45,7 @@ def generate_procedural_build(library: PartLibrary, max_parts: int = 20) -> Buil
         target_instance = build.parts[target_instance_id]
         target_part_def = target_instance.part
 
-        # Find open ports on the target that are not used
+        # Find open ports on the target
         used_ports: set[str] = set()
         for conn in build.connections:
             if conn.from_instance == target_instance_id:
@@ -75,19 +63,18 @@ def generate_procedural_build(library: PartLibrary, max_parts: int = 20) -> Buil
         new_type = random.choice(part_types)
         new_part_def = library.parts[new_type]
 
-        # Find a compatible port on the new part (using the accepts field)
+        # Find a compatible port on the new part
         compatible_ports = []
         for port in new_part_def.ports:
-            if are_ports_compatible(port, target_port):
+            if target_port.mate_type == "rod_hole" and port.mate_type in ("rod_end", "rod_side"):
+                compatible_ports.append(port)
+            elif target_port.mate_type in ("rod_end", "rod_side") and port.mate_type == "rod_hole":
                 compatible_ports.append(port)
 
         if not compatible_ports:
             continue
 
         new_port = random.choice(compatible_ports)
-
-        # --- CRUCIAL DIFF: Valid twist angle selection ---
-        twist_deg = _choose_valid_twist_deg(new_port, target_port)
 
         # Create a temporary instance at origin to pass to align_part_to_port
         temp_instance = PartInstance(
@@ -102,7 +89,6 @@ def generate_procedural_build(library: PartLibrary, max_parts: int = 20) -> Buil
             placing_port_id=new_port.id,
             target_instance=target_instance,
             target_port_id=target_port.id,
-            twist_deg=twist_deg,
         )
 
         new_instance = PartInstance(
@@ -111,33 +97,14 @@ def generate_procedural_build(library: PartLibrary, max_parts: int = 20) -> Buil
             position=pos,
             quaternion=rot,
         )
-
-        # --- SNAP VALIDATION: Ensure proposed connection is physically valid ---
-        result = snap_ports(
-            target_instance, target_port.id,
-            new_instance, new_port.id,
-            tolerance_mm=0.2,
-        )
-        if result is None:
-            continue  # Bad connection; skip and retry
-
-        # --- Collision detection: ensure no rod overlap ---
-        connected_ids = {target_instance_id}
-        if not check_rod_overlap(new_instance, build.parts, connected_ids):
-            continue  # Would overlap existing rods; skip
-
         build.add_part(new_instance)
 
-        conn = build.attempt_snap(
+        build.attempt_snap(
             from_instance_id=target_instance_id,
             from_port_id=target_port.id,
             to_instance_id=new_instance.instance_id,
             to_port_id=new_port.id,
         )
-
-        # If snap failed after add, roll back the part
-        if conn is None:
-            build.remove_part(new_instance.instance_id, record=False)
 
     return build
 
@@ -158,17 +125,12 @@ def generate_dataset(output_file: str, count: int, dry_run: bool = False) -> Non
             logger.info(f"Generating model {i+1}/{count}...")
             build = generate_procedural_build(library, max_parts=random.randint(5, 25))
 
-            if len(build.parts) < 2:
+            if not build.parts:
                 continue
 
             score = float(compute_stability(build))
-
-            # Skip disconnected builds (stability 0 means disconnected graph)
-            if score == 0.0:
-                logger.warning(f"Model {i+1} is disconnected, skipping.")
-                continue
-
             is_stable = score > 50.0
+
             if is_stable:
                 stable_builds += 1
 
