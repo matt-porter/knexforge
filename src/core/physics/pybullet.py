@@ -114,25 +114,23 @@ class PyBulletSimulator:
                     joint_type = "prismatic"
 
             if joint_type == "revolute":
-                # Create a pseudo-hinge using two point-to-point constraints on the same world axis.
-                # Important: parent/child frame points must reference the SAME world points, otherwise
-                # the constraints over-constrain and can suppress visible rotation.
+                # Try native revolute joint first (improved spinning reliability)
                 from_rot = R.from_quat(from_inst.quaternion)
                 to_rot = R.from_quat(to_inst.quaternion)
                 from_origin = np.array(from_inst.position, dtype=float)
                 to_origin = np.array(to_inst.position, dtype=float)
 
+                # World positions of connection ports
                 from_port_world = from_origin + from_rot.apply(np.array(from_port.position, dtype=float))
                 to_port_world = to_origin + to_rot.apply(np.array(to_port.position, dtype=float))
                 pivot_world = (from_port_world + to_port_world) * 0.5
 
-                # Use the rotational hole axis when available so connection direction does not matter.
+                # Get correct spin axis (use rotational_hole if present)
                 axis_inst = from_inst
                 axis_port = from_port
                 if from_port.mate_type != "rotational_hole" and to_port.mate_type == "rotational_hole":
                     axis_inst = to_inst
                     axis_port = to_port
-
                 axis_world = R.from_quat(axis_inst.quaternion).apply(np.array(axis_port.direction, dtype=float))
                 axis_norm = np.linalg.norm(axis_world)
                 if axis_norm <= 1e-8:
@@ -140,35 +138,53 @@ class PyBulletSimulator:
                 else:
                     axis_world = axis_world / axis_norm
 
-                secondary_world = pivot_world + axis_world * 10.0
-
-                # Convert the shared world pivots into each body's local frame.
-                p1_parent = from_rot.inv().apply(pivot_world - from_origin).tolist()
-                p1_child = to_rot.inv().apply(pivot_world - to_origin).tolist()
-                p2_parent = from_rot.inv().apply(secondary_world - from_origin).tolist()
-                p2_child = to_rot.inv().apply(secondary_world - to_origin).tolist()
+                # Parent/child pivot in each body's local frame
+                pivot_parent = from_rot.inv().apply(pivot_world - from_origin).tolist()
+                pivot_child = to_rot.inv().apply(pivot_world - to_origin).tolist()
+                axis_parent = from_rot.inv().apply(axis_world).tolist()
+                axis_child = to_rot.inv().apply(axis_world).tolist()
 
                 try:
-                    cid1 = p.createConstraint(parent_body, -1, child_body, -1, p.JOINT_POINT2POINT, [0,0,0], p1_parent, p1_child)
-                    cid2 = p.createConstraint(parent_body, -1, child_body, -1, p.JOINT_POINT2POINT, [0,0,0], p2_parent, p2_child)
-                    p.changeConstraint(cid1, maxForce=20000)
-                    p.changeConstraint(cid2, maxForce=20000)
-                    self.joint_constraints.append({"id": cid1, "parts": [from_inst.instance_id, to_inst.instance_id]})
-                    self.joint_constraints.append({"id": cid2, "parts": [from_inst.instance_id, to_inst.instance_id]})
-                except Exception:
-                    # Fall back to fixed if pseudo-hinge creation fails on this build.
-                    fixed_id = p.createConstraint(
+                    revolute_id = p.createConstraint(
                         parentBodyUniqueId=parent_body,
                         parentLinkIndex=-1,
                         childBodyUniqueId=child_body,
                         childLinkIndex=-1,
-                        jointType=p.JOINT_FIXED,
-                        jointAxis=[0, 0, 0],
-                        parentFramePosition=list(from_port.position),
-                        childFramePosition=list(to_port.position)
+                        jointType=p.JOINT_REVOLUTE,
+                        jointAxis=axis_parent,
+                        parentFramePosition=pivot_parent,
+                        childFramePosition=pivot_child
                     )
-                    p.changeConstraint(fixed_id, maxForce=10000)
-                    self.joint_constraints.append({"id": fixed_id, "parts": [from_inst.instance_id, to_inst.instance_id]})
+                    p.changeConstraint(revolute_id, maxForce=20000)
+                    self.joint_constraints.append({"id": revolute_id, "parts": [from_inst.instance_id, to_inst.instance_id]})
+                except Exception:
+                    # Fallback: dual point-to-point as pseudo-hinge (legacy)
+                    try:
+                        secondary_world = pivot_world + axis_world * 10.0
+                        p1_parent = pivot_parent
+                        p1_child = pivot_child
+                        p2_parent = from_rot.inv().apply(secondary_world - from_origin).tolist()
+                        p2_child = to_rot.inv().apply(secondary_world - to_origin).tolist()
+                        cid1 = p.createConstraint(parent_body, -1, child_body, -1, p.JOINT_POINT2POINT, [0,0,0], p1_parent, p1_child)
+                        cid2 = p.createConstraint(parent_body, -1, child_body, -1, p.JOINT_POINT2POINT, [0,0,0], p2_parent, p2_child)
+                        p.changeConstraint(cid1, maxForce=20000)
+                        p.changeConstraint(cid2, maxForce=20000)
+                        self.joint_constraints.append({"id": cid1, "parts": [from_inst.instance_id, to_inst.instance_id]})
+                        self.joint_constraints.append({"id": cid2, "parts": [from_inst.instance_id, to_inst.instance_id]})
+                    except Exception:
+                        # As last resort, rigid constraint
+                        fixed_id = p.createConstraint(
+                            parentBodyUniqueId=parent_body,
+                            parentLinkIndex=-1,
+                            childBodyUniqueId=child_body,
+                            childLinkIndex=-1,
+                            jointType=p.JOINT_FIXED,
+                            jointAxis=[0, 0, 0],
+                            parentFramePosition=list(from_port.position),
+                            childFramePosition=list(to_port.position)
+                        )
+                        p.changeConstraint(fixed_id, maxForce=10000)
+                        self.joint_constraints.append({"id": fixed_id, "parts": [from_inst.instance_id, to_inst.instance_id]})
                 continue # Joint(s) created, skip the standard block below
 
             pb_joint_type = p.JOINT_FIXED
