@@ -9,9 +9,10 @@ pybullet.py — Tier 2 physics simulation for K'NexForge
 This module is optional and requires pybullet to be installed.
 """
 
-from typing import Any, Optional
+from typing import Optional
 from pathlib import Path
-import importlib.util
+import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 try:
     import pybullet as p
@@ -55,7 +56,8 @@ class PyBulletSimulator:
         """Loads a part's convex hull mesh as a collision shape and returns the body id."""
         import trimesh
         from ..parts.loader import PartLoader
-        part_id = getattr(part_instance, 'part_id', getattr(part_instance, 'id', None))
+        part_id = getattr(part_instance, 'part', None)
+        part_id = getattr(part_id, 'id', None)
         mesh_path = None
         if part_id:
             mesh_path = PartLoader.get_mesh_path(part_id)
@@ -76,42 +78,131 @@ class PyBulletSimulator:
             collision_shape = p.createCollisionShape(p.GEOM_BOX, halfExtents=[5, 5, 5])
         
         body_id = p.createMultiBody(
-            baseMass=1.0,
+            baseMass=part_instance.part.mass_grams / 1000.0 if hasattr(part_instance.part, 'mass_grams') else 1.0,
             baseCollisionShapeIndex=collision_shape,
             basePosition=part_instance.position,
             baseOrientation=part_instance.quaternion
         )
+        # Prevent bodies from sleeping so simulation remains live
+        p.changeDynamics(body_id, -1, activationState=p.DISABLE_DEACTIVATION)
         return body_id
 
     def create_joints(self):
         """Creates joints between parts at validated ports."""
-        # For each connection, create a fixed joint between the two part bodies at the port positions
-        from ..parts.models import Connection
+        # For each connection, create a constraint between the two part bodies at the port positions
         for conn in self.build.connections:
+            if conn.from_instance not in self.part_bodies or conn.to_instance not in self.part_bodies:
+                continue
+                
             from_inst = self.build.parts[conn.from_instance]
             to_inst = self.build.parts[conn.to_instance]
             from_port = from_inst.get_port(conn.from_port)
             to_port = to_inst.get_port(conn.to_port)
             parent_body = self.part_bodies[from_inst.instance_id]
             child_body = self.part_bodies[to_inst.instance_id]
-            # Compute world positions for ports
-            from_pos = from_inst.position
-            to_pos = to_inst.position
-            # For now, use fixed joint at midpoint between ports
-            joint_pos = [
-                (f + t) / 2 for f, t in zip(from_pos, to_pos)
-            ]
-            joint_id = p.createConstraint(
-                parentBodyUniqueId=parent_body,
-                parentLinkIndex=-1,
-                childBodyUniqueId=child_body,
-                childLinkIndex=-1,
-                jointType=p.JOINT_FIXED,
-                jointAxis=[0, 0, 0],
-                parentFramePosition=[c - f for c, f in zip(joint_pos, from_pos)],
-                childFramePosition=[c - t for c, t in zip(joint_pos, to_pos)]
-            )
-            p.changeConstraint(joint_id, maxForce=5000)
+            
+            # Disable collision between joined parts to prevent binding
+            p.setCollisionFilterPair(parent_body, child_body, -1, -1, 0)
+
+            # Backward compatibility: infer dynamic joint types when older snapshots omit joint_type.
+            mate_types = {from_port.mate_type, to_port.mate_type}
+            joint_type = conn.joint_type
+            if joint_type == "fixed":
+                if "rotational_hole" in mate_types:
+                    joint_type = "revolute"
+                elif "slider_hole" in mate_types:
+                    joint_type = "prismatic"
+
+            if joint_type == "revolute":
+                # Create a pseudo-hinge using two point-to-point constraints on the same world axis.
+                # Important: parent/child frame points must reference the SAME world points, otherwise
+                # the constraints over-constrain and can suppress visible rotation.
+                from_rot = R.from_quat(from_inst.quaternion)
+                to_rot = R.from_quat(to_inst.quaternion)
+                from_origin = np.array(from_inst.position, dtype=float)
+                to_origin = np.array(to_inst.position, dtype=float)
+
+                from_port_world = from_origin + from_rot.apply(np.array(from_port.position, dtype=float))
+                to_port_world = to_origin + to_rot.apply(np.array(to_port.position, dtype=float))
+                pivot_world = (from_port_world + to_port_world) * 0.5
+
+                # Use the rotational hole axis when available so connection direction does not matter.
+                axis_inst = from_inst
+                axis_port = from_port
+                if from_port.mate_type != "rotational_hole" and to_port.mate_type == "rotational_hole":
+                    axis_inst = to_inst
+                    axis_port = to_port
+
+                axis_world = R.from_quat(axis_inst.quaternion).apply(np.array(axis_port.direction, dtype=float))
+                axis_norm = np.linalg.norm(axis_world)
+                if axis_norm <= 1e-8:
+                    axis_world = np.array([0.0, 0.0, 1.0], dtype=float)
+                else:
+                    axis_world = axis_world / axis_norm
+
+                secondary_world = pivot_world + axis_world * 10.0
+
+                # Convert the shared world pivots into each body's local frame.
+                p1_parent = from_rot.inv().apply(pivot_world - from_origin).tolist()
+                p1_child = to_rot.inv().apply(pivot_world - to_origin).tolist()
+                p2_parent = from_rot.inv().apply(secondary_world - from_origin).tolist()
+                p2_child = to_rot.inv().apply(secondary_world - to_origin).tolist()
+
+                try:
+                    cid1 = p.createConstraint(parent_body, -1, child_body, -1, p.JOINT_POINT2POINT, [0,0,0], p1_parent, p1_child)
+                    cid2 = p.createConstraint(parent_body, -1, child_body, -1, p.JOINT_POINT2POINT, [0,0,0], p2_parent, p2_child)
+                    p.changeConstraint(cid1, maxForce=20000)
+                    p.changeConstraint(cid2, maxForce=20000)
+                    self.joint_constraints.append({"id": cid1, "parts": [from_inst.instance_id, to_inst.instance_id]})
+                    self.joint_constraints.append({"id": cid2, "parts": [from_inst.instance_id, to_inst.instance_id]})
+                except Exception:
+                    # Fall back to fixed if pseudo-hinge creation fails on this build.
+                    fixed_id = p.createConstraint(
+                        parentBodyUniqueId=parent_body,
+                        parentLinkIndex=-1,
+                        childBodyUniqueId=child_body,
+                        childLinkIndex=-1,
+                        jointType=p.JOINT_FIXED,
+                        jointAxis=[0, 0, 0],
+                        parentFramePosition=list(from_port.position),
+                        childFramePosition=list(to_port.position)
+                    )
+                    p.changeConstraint(fixed_id, maxForce=10000)
+                    self.joint_constraints.append({"id": fixed_id, "parts": [from_inst.instance_id, to_inst.instance_id]})
+                continue # Joint(s) created, skip the standard block below
+
+            pb_joint_type = p.JOINT_FIXED
+            if joint_type == "prismatic":
+                pb_joint_type = p.JOINT_PRISMATIC
+
+            # The joint axis in parent (from_inst) local frame
+            joint_axis = from_port.direction if pb_joint_type != p.JOINT_FIXED else [0, 0, 0]
+
+            try:
+                joint_id = p.createConstraint(
+                    parentBodyUniqueId=parent_body,
+                    parentLinkIndex=-1,
+                    childBodyUniqueId=child_body,
+                    childLinkIndex=-1,
+                    jointType=pb_joint_type,
+                    jointAxis=joint_axis,
+                    parentFramePosition=list(from_port.position),
+                    childFramePosition=list(to_port.position)
+                )
+            except Exception:
+                joint_id = p.createConstraint(
+                    parentBodyUniqueId=parent_body,
+                    parentLinkIndex=-1,
+                    childBodyUniqueId=child_body,
+                    childLinkIndex=-1,
+                    jointType=p.JOINT_FIXED,
+                    jointAxis=[0, 0, 0],
+                    parentFramePosition=list(from_port.position),
+                    childFramePosition=list(to_port.position)
+                )
+
+            p.changeConstraint(joint_id, maxForce=10000)
+
             self.joint_constraints.append({
                 "id": joint_id,
                 "parts": [from_inst.instance_id, to_inst.instance_id]
@@ -119,6 +210,10 @@ class PyBulletSimulator:
 
     def simulate(self, steps: int = 240, movement_threshold: float = 2.0) -> CollapseResult:
         """Runs the simulation and returns a CollapseResult based on part movement and stress."""
+        # Add some linear/angular damping to stabilize K'NEX connections
+        for body_id in self.part_bodies.values():
+            p.changeDynamics(body_id, -1, linearDamping=0.05, angularDamping=0.05)
+
         initial_positions = {}
         for inst_id, body_id in self.part_bodies.items():
             pos, _ = p.getBasePositionAndOrientation(body_id)

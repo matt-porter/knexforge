@@ -2,6 +2,7 @@ import { usePartDefs } from '../hooks/usePartLibrary'
 import { useInteractionStore } from '../stores/interactionStore'
 import { useBuildStore } from '../stores/buildStore'
 import type { KnexPartDef } from '../types/parts'
+import { startSimulation, stopSimulation, updateMotorSpeed } from '../services/simulationManager'
 
 /** Group part definitions by category. */
 function groupByCategory(
@@ -11,6 +12,7 @@ function groupByCategory(
     { key: 'rod', label: 'Rods' },
     { key: 'connector', label: 'Connectors' },
     { key: 'wheel', label: 'Wheels' },
+    { key: 'special', label: 'Special' },
   ]
 
   return order
@@ -187,27 +189,29 @@ export function PartPalette() {
             label="↶"
             title="Undo (Ctrl+Z)"
             onClick={() => undo()}
-            disabled={!canUndo()}
+            disabled={!canUndo() || useInteractionStore.getState().isSimulating}
           />
           <ToolButton
             label="↷"
             title="Redo (Ctrl+Y)"
             onClick={() => redo()}
-            disabled={!canRedo()}
+            disabled={!canRedo() || useInteractionStore.getState().isSimulating}
           />
           <ToolButton
             label="🗑"
             title="Delete selected (Del)"
             onClick={handleDelete}
-            disabled={!selectedPartId}
+            disabled={!selectedPartId || useInteractionStore.getState().isSimulating}
           />
           <ToolButton
             label="⊘"
             title="Clear all"
             onClick={() => clearBuild()}
-            disabled={partCount() === 0}
+            disabled={partCount() === 0 || useInteractionStore.getState().isSimulating}
           />
         </div>
+
+        <SimulationControls />
 
         {/* Status */}
         {placingPartId && (
@@ -262,5 +266,85 @@ function ToolButton({
     >
       {label}
     </button>
+  )
+}
+
+function SimulationControls() {
+  const isSimulating = useInteractionStore((s) => s.isSimulating)
+  const toggleSimulation = useInteractionStore((s) => s.toggleSimulation)
+  const motorSpeed = useInteractionStore((s) => s.motorSpeed)
+  const setMotorSpeed = useInteractionStore((s) => s.setMotorSpeed)
+  const partCount = useBuildStore((s) => s.partCount)
+
+  const handlePlayToggle = () => {
+    if (!isSimulating) {
+      toggleSimulation()
+      void startSimulation(motorSpeed)
+    } else {
+      stopSimulation()
+      toggleSimulation()
+    }
+  }
+
+  const handleSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value)
+    setMotorSpeed(val)
+    if (isSimulating) {
+      updateMotorSpeed(val)
+    }
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 4,
+        padding: '10px 12px',
+        background: isSimulating ? '#2a1a1a' : '#1a1a2e',
+        border: `1px solid ${isSimulating ? '#ffaa00' : '#2a2a4a'}`,
+        borderRadius: 4,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 12, color: isSimulating ? '#ffaa00' : '#888', fontWeight: 600 }}>
+          {isSimulating ? 'SIMULATING' : 'PHYSICS SIM'}
+        </span>
+        <button
+          onClick={handlePlayToggle}
+          disabled={partCount() === 0}
+          style={{
+            padding: '4px 12px',
+            background: isSimulating ? '#cc3333' : '#33cc33',
+            border: 'none',
+            borderRadius: 3,
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 'bold',
+            cursor: partCount() === 0 ? 'default' : 'pointer',
+            opacity: partCount() === 0 ? 0.5 : 1,
+          }}
+        >
+          {isSimulating ? 'STOP' : 'PLAY'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 11, color: '#888' }}>Motor RPM:</span>
+        <input
+          type="range"
+          min="-50"
+          max="50"
+          step="1"
+          value={motorSpeed}
+          onChange={handleSpeedChange}
+          style={{ flex: 1, accentColor: '#ffaa00' }}
+        />
+        <span style={{ fontSize: 11, color: '#ccc', width: 24, textAlign: 'right' }}>
+          {motorSpeed}
+        </span>
+      </div>
+    </div>
   )
 }

@@ -105,8 +105,9 @@ def stability(req: StabilityRequest):
                 )
                 build.add_part(inst, record=False)
             for c in req.connections:
-                build.connections.add(Connection(**c))
-                build._graph.add_edge(c["from_instance"], c["to_instance"])
+                conn = Connection(**c)
+                build.connections.add(conn)
+                build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid build data: {e}")
     else:
@@ -159,6 +160,110 @@ async def ws_stability(websocket: WebSocket):
             await websocket.send_json({"stability": 1.0, "details": {}})
     except Exception:
         await websocket.close()
+
+import asyncio
+
+@app.websocket("/ws/simulate")
+async def ws_simulate(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        data = await websocket.receive_json()
+        from .parts.loader import PartLoader
+        from .parts.models import PartInstance, Connection
+        library = PartLoader.load()
+        build = Build()
+        
+        for p_data in data.get("parts", []):
+            part_def = library.get(p_data["part_id"])
+            inst = PartInstance(
+                instance_id=p_data["instance_id"],
+                part=part_def,
+                position=tuple(p_data["position"]),
+                quaternion=tuple(p_data.get("rotation", p_data.get("quaternion", [0,0,0,1]))),
+                color=p_data.get("color")
+            )
+            build.add_part(inst, record=False)
+            
+        for c in data.get("connections", []):
+            conn = Connection(**c)
+            build.connections.add(conn)
+            build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
+
+        from .physics.pybullet import PyBulletSimulator
+        import pybullet as p
+        
+        with PyBulletSimulator(build) as sim:
+            for inst_id, part_inst in build.parts.items():
+                body_id = sim.load_part_mesh(part_inst)
+                sim.part_bodies[inst_id] = body_id
+                
+                # Anchor the motor (mass=0 makes it static)
+                if "motor" in part_inst.part.id:
+                    p.changeDynamics(body_id, -1, mass=0.0)
+            
+            sim.create_joints()
+            
+            p.setGravity(0, 0, 0.0) # Zero gravity for maximum visibility of spin
+            motor_speed = float(data.get("motor_speed", 10.0))
+            
+            motor_ids = [i for i, part in build.parts.items() if "motor" in part.part.id]
+            driven_info = [] # (body_id, axis_world)
+            for conn in build.connections:
+                if conn.from_instance in motor_ids or conn.to_instance in motor_ids:
+                    m_id = conn.from_instance if conn.from_instance in motor_ids else conn.to_instance
+                    d_id = conn.to_instance if m_id == conn.from_instance else conn.from_instance
+
+                    motor_port_id = conn.from_port if m_id == conn.from_instance else conn.to_port
+                    # Only drive the motor's axle connection. This avoids applying motor torque
+                    # through static mounting snaps (mount_1 / mount_2) when present.
+                    if motor_port_id != "drive_axle" and conn.joint_type != "revolute":
+                        continue
+
+                    m_inst = build.parts[m_id]
+                    m_port = m_inst.get_port(motor_port_id)
+                    from scipy.spatial.transform import Rotation as R
+                    m_rot = R.from_quat(m_inst.quaternion)
+                    axis_world = m_rot.apply(m_port.direction)
+                    b_id = sim.part_bodies.get(d_id)
+                    if b_id is not None:
+                        driven_info.append((b_id, axis_world))
+            
+            # Signal ready to frontend
+            await websocket.send_json({"type": "status", "data": "ready"})
+            
+            while True:
+                try:
+                    msg = await asyncio.wait_for(websocket.receive_json(), timeout=0.001)
+                    if "motor_speed" in msg:
+                        motor_speed = float(msg["motor_speed"])
+                    if msg.get("action") == "stop":
+                        break
+                except asyncio.TimeoutError:
+                    pass
+                except Exception:
+                    break
+
+                # Run physics steps
+                for _ in range(4):
+                    for b_id, axis in driven_info:
+                        # Massive torque application
+                        torque_vec = [axis[0] * motor_speed * 10000.0, axis[1] * motor_speed * 10000.0, axis[2] * motor_speed * 10000.0]
+                        p.applyExternalTorque(b_id, -1, torque_vec, p.WORLD_FRAME)
+                    p.stepSimulation()
+
+                transforms = {}
+                for inst_id, body_id in sim.part_bodies.items():
+                    pos, quat = p.getBasePositionAndOrientation(body_id)
+                    transforms[inst_id] = {"position": pos, "quaternion": quat}
+                
+                await websocket.send_json({"type": "transforms", "data": transforms})
+                await asyncio.sleep(1/60.0)
+
+    except Exception:
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 # --- Entrypoint for running with uvicorn ---
 if __name__ == "__main__":
