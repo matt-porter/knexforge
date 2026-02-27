@@ -1,12 +1,14 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useRef } from 'react'
 import { useGLTF } from '@react-three/drei'
-import { Quaternion, Euler, Color, Vector3, type Mesh, type MeshStandardMaterial } from 'three'
+import { useFrame } from '@react-three/fiber'
+import { Quaternion, Color, Vector3, type Mesh, type MeshStandardMaterial, type Group } from 'three'
 import type { KnexPartDef, PartInstance } from '../../types/parts'
 import { getGlbUrl } from '../../hooks/usePartLibrary'
 import { getMeshCorrection } from '../../helpers/meshCorrection'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
 import { useVisualStore } from '../../stores/visualStore'
+import { simulationTransforms } from '../../services/simulationManager'
 import { Outlines } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
 
@@ -85,15 +87,14 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
     return clone
   }, [scene, instance.color, def.default_color, selected, isHovered, opacity, visualMode, instance.instance_id])
 
-  // Convert quaternion [x, y, z, w] to Euler for the group
-  const euler = useMemo(() => {
-    const q = new Quaternion(
+  // Convert quaternion [x, y, z, w] to THREE.Quaternion
+  const initialQuat = useMemo(() => {
+    return new Quaternion(
       instance.rotation[0],
       instance.rotation[1],
       instance.rotation[2],
       instance.rotation[3],
     )
-    return new Euler().setFromQuaternion(q)
   }, [instance.rotation])
 
   // Exploded View math
@@ -141,10 +142,24 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
     useInteractionStore.getState().setHoveredPart(null)
   }, [])
 
+  const groupRef = useRef<Group>(null)
+  const isSimulating = useInteractionStore((s) => s.isSimulating)
+
+  useFrame(() => {
+    if (!groupRef.current || !isSimulating) return
+
+    const transform = simulationTransforms.get(instance.instance_id)
+    if (transform) {
+      groupRef.current.position.set(transform.position[0], transform.position[1], transform.position[2])
+      groupRef.current.quaternion.set(transform.quaternion[0], transform.quaternion[1], transform.quaternion[2], transform.quaternion[3])
+    }
+  })
+
   return (
     <group
+      ref={groupRef}
       position={explodedPosition}
-      rotation={euler}
+      quaternion={initialQuat}
       onClick={handleClick}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}

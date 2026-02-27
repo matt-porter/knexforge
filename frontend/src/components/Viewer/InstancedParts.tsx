@@ -1,5 +1,6 @@
 import { useRef, useMemo, useEffect } from 'react'
 import { useGLTF } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
 import {
   InstancedMesh,
   Matrix4,
@@ -15,6 +16,8 @@ import { getGlbUrl } from '../../hooks/usePartLibrary'
 import { getMeshCorrection } from '../../helpers/meshCorrection'
 import { useVisualStore } from '../../stores/visualStore'
 import { useBuildStore } from '../../stores/buildStore'
+import { useInteractionStore } from '../../stores/interactionStore'
+import { simulationTransforms } from '../../services/simulationManager'
 
 interface InstancedPartsProps {
   /** Part definition (all instances must be the same part type). */
@@ -126,6 +129,37 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
       meshRef.current.instanceColor.needsUpdate = true
     }
   }, [instances, def.default_color, correctionMatrix, visualMode, explosionFactor, stressData])
+
+  const isSimulating = useInteractionStore((s) => s.isSimulating)
+
+  // Fast 60 FPS update loop for simulation data
+  useFrame(() => {
+    if (!meshRef.current || !isSimulating) return
+
+    const instanceMatrix = new Matrix4()
+    const tempPos = new Vector3()
+    const tempQuat = new Quaternion()
+    const tempScale = new Vector3(1, 1, 1)
+
+    let updated = false
+    for (let i = 0; i < instances.length; i++) {
+      const inst = instances[i]
+      const transform = simulationTransforms.get(inst.instance_id)
+      if (transform) {
+        tempPos.set(transform.position[0], transform.position[1], transform.position[2])
+        tempQuat.set(transform.quaternion[0], transform.quaternion[1], transform.quaternion[2], transform.quaternion[3])
+
+        instanceMatrix.compose(tempPos, tempQuat, tempScale)
+        instanceMatrix.multiply(correctionMatrix)
+        meshRef.current.setMatrixAt(i, instanceMatrix)
+        updated = true
+      }
+    }
+
+    if (updated) {
+      meshRef.current.instanceMatrix.needsUpdate = true
+    }
+  })
 
   if (!geometry || instances.length === 0) return null
 

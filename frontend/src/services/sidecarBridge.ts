@@ -28,7 +28,7 @@ export interface SnapResponse {
 
 export interface StabilityResponse {
   stability: number
-  details: Record<string, any>
+  details: Record<string, unknown>
   stress_data?: Record<string, number>
 }
 
@@ -189,6 +189,52 @@ export class SidecarBridge {
       return (await resp.json()) as BuildExport
     } catch {
       return null
+    }
+  }
+
+  /**
+   * Connect to the simulation websocket.
+   */
+  connectSimulation(
+    parts: PartInstance[],
+    connections: Connection[],
+    motorSpeed: number,
+    onTransforms: (data: Record<string, { position: [number, number, number]; quaternion: [number, number, number, number] }>) => void,
+    onClose: () => void
+  ): { close: () => void; setSpeed: (s: number) => void } {
+    const ws = new WebSocket(this._baseUrl.replace('http', 'ws') + '/ws/simulate')
+    
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ parts, connections, motor_speed: motorSpeed }))
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data)
+        if (msg.type === 'transforms' && msg.data) {
+          onTransforms(msg.data)
+        }
+      } catch (err) {
+        console.error('Failed to parse simulation message:', err)
+      }
+    }
+
+    ws.onclose = () => {
+      onClose()
+    }
+
+    return {
+      close: () => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ action: 'stop' }))
+        }
+        ws.close()
+      },
+      setSpeed: (s: number) => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ motor_speed: s }))
+        }
+      }
     }
   }
 }

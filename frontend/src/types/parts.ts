@@ -8,8 +8,8 @@ export interface Port {
   id: string
   position: [number, number, number]
   direction: [number, number, number]
-  mate_type: 'rod_end' | 'rod_hole' | 'tab' | 'clip' | 'rod_side' | 'slide_hole' | 'connector_slot'
-  accepts: ('rod_end' | 'rod_hole' | 'tab' | 'clip' | 'rod_side' | 'slide_hole')[]
+  mate_type: 'rod_end' | 'rod_hole' | 'tab' | 'clip' | 'rod_side' | 'slide_hole' | 'connector_slot' | 'rotational_hole' | 'slider_hole'
+  accepts: ('rod_end' | 'rod_hole' | 'tab' | 'clip' | 'rod_side' | 'slide_hole' | 'connector_slot' | 'rotational_hole' | 'slider_hole')[]
   allowed_angles_deg: number[]
 }
 
@@ -18,7 +18,7 @@ export interface KnexPartDef {
   format_version: string
   id: string
   name: string
-  category: 'rod' | 'connector' | 'wheel'
+  category: 'rod' | 'connector' | 'wheel' | 'special'
   mesh_file: string
   default_color: string
   mass_grams: number
@@ -40,6 +40,7 @@ export interface Connection {
   from_port: string
   to_instance: string
   to_port: string
+  joint_type?: 'fixed' | 'revolute' | 'prismatic'
 }
 
 /** The complete state of a K'Nex build. */

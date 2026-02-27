@@ -7,7 +7,7 @@
 
 import { useEffect } from 'react'
 import { useDatasetStore } from '../stores/datasetStore'
-import type { DatasetEntry, DatasetAddPartAction } from '../types/dataset'
+import type { DatasetEntry, DatasetAddPartAction, DatasetSnapAction } from '../types/dataset'
 import type { PartInstance, Connection } from '../types/parts'
 
 /**
@@ -44,6 +44,15 @@ export function datasetEntryToBuild(entry: DatasetEntry): {
   const parts: PartInstance[] = []
   const connections: Connection[] = []
 
+  const inferJointType = (snap: DatasetSnapAction): Connection['joint_type'] | undefined => {
+    if (snap.joint_type) return snap.joint_type
+    // Backward compatibility for older datasets (e.g. proc_0001) that omit joint metadata.
+    if (snap.from_port.endsWith('.drive_axle') || snap.to_port.endsWith('.drive_axle')) {
+      return 'revolute'
+    }
+    return undefined
+  }
+
   for (const action of entry.actions) {
     if (action.action === 'add_part') {
       const a = action as DatasetAddPartAction
@@ -66,6 +75,7 @@ export function datasetEntryToBuild(entry: DatasetEntry): {
         from_port: action.from_port.slice(fromDot + 1),
         to_instance: action.to_port.slice(0, toDot),
         to_port: action.to_port.slice(toDot + 1),
+        joint_type: inferJointType(action),
       })
     }
   }

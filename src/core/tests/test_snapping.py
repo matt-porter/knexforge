@@ -223,3 +223,50 @@ def test_side_clip_wrong_direction_fails(library):
     # doesn't anti-align with it → should fail the direction check
     result = snap_ports(conn_inst, "A", rod_inst, "center_tangent", tolerance_mm=0.2)
     assert result is None
+
+
+def test_joint_type_determination(library):
+    """Verify that different MateTypes result in the correct joint_type (Phase 1 Kinematics)."""
+    # Create copies of standard parts but tweak their mate_types to test the logic
+    rod_part = library.get("rod-128-red-v1")
+    conn_part = library.get("connector-4way-green-v1")
+
+    # We only care about the joint_type assigned when `snap_ports` succeeds.
+    # Let's set up a successful snap using standard parts
+    from core.snapping import align_rod_to_hole
+    conn_inst = PartInstance(instance_id="c1", part=conn_part, position=(0.0, 0.0, 0.0))
+    
+    # Standard rigid hole (rod_end into rod_hole) -> should be fixed
+    temp = PartInstance(instance_id="r1", part=rod_part)
+    new_pos, new_quat = align_rod_to_hole(temp, "end1", conn_inst, "A")
+    rod_inst = PartInstance(instance_id="r1", part=rod_part, position=new_pos, quaternion=new_quat)
+    
+    conn_fixed = snap_ports(rod_inst, "end1", conn_inst, "A", 0.2)
+    assert conn_fixed is not None
+    assert conn_fixed.joint_type == "fixed"
+
+    # Now let's artificially change the mate_type of port A on the connector instance
+    # to 'rotational_hole' and rod's end1 to accept it.
+    # Since models are frozen, we have to bypass validation or copy.
+    # It's easier to just call snap_ports on slightly mutated part copies.
+    rod_mutated = rod_part.model_copy(update={
+        "ports": [p.model_copy(update={"accepts": p.accepts + ["rotational_hole", "slider_hole"]}) for p in rod_part.ports]
+    })
+    conn_mutated = conn_part.model_copy(update={
+        "ports": [p.model_copy(update={"mate_type": "rotational_hole"}) if p.id == "A" else p for p in conn_part.ports]
+    })
+    
+    conn_inst2 = PartInstance(instance_id="c1", part=conn_mutated, position=(0.0, 0.0, 0.0))
+    rod_inst2 = PartInstance(instance_id="r1", part=rod_mutated, position=new_pos, quaternion=new_quat)
+
+    conn_revolute = snap_ports(rod_inst2, "end1", conn_inst2, "A", 0.2)
+    assert conn_revolute is not None
+    assert conn_revolute.joint_type == "revolute"
+
+    conn_mutated_slide = conn_part.model_copy(update={
+        "ports": [p.model_copy(update={"mate_type": "slider_hole"}) if p.id == "A" else p for p in conn_part.ports]
+    })
+    conn_inst3 = PartInstance(instance_id="c1", part=conn_mutated_slide, position=(0.0, 0.0, 0.0))
+    conn_prismatic = snap_ports(rod_inst2, "end1", conn_inst3, "A", 0.2)
+    assert conn_prismatic is not None
+    assert conn_prismatic.joint_type == "prismatic"

@@ -38,6 +38,10 @@ export interface InteractionStore {
   /** Hovered part instance ID. */
   hoveredPartId: string | null
 
+  // --- Simulation State ---
+  isSimulating: boolean
+  motorSpeed: number
+
   // --- Actions ---
   /** Start placing a part type. Switches to place mode. targetId specifies a specific instance to snap to. */
   startPlacing: (partId: string, targetId?: string) => void
@@ -55,6 +59,10 @@ export interface InteractionStore {
   rotateGhost: () => void
   /** Cycles to the next snap configuration when multiple are available. */
   cycleSnapVariant: () => void
+  
+  // --- Simulation Actions ---
+  toggleSimulation: () => void
+  setMotorSpeed: (speed: number) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -102,6 +110,8 @@ export const useInteractionStore = create<InteractionStore>()(
     isSnapped: false,
     activeSnapVariantIndex: 0,
     hoveredPartId: null,
+    isSimulating: false,
+    motorSpeed: 10.0,
 
     // --- Actions ---
     startPlacing: (partId: string, targetId?: string) => {
@@ -177,6 +187,18 @@ export const useInteractionStore = create<InteractionStore>()(
     cycleSnapVariant: () => {
       set((state) => {
         state.activeSnapVariantIndex += 1
+      })
+    },
+
+    toggleSimulation: () => {
+      set((state) => {
+        state.isSimulating = !state.isSimulating
+      })
+    },
+
+    setMotorSpeed: (speed: number) => {
+      set((state) => {
+        state.motorSpeed = speed
       })
     },
   })),

@@ -45,6 +45,10 @@ def test_simulate_collapse_with_connection():
     conn = library.get_by_category("connector")[0]
     rod_inst = PartInstance(instance_id="rod1", part=rod, position=(0.0, 0.0, 5.0))
     conn_inst = PartInstance(instance_id="conn1", part=conn, position=(16.0, 0.0, 5.0))
+    from src.core.snapping import align_rod_to_hole
+    new_pos, new_quat = align_rod_to_hole(rod_inst, rod.ports[0].id, conn_inst, conn.ports[0].id)
+    rod_inst = PartInstance(instance_id="rod1", part=rod, position=new_pos, quaternion=new_quat)
+
     build = Build()
     build.add_part(rod_inst)
     build.add_part(conn_inst)

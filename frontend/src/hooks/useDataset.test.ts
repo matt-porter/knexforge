@@ -165,6 +165,43 @@ describe('datasetEntryToBuild — Connection conversion', () => {
     expect(second.to_port).toBe('C')
   })
 
+  it('infers revolute joint for legacy motor drive_axle snaps', () => {
+    const legacyMotor: DatasetEntry = {
+      ...FIXTURE,
+      actions: [
+        {
+          step: 1,
+          action: 'snap',
+          from_port: 'motor-1.drive_axle',
+          to_port: 'rod-1.center_tangent',
+        },
+      ],
+    }
+
+    const { connections } = datasetEntryToBuild(legacyMotor)
+    expect(connections).toHaveLength(1)
+    expect(connections[0].joint_type).toBe('revolute')
+  })
+
+  it('preserves explicit joint_type from newer datasets', () => {
+    const explicitJoint: DatasetEntry = {
+      ...FIXTURE,
+      actions: [
+        {
+          step: 1,
+          action: 'snap',
+          from_port: 'a.p1',
+          to_port: 'b.p2',
+          joint_type: 'prismatic',
+        },
+      ],
+    }
+
+    const { connections } = datasetEntryToBuild(explicitJoint)
+    expect(connections).toHaveLength(1)
+    expect(connections[0].joint_type).toBe('prismatic')
+  })
+
   it('skips snap actions with malformed port strings (no dot)', () => {
     const badEntry: DatasetEntry = {
       ...FIXTURE,

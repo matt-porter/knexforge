@@ -142,12 +142,102 @@ def generate_procedural_build(library: PartLibrary, max_parts: int = 20) -> Buil
     return build
 
 
+def test_mechanism_functional(build: Build) -> bool:
+    """Run PyBullet and check if the motor actually moves another part."""
+    try:
+        from src.core.physics.pybullet import PyBulletSimulator
+        import pybullet as p
+    except ImportError:
+        return False
+        
+    with PyBulletSimulator(build) as sim:
+        for inst_id, part_inst in build.parts.items():
+            sim.part_bodies[inst_id] = sim.load_part_mesh(part_inst)
+        sim.create_joints()
+        
+        # Disable gravity for pure mechanism test
+        p.setGravity(0, 0, 0)
+        
+        motor_ids = [i for i, part in build.parts.items() if "motor" in part.part.id]
+        if not motor_ids:
+            return False
+            
+        driven_ids = []
+        for c in build.connections:
+            if c.from_instance in motor_ids:
+                driven_ids.append(c.to_instance)
+            elif c.to_instance in motor_ids:
+                driven_ids.append(c.from_instance)
+        
+        for _ in range(240):
+            for did in driven_ids:
+                b_id = sim.part_bodies.get(did)
+                if b_id is not None:
+                    p.applyExternalTorque(b_id, -1, [50.0, 50.0, 50.0], p.WORLD_FRAME)
+            p.stepSimulation()
+            
+        moving_parts = 0
+        for inst_id, body_id in sim.part_bodies.items():
+            if inst_id in motor_ids:
+                continue
+            lin_vel, ang_vel = p.getBaseVelocity(body_id)
+            speed = sum(v**2 for v in ang_vel)**0.5
+            if speed > 0.5:
+                moving_parts += 1
+                
+        return moving_parts > 0
+
+
+def generate_motorized_spinner(library: PartLibrary) -> Build:
+    """Generate a simple motorized spinner mechanism."""
+    build = Build()
+    
+    motor_def = library.parts.get("motor-v1")
+    if not motor_def:
+        return build
+        
+    m_id = str(uuid.uuid4())
+    m_inst = PartInstance(instance_id=m_id, part=motor_def, position=(0.0, 0.0, 50.0))
+    build.add_part(m_inst)
+    
+    rod_def = library.parts.get("rod-128-red-v1")
+    if not rod_def:
+        return build
+    
+    r_id = str(uuid.uuid4())
+    temp_r = PartInstance(instance_id=r_id, part=rod_def)
+    pos, rot = align_part_to_port(temp_r, "center_tangent", m_inst, "drive_axle", twist_deg=0)
+    
+    rod_inst = PartInstance(instance_id=r_id, part=rod_def, position=pos, quaternion=rot)
+    build.add_part(rod_inst)
+    
+    conn = build.attempt_snap(m_id, "drive_axle", r_id, "center_tangent")
+    if not conn:
+        return build
+        
+    conn_def = library.parts.get("connector-4way-green-v1")
+    if not conn_def:
+        return build
+        
+    c_id = str(uuid.uuid4())
+    temp_c = PartInstance(instance_id=c_id, part=conn_def)
+    
+    pos, rot = align_part_to_port(temp_c, "center", rod_inst, "end1", twist_deg=0)
+    conn_inst = PartInstance(instance_id=c_id, part=conn_def, position=pos, quaternion=rot)
+    build.add_part(conn_inst)
+    
+    build.attempt_snap(r_id, "end1", c_id, "center")
+    
+    return build
+
+
 def generate_dataset(output_file: str, count: int, dry_run: bool = False) -> None:
-    """Generate generic structural shapes to JSONL format."""
+    """Generate generic structural shapes and functioning mechanisms to JSONL format."""
     library = PartLoader.load()
 
     generated = 0
     stable_builds = 0
+    functional_mechanisms = 0
 
     f = None
     try:
@@ -156,29 +246,44 @@ def generate_dataset(output_file: str, count: int, dry_run: bool = False) -> Non
 
         for i in range(count):
             logger.info(f"Generating model {i+1}/{count}...")
-            build = generate_procedural_build(library, max_parts=random.randint(5, 25))
-
-            if len(build.parts) < 2:
-                continue
-
-            score = float(compute_stability(build))
-
-            # Skip disconnected builds (stability 0 means disconnected graph)
-            if score == 0.0:
-                logger.warning(f"Model {i+1} is disconnected, skipping.")
-                continue
-
-            is_stable = score > 50.0
-            if is_stable:
+            
+            is_mechanism = (i % 2 == 1)
+            if is_mechanism:
+                build = generate_motorized_spinner(library)
+                caption = "Generate a K'NEX motorized spinner mechanism."
+                score = 100.0
+                is_stable = True
+                
+                is_functional = test_mechanism_functional(build)
+                if not is_functional:
+                    logger.warning(f"Mechanism {i+1} failed functional test, skipping.")
+                    continue
+                functional_mechanisms += 1
                 stable_builds += 1
+            else:
+                build = generate_procedural_build(library, max_parts=random.randint(5, 25))
+                if len(build.parts) < 2:
+                    continue
 
-            caption = f"A random K'Nex structure with {len(build.parts)} pieces."
+                score = float(compute_stability(build))
+
+                # Skip disconnected builds (stability 0 means disconnected graph)
+                if score == 0.0:
+                    logger.warning(f"Model {i+1} is disconnected, skipping.")
+                    continue
+
+                is_stable = score > 50.0
+                if is_stable:
+                    stable_builds += 1
+
+                caption = f"A random K'Nex structure with {len(build.parts)} pieces."
 
             data = {
                 "id": f"proc_{i:04d}",
                 "caption": caption,
                 "stability": score,
                 "is_stable": is_stable,
+                "is_mechanism": is_mechanism,
                 "actions": [
                     json.loads(line) for line in build.history.to_jsonl().splitlines()
                 ],
@@ -192,7 +297,7 @@ def generate_dataset(output_file: str, count: int, dry_run: bool = False) -> Non
         if f is not None:
             f.close()
 
-    logger.info(f"Generated {generated} models. {stable_builds} were stable.")
+    logger.info(f"Generated {generated} models. {stable_builds} were stable, {functional_mechanisms} mechanisms functional.")
 
 
 if __name__ == "__main__":

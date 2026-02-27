@@ -90,7 +90,9 @@
               "clip",
               "rod_side",
               "slide_hole",
-              "connector_slot"
+              "connector_slot",
+              "rotational_hole",
+              "slider_hole"
             ],
             "description": "What this port accepts or provides"
           },

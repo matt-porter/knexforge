@@ -19,6 +19,7 @@ const PART_IDS = [
   'rod-128-red-v1',
   'rod-190-grey-v1',
   'wheel-medium-black-v1',
+  'motor-v1',
 ]
 
 /**

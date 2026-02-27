@@ -1,5 +1,5 @@
 import { Suspense, useMemo, useEffect } from 'react'
-import type { KnexPartDef, PartInstance } from '../../types/parts'
+import type { Connection, KnexPartDef, PartInstance } from '../../types/parts'
 import { usePartDefs, preloadAllMeshes } from '../../hooks/usePartLibrary'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
@@ -116,6 +116,32 @@ function createDemoBuild(): PartInstance[] {
       position: [0, 0, -40],
       rotation: [0, 0, 0, 1],
     },
+    // A Motor at the base
+    {
+      instance_id: 'motor-1',
+      part_id: 'motor-v1',
+      position: [0, 0, 80],
+      rotation: [0, 0, 0, 1],
+    },
+    // A Rod in the motor
+    {
+      instance_id: 'motor-rod',
+      part_id: 'rod-128-red-v1',
+      position: [-64, 0, 80],
+      rotation: [0, 0, 0, 1], // aligned with Z drive axle
+    },
+  ]
+}
+
+function createDemoConnections(): Connection[] {
+  return [
+    {
+      from_instance: 'motor-1',
+      from_port: 'drive_axle',
+      to_instance: 'motor-rod',
+      to_port: 'center_tangent',
+      joint_type: 'revolute',
+    },
   ]
 }
 
@@ -227,11 +253,12 @@ export function BuildScene({ loadDemoWhenEmpty = true }: BuildSceneProps) {
 
   // Load demo build into store if store is empty and defs are ready
   const demoParts = useMemo(() => createDemoBuild(), [])
+  const demoConns = useMemo(() => createDemoConnections(), [])
   useEffect(() => {
     if (loadDemoWhenEmpty && defs.size > 0 && Object.keys(storeParts).length === 0) {
-      loadBuild(demoParts, [])
+      loadBuild(demoParts, demoConns)
     }
-  }, [loadDemoWhenEmpty, defs.size, storeParts, loadBuild, demoParts])
+  }, [loadDemoWhenEmpty, defs.size, storeParts, loadBuild, demoParts, demoConns])
 
   // Build the parts list from the store
   const partsList = useMemo(() => Object.values(storeParts), [storeParts])

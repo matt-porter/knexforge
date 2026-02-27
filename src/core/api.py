@@ -216,7 +216,7 @@ async def ws_simulate(websocket: WebSocket):
                     motor_port_id = conn.from_port if m_id == conn.from_instance else conn.to_port
                     # Only drive the motor's axle connection. This avoids applying motor torque
                     # through static mounting snaps (mount_1 / mount_2) when present.
-                    if motor_port_id != "drive_axle" and conn.joint_type != "revolute":
+                    if motor_port_id != "drive_axle" or conn.joint_type != "revolute":
                         continue
 
                     m_inst = build.parts[m_id]

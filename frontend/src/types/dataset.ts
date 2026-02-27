@@ -28,6 +28,8 @@ export interface DatasetSnapAction {
   from_port: string
   /** Format: "<instance_id>.<port_id>" */
   to_port: string
+  /** Optional joint metadata; older datasets may omit it. */
+  joint_type?: 'fixed' | 'revolute' | 'prismatic'
 }
 
 /** One entry in dataset.jsonl — a complete procedurally generated build. */

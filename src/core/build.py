@@ -73,7 +73,7 @@ class Build:
 
         if conn is not None:
             self.connections.add(conn)
-            self._graph.add_edge(from_instance_id, to_instance_id)
+            self._graph.add_edge(from_instance_id, to_instance_id, joint_type=conn.joint_type)
             self._update_stability()
 
             if record:
@@ -188,7 +188,7 @@ class Build:
         for c_dict in snapshot["connections"]:
             conn = Connection(**c_dict)
             self.connections.add(conn)
-            self._graph.add_edge(conn.from_instance, conn.to_instance)
+            self._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
         self._update_stability()
 
     def _replay_add_part(self, action: AddPartAction) -> None:
@@ -216,9 +216,31 @@ class Build:
             from_port=from_p,
             to_instance=to_inst,
             to_port=to_p,
+            # We must recalculate joint type, or just pass it if SnapAction had it...
+            # For now, let's recalculate it or default to fixed. Let's just default to fixed unless we recalculate it.
+            # Actually, better to recalculate it.
         )
+        # Recalculate joint type during replay
+        from .snapping import snap_ports
+        from_part = self.parts[from_inst]
+        to_part = self.parts[to_inst]
+        mate_types = {from_part.get_port(from_p).mate_type, to_part.get_port(to_p).mate_type}
+        joint_type = "fixed"
+        if "rotational_hole" in mate_types:
+            joint_type = "revolute"
+        elif "slider_hole" in mate_types:
+            joint_type = "prismatic"
+        
+        conn = Connection(
+            from_instance=from_inst,
+            from_port=from_p,
+            to_instance=to_inst,
+            to_port=to_p,
+            joint_type=joint_type,
+        )
+
         self.connections.add(conn)
-        self._graph.add_edge(from_inst, to_inst)
+        self._graph.add_edge(from_inst, to_inst, joint_type=conn.joint_type)
         self._update_stability()
 
     def get_connected_parts(self, instance_id: str) -> set[str]:
@@ -265,7 +287,7 @@ class Build:
         for c_dict in data.get("connections", []):
             conn = Connection(**c_dict)
             build.connections.add(conn)
-            build._graph.add_edge(conn.from_instance, conn.to_instance)
+            build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
 
         build._stability_score = data.get("stability_score", 100.0)
         return build

@@ -78,9 +78,10 @@ def _model_json_to_build(data: dict, library: PartLibrary) -> Build:
             from_port=from_port,
             to_instance=to_instance,
             to_port=to_port,
+            joint_type=c_dict.get("joint_type", "fixed"),
         )
         build.connections.add(conn)
-        build._graph.add_edge(from_instance, to_instance)
+        build._graph.add_edge(from_instance, to_instance, joint_type=conn.joint_type)
 
     return build
 

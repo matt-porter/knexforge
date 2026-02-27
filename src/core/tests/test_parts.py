@@ -12,10 +12,11 @@ from core.parts.models import KnexPart, Port
 def test_part_loader_loads_all_active_parts(clean_part_library):
     """Verify all active parts (non-underscore-prefixed) are loaded correctly."""
     library = clean_part_library
-    assert len(library.parts) == 15
+    assert len(library.parts) == 16
     assert len(library.get_by_category("connector")) == 8
     assert len(library.get_by_category("rod")) == 6
     assert len(library.get_by_category("wheel")) == 1
+    assert len(library.get_by_category("special")) == 1
 
 
 def test_part_loader_returns_correct_4way_connector(clean_part_library):
@@ -101,7 +102,7 @@ def test_part_loader_rod_port_geometry(clean_part_library):
     # Center tangent port for side-on clipping
     tangent = next(p for p in rod.ports if p.id == "center_tangent")
     assert tangent.mate_type == "rod_side"
-    assert tangent.accepts == ["rod_hole", "clip"]
+    assert set(tangent.accepts) == {"rod_hole", "clip", "rotational_hole", "slider_hole"}
     assert tangent.position[0] == 64.0  # midpoint of rod
 
 

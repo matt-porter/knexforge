@@ -84,7 +84,7 @@ class PyBulletSimulator:
             baseOrientation=part_instance.quaternion
         )
         # Prevent bodies from sleeping so simulation remains live
-        p.changeDynamics(body_id, -1, activationState=p.DISABLE_DEACTIVATION)
+        p.changeDynamics(body_id, -1, activationState=p.ACTIVATION_STATE_DISABLE_SLEEPING)
         return body_id
 
     def create_joints(self):
@@ -151,7 +151,7 @@ class PyBulletSimulator:
                         childBodyUniqueId=child_body,
                         childLinkIndex=-1,
                         jointType=p.JOINT_REVOLUTE,
-                        jointAxis=axis_parent,
+                        jointAxis=axis_child,
                         parentFramePosition=pivot_parent,
                         childFramePosition=pivot_child
                     )

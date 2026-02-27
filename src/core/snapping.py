@@ -167,11 +167,20 @@ def snap_ports(
     if not validate_physical_constraints(from_instance, from_port, to_instance, to_port):
         return None
 
+    # Determine joint type (Phase 1 Kinematics)
+    joint_type = "fixed"
+    mate_types = {from_port.mate_type, to_port.mate_type}
+    if "rotational_hole" in mate_types:
+        joint_type = "revolute"
+    elif "slider_hole" in mate_types:
+        joint_type = "prismatic"
+
     return Connection(
         from_instance=from_instance.instance_id,
         from_port=from_port_id,
         to_instance=to_instance.instance_id,
         to_port=to_port_id,
+        joint_type=joint_type,
     )
 
 

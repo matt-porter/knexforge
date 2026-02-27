@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import Literal, List, Optional
 
 
-MateType = Literal["rod_hole", "rod_end", "tab", "clip", "rod_side", "slide_hole", "connector_slot"]
+MateType = Literal["rod_hole", "rod_end", "tab", "clip", "rod_side", "slide_hole", "connector_slot", "rotational_hole", "slider_hole"]
 
 
 class Port(BaseModel):
@@ -89,5 +89,6 @@ class Connection(BaseModel):
     from_port: str
     to_instance: str
     to_port: str
+    joint_type: Literal["fixed", "revolute", "prismatic"] = Field(default="fixed")
 
     model_config = ConfigDict(frozen=True)
