@@ -1,0 +1,24 @@
+# Scan-to-Build Computer Vision Pipeline Dependencies
+
+# 3D Rendering (synthetic data generation)
+trimesh[easy]>=4.0.0
+pyrender>=0.1.45
+
+# Computer Vision & Deep Learning
+ultralytics>=8.3.0  # YOLOv8
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+
+# Image Processing
+Pillow>=10.0.0
+
+# 3D Geometry & Pose Estimation
+scipy>=1.11.0
+opencv-python-headless>=4.8.0
+
+# Data Handling
+pydantic>=2.5.0
+pyyaml>=6.0
+
+# Utilities
+tqdm>=4.66.0

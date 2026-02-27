@@ -1,0 +1,12 @@
+# COCO-format dataset configuration for YOLOv8
+# This file is auto-populated by data_generator.py
+
+path: ../data/synthetic  # Dataset root directory
+train: images/train      # Train images (relative to 'path')
+val: images/val          # Validation images
+
+# Number of classes
+nc: 0  # Auto-populated by generator
+
+# Class names (auto-populated)
+names: []
