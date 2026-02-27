@@ -9,11 +9,21 @@ export const simulationTransforms = new Map<string, Transform>()
 
 let currentConnection: { close: () => void; setSpeed: (s: number) => void } | null = null
 
+/** Diagnostic: count of transform frames received from the backend. */
+export let simDiagFrameCount = 0
+
 export async function startSimulation(motorSpeed: number) {
-  const connected = await sidecarBridge.connect().catch(() => false)
+  simDiagFrameCount = 0
+  console.log('[SIM-FE] startSimulation called, motorSpeed=', motorSpeed)
+
+  const connected = await sidecarBridge.connect().catch((err) => {
+    console.warn('[SIM-FE] sidecar connect() failed:', err)
+    return false
+  })
+  console.log('[SIM-FE] sidecar connected=', connected)
   useBuildStore.getState().setSidecarConnected(connected)
   if (!connected) {
-    // Revert optimistic UI toggle when the sidecar/websocket backend is unavailable.
+    console.warn('[SIM-FE] Sidecar not reachable — aborting simulation')
     if (useInteractionStore.getState().isSimulating) {
       useInteractionStore.getState().toggleSimulation()
     }
@@ -26,6 +36,7 @@ export async function startSimulation(motorSpeed: number) {
 
   const { parts, connections } = useBuildStore.getState()
   const instances = Object.values(parts)
+  console.log('[SIM-FE] Sending %d parts, %d connections to backend', instances.length, connections.length)
 
   try {
     currentConnection = sidecarBridge.connectSimulation(
@@ -33,20 +44,26 @@ export async function startSimulation(motorSpeed: number) {
       connections,
       motorSpeed,
       (data) => {
-        // Update the mutable map with incoming transforms
-        // 'data' is the msg.data from sidecarBridge
+        const ids = Object.keys(data)
+        if (simDiagFrameCount < 3) {
+          console.log('[SIM-FE] Transform frame %d, ids=%d, sample=', simDiagFrameCount, ids.length,
+            ids.length > 0 ? data[ids[0]] : '(empty)')
+        }
+        simDiagFrameCount++
         for (const [id, transform] of Object.entries(data)) {
           simulationTransforms.set(id, transform as Transform)
         }
       },
       () => {
+        console.log('[SIM-FE] WebSocket closed, received %d frames total', simDiagFrameCount)
         currentConnection = null
         if (useInteractionStore.getState().isSimulating) {
           useInteractionStore.getState().toggleSimulation()
         }
       }
     )
-  } catch {
+  } catch (err) {
+    console.error('[SIM-FE] connectSimulation threw:', err)
     currentConnection = null
     if (useInteractionStore.getState().isSimulating) {
       useInteractionStore.getState().toggleSimulation()

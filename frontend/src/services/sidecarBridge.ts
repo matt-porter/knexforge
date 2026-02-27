@@ -77,10 +77,12 @@ export class SidecarBridge {
       try {
         await tauriInvoke('start_sidecar')
         this._connected = true
+        console.log('[SIM-WS] Tauri sidecar started')
         return true
       } catch {
         // Sidecar may already be running
         this._connected = true
+        console.log('[SIM-WS] Tauri sidecar already running')
         return true
       }
     }
@@ -89,9 +91,11 @@ export class SidecarBridge {
     try {
       const resp = await fetch(`${this._baseUrl}/docs`, { method: 'HEAD' })
       this._connected = resp.ok
+      console.log('[SIM-WS] HTTP connect to %s → ok=%s', this._baseUrl, resp.ok)
       return this._connected
-    } catch {
+    } catch (err) {
       this._connected = false
+      console.warn('[SIM-WS] HTTP connect to %s failed:', this._baseUrl, err)
       return false
     }
   }
@@ -202,24 +206,36 @@ export class SidecarBridge {
     onTransforms: (data: Record<string, { position: [number, number, number]; quaternion: [number, number, number, number] }>) => void,
     onClose: () => void
   ): { close: () => void; setSpeed: (s: number) => void } {
-    const ws = new WebSocket(this._baseUrl.replace('http', 'ws') + '/ws/simulate')
+    const wsUrl = this._baseUrl.replace('http', 'ws') + '/ws/simulate'
+    console.log('[SIM-WS] Opening WebSocket:', wsUrl)
+    const ws = new WebSocket(wsUrl)
     
     ws.onopen = () => {
+      console.log('[SIM-WS] WebSocket opened, sending initial payload')
       ws.send(JSON.stringify({ parts, connections, motor_speed: motorSpeed }))
+    }
+
+    ws.onerror = (ev) => {
+      console.error('[SIM-WS] WebSocket error:', ev)
     }
 
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data)
-        if (msg.type === 'transforms' && msg.data) {
+        if (msg.type === 'error') {
+          console.error('[SIM-WS] Backend error:', msg.data)
+        } else if (msg.type === 'transforms' && msg.data) {
           onTransforms(msg.data)
+        } else if (msg.type === 'status') {
+          console.log('[SIM-WS] Status:', msg.data)
         }
       } catch (err) {
-        console.error('Failed to parse simulation message:', err)
+        console.error('[SIM-WS] Failed to parse simulation message:', err)
       }
     }
 
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
+      console.log('[SIM-WS] WebSocket closed, code=%d reason=%s', ev.code, ev.reason)
       onClose()
     }
 

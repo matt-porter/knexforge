@@ -63,15 +63,13 @@ class PyBulletSimulator:
             mesh_path = PartLoader.get_mesh_path(part_id)
         if mesh_path and mesh_path.exists():
             mesh = trimesh.load_mesh(str(mesh_path), force='mesh')
-            if not mesh.is_watertight:
-                mesh = mesh.convex_hull
+            # Always use the convex hull so the body can be dynamic in PyBullet.
+            # GEOM_FORCE_CONCAVE_TRIMESH makes bodies effectively static.
+            mesh = mesh.convex_hull
             vertices = mesh.vertices.tolist()
-            faces = mesh.faces.tolist()
             collision_shape = p.createCollisionShape(
                 p.GEOM_MESH,
                 vertices=vertices,
-                indices=[i for face in faces for i in face],
-                flags=p.GEOM_FORCE_CONCAVE_TRIMESH
             )
         else:
             # fallback: simple box

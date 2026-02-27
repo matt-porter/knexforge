@@ -1,10 +1,13 @@
 """
 FastAPI sidecar exposing core K'NexForge operations as HTTP endpoints.
 Endpoints: /build, /snap, /stability, /export, /load
-WebSocket: /ws/stability
+WebSocket: /ws/stability, /ws/simulate
 """
 
+import logging
+
 from fastapi import FastAPI, WebSocket, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Any, Dict
@@ -16,7 +19,17 @@ from .snapping import snap_ports
 from .file_io import save_knx, load_knx
 from .physics.graph import compute_stability
 
+logger = logging.getLogger("knexforge.api")
+
 app = FastAPI(title="K'NexForge Core API")
+
+# CORS — allow the Vite dev server and Tauri WebView to reach the sidecar
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # --- Pydantic Models ---
 
@@ -162,18 +175,24 @@ async def ws_stability(websocket: WebSocket):
         await websocket.close()
 
 import asyncio
+import traceback
 
 @app.websocket("/ws/simulate")
 async def ws_simulate(websocket: WebSocket):
     await websocket.accept()
+    logger.info("[SIM] WebSocket accepted")
     try:
         data = await websocket.receive_json()
         from .parts.loader import PartLoader
         from .parts.models import PartInstance, Connection
         library = PartLoader.load()
         build = Build()
-        
-        for p_data in data.get("parts", []):
+
+        parts_data = data.get("parts", [])
+        conns_data = data.get("connections", [])
+        logger.info("[SIM] Received %d parts, %d connections", len(parts_data), len(conns_data))
+
+        for p_data in parts_data:
             part_def = library.get(p_data["part_id"])
             inst = PartInstance(
                 instance_id=p_data["instance_id"],
@@ -183,40 +202,56 @@ async def ws_simulate(websocket: WebSocket):
                 color=p_data.get("color")
             )
             build.add_part(inst, record=False)
-            
-        for c in data.get("connections", []):
+
+        for c in conns_data:
             conn = Connection(**c)
             build.connections.add(conn)
             build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
+            logger.info(
+                "[SIM] Connection: %s.%s -> %s.%s  joint_type=%s",
+                conn.from_instance[:8], conn.from_port,
+                conn.to_instance[:8], conn.to_port,
+                conn.joint_type,
+            )
 
         from .physics.pybullet import PyBulletSimulator
-        import pybullet as p
-        
+        import pybullet as pb
+
         with PyBulletSimulator(build) as sim:
             for inst_id, part_inst in build.parts.items():
                 body_id = sim.load_part_mesh(part_inst)
                 sim.part_bodies[inst_id] = body_id
-                
-                # Anchor the motor (mass=0 makes it static)
+                logger.info(
+                    "[SIM] Loaded body %d for %s (%s)",
+                    body_id, inst_id[:8], part_inst.part.id,
+                )
+
                 if "motor" in part_inst.part.id:
-                    p.changeDynamics(body_id, -1, mass=0.0)
-            
+                    pb.changeDynamics(body_id, -1, mass=0.0)
+                    logger.info("[SIM] Anchored motor body %d (mass=0)", body_id)
+
             sim.create_joints()
-            
-            p.setGravity(0, 0, 0.0) # Zero gravity for maximum visibility of spin
+            logger.info("[SIM] Created %d joint constraints", len(sim.joint_constraints))
+
+            pb.setGravity(0, 0, 0.0)
             motor_speed = float(data.get("motor_speed", 10.0))
-            
+
             motor_ids = [i for i, part in build.parts.items() if "motor" in part.part.id]
-            driven_info = [] # (body_id, axis_world)
+            logger.info("[SIM] Motor instance IDs: %s", [mid[:8] for mid in motor_ids])
+
+            driven_info = []
             for conn in build.connections:
                 if conn.from_instance in motor_ids or conn.to_instance in motor_ids:
                     m_id = conn.from_instance if conn.from_instance in motor_ids else conn.to_instance
                     d_id = conn.to_instance if m_id == conn.from_instance else conn.from_instance
 
                     motor_port_id = conn.from_port if m_id == conn.from_instance else conn.to_port
-                    # Only drive the motor's axle connection. This avoids applying motor torque
-                    # through static mounting snaps (mount_1 / mount_2) when present.
+                    logger.info(
+                        "[SIM] Motor connection: motor_port=%s  joint_type=%s",
+                        motor_port_id, conn.joint_type,
+                    )
                     if motor_port_id != "drive_axle" or conn.joint_type != "revolute":
+                        logger.info("[SIM]   -> SKIPPED (not drive_axle revolute)")
                         continue
 
                     m_inst = build.parts[m_id]
@@ -227,39 +262,68 @@ async def ws_simulate(websocket: WebSocket):
                     b_id = sim.part_bodies.get(d_id)
                     if b_id is not None:
                         driven_info.append((b_id, axis_world))
-            
-            # Signal ready to frontend
+                        logger.info(
+                            "[SIM]   -> DRIVING body %d, axis_world=%s",
+                            b_id, axis_world.tolist(),
+                        )
+                    else:
+                        logger.warning("[SIM]   -> driven body NOT FOUND for %s", d_id[:8])
+
+            logger.info("[SIM] driven_info has %d entries, motor_speed=%.1f", len(driven_info), motor_speed)
+
+            if not driven_info:
+                logger.warning("[SIM] No driven bodies — motor will not spin anything!")
+
             await websocket.send_json({"type": "status", "data": "ready"})
-            
+            logger.info("[SIM] Sent 'ready', entering simulation loop")
+
+            frame_count = 0
             while True:
                 try:
                     msg = await asyncio.wait_for(websocket.receive_json(), timeout=0.001)
                     if "motor_speed" in msg:
                         motor_speed = float(msg["motor_speed"])
                     if msg.get("action") == "stop":
+                        logger.info("[SIM] Stop requested by client")
                         break
                 except asyncio.TimeoutError:
                     pass
                 except Exception:
                     break
 
-                # Run physics steps
                 for _ in range(4):
                     for b_id, axis in driven_info:
-                        # Massive torque application
-                        torque_vec = [axis[0] * motor_speed * 10000.0, axis[1] * motor_speed * 10000.0, axis[2] * motor_speed * 10000.0]
-                        p.applyExternalTorque(b_id, -1, torque_vec, p.WORLD_FRAME)
-                    p.stepSimulation()
+                        torque_vec = [
+                            float(axis[0] * motor_speed * 10000.0),
+                            float(axis[1] * motor_speed * 10000.0),
+                            float(axis[2] * motor_speed * 10000.0),
+                        ]
+                        pb.applyExternalTorque(b_id, -1, torque_vec, pb.WORLD_FRAME)
+                    pb.stepSimulation()
 
-                transforms = {}
+                transforms: dict[str, Any] = {}
                 for inst_id, body_id in sim.part_bodies.items():
-                    pos, quat = p.getBasePositionAndOrientation(body_id)
-                    transforms[inst_id] = {"position": pos, "quaternion": quat}
-                
+                    pos, quat = pb.getBasePositionAndOrientation(body_id)
+                    transforms[inst_id] = {
+                        "position": list(pos),
+                        "quaternion": list(quat),
+                    }
+
+                if frame_count < 3:
+                    logger.info("[SIM] Frame %d transforms sample: %s",
+                                frame_count,
+                                {k[:8]: v for k, v in list(transforms.items())[:2]})
+
                 await websocket.send_json({"type": "transforms", "data": transforms})
                 await asyncio.sleep(1/60.0)
+                frame_count += 1
 
-    except Exception:
+    except Exception as exc:
+        logger.error("[SIM] Simulation error: %s\n%s", exc, traceback.format_exc())
+        await websocket.send_json({
+            "type": "error",
+            "data": str(exc),
+        })
         try:
             await websocket.close()
         except Exception:
@@ -267,4 +331,5 @@ async def ws_simulate(websocket: WebSocket):
 
 # --- Entrypoint for running with uvicorn ---
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     uvicorn.run("src.core.api:app", host="127.0.0.1", port=8000, reload=True)
