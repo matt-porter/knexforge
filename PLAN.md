@@ -74,3 +74,81 @@
 ---
 
 **Phase 4 Success Criteria**: User can photograph a real K'Nex build (5-10 photos) and import it as an editable `.knx` file with ≥80% accuracy on simple structures.
+
+---
+
+## Phase 5 — Model Export/Import System
+
+### [ ] Task 5.1: Design Export Data Schema
+- **Goal**: Define portable JSON format for build serialization
+- **Files**: `schema/build-export.json`, docs in `docs/export-format.md`
+- Capture all part instances (part_id, position, rotation)
+- Capture all connections (from_part, to_part, port_a, port_b)
+- Include metadata: name, description, author, timestamp, format_version
+- Ensure backward compatibility with version bumping strategy
+
+### [ ] Task 5.2: Core Export Functionality (`src/core/file_io.py`)
+- **Goal**: Add export_build() function to serialize Build state
+- **Files**: `src/core/file_io.py`
+- Convert Build object → JSON-serializable dict per schema
+- Handle edge cases: empty builds, large builds (100+ parts)
+- Validate all part_ids exist in part database before export
+- Add compression option for large files (.knx.gz)
+
+### [ ] Task 5.3: Core Import Functionality (`src/core/file_io.py`)
+- **Goal**: Add import_build() function to deserialize and reconstruct builds
+- **Files**: `src/core/file_io.py`
+- Parse JSON → validate against schema (pydantic models)
+- Reconstruct Build object with all PartInstances
+- Recreate ConnectionGraph from connection data
+- Handle version mismatches with migration strategies
+- Return validation errors for malformed files
+
+### [ ] Task 5.4: Frontend Export UI Component (`frontend/src/`)
+- **Goal**: Add export button and file save dialog
+- **Files**: `frontend/src/components/BuildMenu.tsx` or similar
+- Trigger export via sidecar API call
+- Show loading state during serialization
+- Handle errors (invalid parts, network issues)
+- Save .knx file to user's downloads folder
+
+### [ ] Task 5.5: Frontend Import UI Component (`frontend/src/`)
+- **Goal**: Add import file picker and load workflow
+- **Files**: `frontend/src/components/BuildMenu.tsx` or similar
+- File input dialog for .knx files
+- Show preview/validation before committing to current build
+- Confirm dialog: "Replace current build?" vs "Append"
+- Display validation errors if file is malformed
+
+### [ ] Task 5.6: Round-Trip Integration Tests
+- **Goal**: Verify export/import preserves exact build state
+- **Files**: `src/core/tests/test_export_import.py`
+- Test simple builds (2-3 parts)
+- Test complex builds with motors, bridges, multiple connections
+- Test round-trip: Build → Export → Import → Compare PartInstances
+- Test connection graph integrity after import
+- Test metadata preservation
+
+### [ ] Task 5.7: Large Build Performance Optimization
+- **Goal**: Ensure export/import works efficiently for 100+ part builds
+- **Files**: `src/core/file_io.py`, tests in `test_export_import.py`
+- Profile serialization time vs build size
+- Add streaming/chunked export if needed
+- Test memory usage with large files
+- Optimize JSON encoding (compact format, no pretty-print)
+
+### [ ] Task 5.8: Version Migration Strategy
+- **Goal**: Handle old .knx files gracefully
+- **Files**: `src/core/file_io.py`
+- Implement version detection and migration functions
+- Test migration from v1 → current format
+- Add deprecation warnings for outdated versions
+- Document breaking changes in CHANGELOG
+
+---
+
+**Phase 5 Success Criteria**: 
+- Users can export any build to .knx file and re-import it with exact same state
+- Round-trip test passes: PartInstances and connections match byte-for-byte after import
+- Export/import works reliably for builds up to 200 parts in <2 seconds
+- Malformed files show clear error messages without crashing the app
