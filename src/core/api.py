@@ -61,14 +61,17 @@ class StabilityResponse(BaseModel):
     stress_data: Dict[str, float] | None = None
 
 class ExportRequest(BaseModel):
-    build_id: str
-    format: str
+    """Export a build from parts and connections data."""
+    parts: list
+    connections: list
 
 class ExportResponse(BaseModel):
-    data: Any
+    success: bool
+    data: Any | None = None
+    error: str | None = None
 
 class LoadRequest(BaseModel):
-    file: bytes
+    file_bytes: bytes
 
 class LoadResponse(BaseModel):
     build_id: str
@@ -164,19 +167,78 @@ def stability(req: StabilityRequest):
 
 @app.post("/export", response_model=ExportResponse)
 def export(req: ExportRequest):
-    build = build_store.get(req.build_id)
-    if not build:
-        raise HTTPException(status_code=404, detail="Build not found")
-    # TODO: Implement export logic
-    return ExportResponse(data=None)
+    """Export a build from parts and connections data to portable JSON format."""
+    from .file_io import export_build, ExportValidationError
+    from .parts.models import PartInstance, Connection
+
+    try:
+        # Reconstruct build from parts/connections arrays
+        library = PartLoader.load()
+        build = Build()
+
+        for p_data in req.parts:
+            part_def = library.get(p_data["part_id"])
+            inst = PartInstance(
+                instance_id=p_data["instance_id"],
+                part=part_def,
+                position=tuple(p_data["position"]),
+                quaternion=tuple(p_data.get("quaternion", [0, 0, 0, 1])),
+                color=p_data.get("color"),
+            )
+            build.add_part(inst, record=False)
+
+        for c_data in req.connections:
+            conn = Connection(**c_data)
+            build.connections.add(conn)
+            build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
+
+        # Export to portable format
+        exported_data = export_build(build)
+        return ExportResponse(success=True, data=exported_data)
+    except ExportValidationError as e:
+        logger.warning(f"Export failed: {e}")
+        return ExportResponse(
+            success=False,
+            error=f"Export failed: parts not found in library - {e.missing_parts}",
+        )
+    except Exception as e:
+        logger.error(f"Export error: {e}")
+        return ExportResponse(success=False, error=str(e))
 
 @app.post("/load", response_model=LoadResponse)
 def load(req: LoadRequest):
-    # TODO: Implement load logic
-    build_id = "build-002"  # TODO: generate unique ID
-    manifest = {}  # TODO: parse manifest
-    build_store[build_id] = Build()
-    return LoadResponse(build_id=build_id, manifest=manifest)
+    """Import a build from exported JSON data."""
+    from .file_io import import_build, ExportValidationError
+
+    try:
+        # Parse the imported data
+        import json
+        imported_data = json.loads(req.file_bytes.decode("utf-8"))
+
+        # Import and create new build
+        build, manifest = import_build(imported_data)
+
+        # Generate unique ID and store
+        import uuid
+        build_id = f"build-{uuid.uuid4().hex[:8]}"
+        build_store[build_id] = build
+
+        logger.info(f"Loaded build {build_id} with {manifest.piece_count} pieces")
+
+        return LoadResponse(
+            build_id=build_id,
+            manifest=manifest.model_dump(mode="json"),
+        )
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
+    except ExportValidationError as e:
+        logger.warning(f"Import failed: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Import failed: parts not found in library - {e.missing_parts}",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid build file: {e}")
 
 # --- Diagnostics ---
 

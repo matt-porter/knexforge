@@ -38,6 +38,38 @@ export interface BuildExport {
   stability_score: number
 }
 
+export interface ExportedBuildData {
+  manifest: {
+    format_version: string
+    app_version: string
+    created_at: string
+    author: string
+    title: string
+    description: string
+    piece_count: number
+    stability_score: number
+  }
+  model: {
+    parts: Array<{
+      instance_id: string
+      part_id: string
+      position: [number, number, number]
+      quaternion: [number, number, number, number]
+      color?: string
+    }>
+    connections: Array<{
+      from: string
+      to: string
+      joint_type: string
+    }>
+  }
+}
+
+export interface LoadResponse {
+  build_id: string
+  manifest: ExportedBuildData['manifest']
+}
+
 // ---------------------------------------------------------------------------
 // Tauri detection
 // ---------------------------------------------------------------------------
@@ -150,49 +182,105 @@ export class SidecarBridge {
   }
 
   /**
-   * Export the build to a .knx file via the Python core.
+   * Export the build to JSON format via the Python core.
+   * Returns the exported data that can be saved as .knx file.
    */
-  async exportBuild(parts: PartInstance[], connections: Connection[]): Promise<Uint8Array | null> {
-    if (!this._connected) return null
+  async exportBuild(
+    parts: PartInstance[],
+    connections: Connection[]
+  ): Promise<{ success: boolean; data: ExportedBuildData | null; error?: string }> {
+    if (!this._connected) return { success: false, data: null }
 
     try {
-      if (isTauriAvailable()) {
-        return await tauriInvoke<Uint8Array>('export_build', { parts, connections })
-      }
-
       const resp = await fetch(`${this._baseUrl}/export`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ parts, connections }),
       })
-      if (!resp.ok) return null
-      const buf = await resp.arrayBuffer()
-      return new Uint8Array(buf)
-    } catch {
+
+      if (!resp.ok) {
+        const errorData = await resp.json()
+        return { success: false, data: null, error: errorData.detail || errorData.error || 'Export failed' }
+      }
+
+      const result = (await resp.json()) as { success: boolean; data?: ExportedBuildData; error?: string }
+      if (!result.success) {
+        return { success: false, data: null, error: result.error || 'Export failed' }
+      }
+
+      return { success: true, data: result.data }
+    } catch (err) {
+      console.error('[SidecarBridge] Export error:', err)
+      return { success: false, data: null, error: String(err) }
+    }
+  }
+
+  /**
+   * Load a build from exported JSON data.
+   */
+  async loadBuild(data: ExportedBuildData): Promise<LoadResponse | null> {
+    if (!this._connected) return null
+
+    try {
+      const resp = await fetch(`${this._baseUrl}/load`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_bytes: Buffer.from(JSON.stringify(data)) }),
+      })
+
+      if (!resp.ok) {
+        const errorData = await resp.json()
+        console.error('[SidecarBridge] Load error:', errorData.detail)
+        return null
+      }
+
+      return (await resp.json()) as LoadResponse
+    } catch (err) {
+      console.error('[SidecarBridge] Load error:', err)
       return null
     }
   }
 
   /**
-   * Load a build from a .knx file via the Python core.
+   * Save exported build data to a .knx file for download.
    */
-  async loadBuild(data: Uint8Array): Promise<BuildExport | null> {
-    if (!this._connected) return null
+  async saveKnxFile(data: ExportedBuildData, filename: string): Promise<void> {
+    // Create ZIP-like structure with manifest.json and model.json
+    const zipContent = new Uint8Array()
 
+    // For browser download, we'll create a simple JSON file that can be loaded later
+    // In production Tauri mode, this would create actual .knx ZIP files
+    const jsonStr = JSON.stringify(data, null, 2)
+    const blob = new Blob([jsonStr], { type: 'application/json' })
+
+    // Create download link
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename.endsWith('.knx') ? filename : `${filename}.knx`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  /**
+   * Load build from .knx file (browser mode - reads JSON format).
+   */
+  async loadKnxFile(file: File): Promise<{ success: boolean; data?: ExportedBuildData; error?: string }> {
     try {
-      if (isTauriAvailable()) {
-        return await tauriInvoke<BuildExport>('load_build', { data: Array.from(data) })
+      const text = await file.text()
+      const data = JSON.parse(text) as ExportedBuildData
+
+      // Validate structure
+      if (!data.manifest || !data.model) {
+        return { success: false, error: 'Invalid .knx format: missing manifest or model' }
       }
 
-      const resp = await fetch(`${this._baseUrl}/load`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: data.buffer as ArrayBuffer,
-      })
-      if (!resp.ok) return null
-      return (await resp.json()) as BuildExport
-    } catch {
-      return null
+      return { success: true, data }
+    } catch (err) {
+      console.error('[SidecarBridge] Failed to read .knx file:', err)
+      return { success: false, error: `Failed to parse file: ${String(err)}` }
     }
   }
 
