@@ -36,11 +36,19 @@
 
 ## Component Structure
 
-frontend/src/
-├── components/
-│   └── Viewer/
-│       ├── KnexViewer.tsx          # main <Canvas>
-│       ├── InstancedRods.tsx
-│       ├── GhostPreview.tsx
-│       └── StressOverlay.tsx
-└── hooks/useBuildRenderer.ts
+`frontend/src/`
+├── `components/`
+│   ├── `BuildMenu.tsx`                 # Top navigation and export/import actions
+│   ├── `PartPalette.tsx`               # Sidebar for selecting parts to add
+│   ├── `ModelBrowser/`                 # UI for browsing saved models
+│   └── `Viewer/`                       # 3D rendering components
+│       ├── `KnexViewer.tsx`            # Main `<Canvas>` entry point
+│       ├── `BuildScene.tsx`            # Scene layout, lights, and core rendering logic
+│       ├── `InstancedParts.tsx`        # High-performance `InstancedMesh` rendering for parts
+│       ├── `PartMesh.tsx`              # Individual part mesh rendering (fallback/special parts)
+│       ├── `GhostPreview.tsx`          # Semi-transparent preview for drag-and-drop placement
+│       ├── `PortIndicators.tsx`        # Visual guides/markers for valid connection ports
+│       ├── `SceneInteraction.tsx`      # Mouse/touch event handling within the 3D scene
+│       └── `VisualModeToggle.tsx`      # UI to switch between realistic, x-ray, stress modes
+└── `stores/`
+    └── `visualStore.ts`                # Zustand store managing visual modes and camera state

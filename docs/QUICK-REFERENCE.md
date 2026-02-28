@@ -16,6 +16,8 @@
 | Generate meshes from SCAD | `tools/generate_meshes.py` |
 | Run AI inference | `src/ai/inference.py` |
 | Check part schema | `schema/knex-part.json` |
+| Learn how to contribute | `CONTRIBUTING.md` |
+| Troubleshoot an issue | `docs/TROUBLESHOOTING.md` |
 
 ---
 

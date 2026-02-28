@@ -48,13 +48,15 @@ Repository Root/
 |----------|---------|----------|--------|
 | AGENTS.md | Core principles, coding standards | Root | ✅ Complete |
 | README.md | Project overview, quick start | Root | ⚠️ Outdated (wrong paths) |
+| CONTRIBUTING.md | Guide for human & AI contributors | Root | ✅ Complete |
 | PLAN.md | Active development tasks | Root | ✅ Current |
 | **AGENT-ONBOARDING.md** | **Agent discovery guide** | **docs/** | **🆕 New** |
 | file-formats.md | .knx and part JSON schemas | docs/ | ✅ Complete |
 | physics-model.md | Tiered stability system | docs/ | ✅ Complete |
-| rendering-architecture.md | Three.js + Tauri setup | docs/ | ⚠️ Incomplete (missing component tree) |
+| rendering-architecture.md | Three.js + Tauri setup | docs/ | ✅ Complete |
 | ai-training-plan.md | LegoGPT fork details | docs/ | ✅ Complete |
 | generative-kinematics-plan.md | Mechanism synthesis roadmap | docs/ | ✅ Complete |
+| TROUBLESHOOTING.md | Debugging common issues | docs/ | ✅ Complete |
 
 ---
 

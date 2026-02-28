@@ -76,8 +76,8 @@
 
 | Gap | Location | Impact | Recommended Fix |
 |-----|----------|--------|-----------------|
-| No CONTRIBUTING.md | Root (mentioned in README) | Medium | Create basic contribution guide with PR template |
-| Frontend component tree incomplete | docs/rendering-architecture.md | Low | Add full component hierarchy with props |
+| ~~No CONTRIBUTING.md~~ | ~~Root (mentioned in README)~~ | Medium | ~~Create basic contribution guide with PR template~~ (✅ Fixed) |
+| ~~Frontend component tree incomplete~~ | ~~docs/rendering-architecture.md~~ | Low | ~~Add full component hierarchy with props~~ (✅ Fixed) |
 | API endpoint details minimal | src/core/api.py (no separate doc) | Medium | Generate OpenAPI/Swagger docs or add endpoint table to AGENT-ONBOARDING.md |
 | Environment variables not documented | Anywhere | Low | Create .env.example if needed, document all config options |
 | **Tauri integration status unclear** | **frontend/src-tauri/** | **High** | **Document that Tauri commands are stubs; sidecar only works in web dev mode** |
@@ -86,7 +86,7 @@
 
 | Gap | Location | Impact | Recommended Fix |
 |-----|----------|--------|-----------------|
-| No troubleshooting guide | docs/ | Medium | Expand debugging tips from AGENT-ONBOARDING.md into full guide |
+| ~~No troubleshooting guide~~ | ~~docs/~~ | Medium | ~~Expand debugging tips from AGENT-ONBOARDING.md into full guide~~ (✅ Fixed) |
 | Dataset format not fully documented | ai/, README | Low | Create data-formats.md with all JSONL schemas |
 | Tauri integration details missing | frontend/src-tauri/ | **High** | Document that Tauri commands are stubs; sidecar only works in web dev mode |
 | No architecture decision records (ADRs) | docs/ | Low | Start ADR process for major design decisions |

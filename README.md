@@ -90,6 +90,7 @@ React 19 + TypeScript + Vite
 @react-three/fiber + @react-three/drei + Rapier.js (WASM)
 Zustand + Immer for undo/redo
 Tauri 2 desktop wrapper (Windows/macOS/Linux)
+**Note**: The Tauri desktop app is currently a UI stub. For full functionality (Python sidecar, simulation), use the web dev mode (`npm run dev`) and run the sidecar API separately.
 
 4. AI Generation (ai/)
 
@@ -165,7 +166,7 @@ Help generate the 50k+ training dataset
 Test on real K’Nex builds
 Write tutorials
 
-See CONTRIBUTING.md (coming soon).
+See CONTRIBUTING.md.
 Not affiliated with K’Nex / Basic Fun — fan project only.
 
 📜 License
