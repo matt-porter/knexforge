@@ -5,13 +5,20 @@
 - MVP bridge logic: auto-generates rod bridge structure between anchors
 - Unit tests in `core/tests/test_build_assistant.py`: check step count, part IDs, positions
 
-### o. Task 3.9: Motor Spin Regression Fixes (`proc_0001`)
+### ✅ Task 3.9: Motor Spin Regression Fixes (`proc_0001`)
 - Fixed physics joint creation crashes that prevented simulation transforms from streaming.
 - Added backward-compatible joint inference for legacy snapshots/datasets that omit `joint_type`.
 - Updated dataset conversion and simulation state handling so motorized models animate reliably in the viewer.
 - Hardened revolute joint construction to use shared world-space pivots and rotational-hole axis selection, fixing over-constrained hinges that suppressed visible rod spin.
 - Restricted motor torque driving to axle/revolute connections only, preventing non-axle mount snaps from absorbing motor force.
 - Added sidecar-connect bootstrap in simulation startup so PLAY reliably launches backend simulation in Tauri/web modes.
+
+### ✅ Task 3.10: Connector Flip / Rod Oscillation Fix
+- **Root cause**: Torque multiplier (10,000) was ~500× larger than constraint forces could resist at 10mm anchor arms. Rods oscillated wildly off-axis; connectors flipped 90° on first frame.
+- **Fix**: Reduced torque multiplier 10,000→50; increased constraint maxForce 20k→100k; widened anchor arms 10→30mm; added body damping (0.3 linear/angular); increased solver iterations 50→200.
+- **Diagnostics added**: `POST /diagnostics/sim-orientation` endpoint; frontend `SimOrientationDiagnostics` class (inspect via `simDiagnostics` in browser console).
+- **Tests**: `src/core/tests/test_connector_orientation.py` — 5 tests covering side-on clip, end-on clip, motor-driven chain, orientation delta, and constraint anchor validation.
+- **Key lesson**: PyBullet P2P constraints resist torque proportional to `maxForce × arm_distance`. Always ensure applied torques stay well below this product, especially with sub-gram parts.
 
 ---
 
