@@ -38,6 +38,276 @@ class ExportValidationError(Exception):
         self.missing_parts = missing_parts or []
 
 
+# ============================================================================
+# Version Migration System (Task 5.8)
+# ============================================================================
+
+class VersionMigrationError(Exception):
+    """Raised when version migration fails."""
+    pass
+
+
+def detect_format_version(data: dict) -> str:
+    """Detect the format version of exported data.
+
+    Args:
+        data: Dict with 'manifest' key (or legacy structure).
+
+    Returns:
+        Version string like "1.0", "0.9", etc.
+
+    Raises:
+        ValueError: If version cannot be determined.
+    """
+    if "manifest" in data and isinstance(data["manifest"], dict):
+        return str(data["manifest"].get("format_version", "unknown"))
+
+    # Legacy format detection (pre-manifest)
+    if "parts" in data and "connections" in data:
+        return "0.9"  # Pre-manifest version
+
+    raise ValueError("Cannot determine format version")
+
+
+def migrate_data_v0_9_to_1_0(data: dict) -> dict:
+    """Migrate legacy v0.9 format to v1.0.
+
+    Legacy format had parts/connections at root level without manifest.
+    New format wraps them in 'model' with a separate 'manifest'.
+
+    Args:
+        data: Legacy v0.9 format data.
+
+    Returns:
+        Migrated v1.0 format data.
+    """
+    if "manifest" in data:
+        # Already migrated or new format
+        return data
+
+    # Create manifest from existing data
+    piece_count = len(data.get("parts", []))
+    stability_score = 0.0
+
+    # Try to extract stability score if present in legacy format
+    if "stability" in data:
+        stability_score = float(data["stability"])
+
+    migrated_data = {
+        "manifest": {
+            "format_version": "1.0",
+            "app_version": "0.1.0",  # Unknown for legacy files
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "author": data.get("author", ""),
+            "title": data.get("title", ""),
+            "description": data.get("description", ""),
+            "piece_count": piece_count,
+            "stability_score": stability_score,
+        },
+        "model": {
+            "parts": data["parts"],
+            "connections": data.get("connections", []),
+        },
+    }
+
+    return migrated_data
+
+
+def migrate_data(data: dict) -> tuple[dict, str]:
+    """Migrate build data to current format version.
+
+    Args:
+        data: Build data in any supported format.
+
+    Returns:
+        Tuple of (migrated_data, original_version).
+
+    Raises:
+        VersionMigrationError: If migration is not possible.
+    """
+    try:
+        original_version = detect_format_version(data)
+    except ValueError as e:
+        raise VersionMigrationError(f"Cannot determine format version: {e}")
+
+    # Current version - no migration needed
+    if original_version == "1.0":
+        return data, original_version
+
+    # Legacy versions that need migration
+    if original_version == "0.9":
+        migrated = migrate_data_v0_9_to_1_0(data)
+        return migrated, original_version
+
+    # Unknown version - try to load anyway but warn
+    import warnings
+    warnings.warn(f"Unknown format version {original_version}, attempting direct load")
+    return data, original_version
+
+
+def validate_manifest(manifest: dict) -> list[str]:
+    """Validate manifest structure and required fields.
+
+    Args:
+        manifest: Manifest dict to validate.
+
+    Returns:
+        List of validation errors (empty if valid).
+    """
+    errors = []
+
+    # Check required fields
+    required_fields = ["format_version", "piece_count"]
+    for field in required_fields:
+        if field not in manifest:
+            errors.append(f"Missing required manifest field: {field}")
+
+    # Validate format_version is parseable
+    if "format_version" in manifest:
+        try:
+            version_parts = str(manifest["format_version"]).split(".")
+            if len(version_parts) < 2:
+                errors.append("Invalid format_version: must be major.minor")
+        except Exception:
+            errors.append("Invalid format_version: cannot parse")
+
+    # Validate piece_count is non-negative integer
+    if "piece_count" in manifest:
+        try:
+            pc = int(manifest["piece_count"])
+            if pc < 0:
+                errors.append("piece_count must be non-negative")
+        except (ValueError, TypeError):
+            errors.append("piece_count must be an integer")
+
+    return errors
+
+
+def validate_model(model_data: dict) -> list[str]:
+    """Validate model structure and required fields.
+
+    Args:
+        model_data: Model dict to validate.
+
+    Returns:
+        List of validation errors (empty if valid).
+    """
+    errors = []
+
+    # Check required arrays
+    if "parts" not in model_data:
+        errors.append("Missing 'parts' array")
+    elif not isinstance(model_data["parts"], list):
+        errors.append("'parts' must be an array")
+
+    if "connections" not in model_data:
+        errors.append("Missing 'connections' array")
+    elif not isinstance(model_data["connections"], list):
+        errors.append("'connections' must be an array")
+
+    # Validate part entries
+    for i, part in enumerate(model_data.get("parts", [])):
+        part_errors = validate_part_entry(part, i)
+        errors.extend(part_errors)
+
+    # Validate connection entries
+    for i, conn in enumerate(model_data.get("connections", [])):
+        conn_errors = validate_connection_entry(conn, i)
+        errors.extend(conn_errors)
+
+    return errors
+
+
+def validate_part_entry(part: dict, index: int) -> list[str]:
+    """Validate a single part entry.
+
+    Args:
+        part: Part dict to validate.
+        index: Index in parts array (for error messages).
+
+    Returns:
+        List of validation errors.
+    """
+    errors = []
+
+    required_fields = ["instance_id", "part_id", "position", "quaternion"]
+    for field in required_fields:
+        if field not in part:
+            errors.append(f"Part {index}: missing required field '{field}'")
+
+    # Validate position is 3-element array of numbers
+    if "position" in part:
+        pos = part["position"]
+        if not isinstance(pos, (list, tuple)) or len(pos) != 3:
+            errors.append(f"Part {index}: 'position' must be [x, y, z]")
+        elif not all(isinstance(v, (int, float)) for v in pos):
+            errors.append(f"Part {index}: position values must be numbers")
+
+    # Validate quaternion is 4-element array of numbers
+    if "quaternion" in part:
+        quat = part["quaternion"]
+        if not isinstance(quat, (list, tuple)) or len(quat) != 4:
+            errors.append(f"Part {index}: 'quaternion' must be [x, y, z, w]")
+        elif not all(isinstance(v, (int, float)) for v in quat):
+            errors.append(f"Part {index}: quaternion values must be numbers")
+
+    return errors
+
+
+def validate_connection_entry(conn: dict, index: int) -> list[str]:
+    """Validate a single connection entry.
+
+    Args:
+        conn: Connection dict to validate.
+        index: Index in connections array (for error messages).
+
+    Returns:
+        List of validation errors.
+    """
+    errors = []
+
+    required_fields = ["from", "to"]
+    for field in required_fields:
+        if field not in conn:
+            errors.append(f"Connection {index}: missing required field '{field}'")
+
+    # Validate port format (instance.port)
+    if "from" in conn and "." not in str(conn["from"]):
+        errors.append(f"Connection {index}: 'from' must be in format 'instance_id.port_name'")
+
+    if "to" in conn and "." not in str(conn["to"]):
+        errors.append(f"Connection {index}: 'to' must be in format 'instance_id.port_name'")
+
+    return errors
+
+
+def validate_exported_data(data: dict) -> tuple[bool, list[str]]:
+    """Validate complete exported build data.
+
+    Args:
+        data: Exported data with manifest and model.
+
+    Returns:
+        Tuple of (is_valid, list_of_errors).
+    """
+    all_errors = []
+
+    # Validate structure
+    if "manifest" not in data:
+        all_errors.append("Missing 'manifest' key")
+    else:
+        manifest_errors = validate_manifest(data["manifest"])
+        all_errors.extend(manifest_errors)
+
+    if "model" not in data:
+        all_errors.append("Missing 'model' key")
+    else:
+        model_errors = validate_model(data["model"])
+        all_errors.extend(model_errors)
+
+    return len(all_errors) == 0, all_errors
+
+
 def _build_to_model_json(build: Build, library: PartLibrary) -> dict:
     """Serialize a Build to the compact model.json format from the spec.
 
@@ -184,16 +454,29 @@ def import_build(data: dict, library: PartLibrary | None = None) -> tuple[Build,
 
     Raises:
         ValueError: If data format is invalid or parts not found in library.
+        VersionMigrationError: If migration fails.
     """
     if library is None:
         library = PartLoader.load()
 
-    # Validate structure
-    if "manifest" not in data or "model" not in data:
-        raise ValueError("Invalid export format: missing 'manifest' or 'model'")
+    # Validate structure first
+    is_valid, errors = validate_exported_data(data)
+    if not is_valid:
+        raise ValueError(f"Invalid export format:\n  - " + "\n  - ".join(errors))
 
-    manifest = Manifest.model_validate(data["manifest"])
-    build = _model_json_to_build(data["model"], library)
+    # Migrate to current version if needed (Task 5.8)
+    migrated_data, original_version = migrate_data(data)
+
+    # Log migration info for debugging
+    if original_version != "1.0":
+        import warnings
+        warnings.warn(
+            f"Loaded legacy format v{original_version}, migrated to v1.0",
+            UserWarning,
+        )
+
+    manifest = Manifest.model_validate(migrated_data["manifest"])
+    build = _model_json_to_build(migrated_data["model"], library)
 
     return build, manifest
 
