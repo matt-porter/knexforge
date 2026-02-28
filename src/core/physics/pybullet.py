@@ -42,9 +42,14 @@ class PyBulletSimulator:
 
     def __enter__(self):
         self.client = p.connect(p.DIRECT)
-        p.setAdditionalSearchPath(pybullet_data.getDataPath())
-        p.setGravity(0, 0, -9.81)
-        self.plane_id = p.loadURDF("plane.urdf")
+        p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.client)
+        p.setGravity(0, 0, -9.81, physicsClientId=self.client)
+        # More solver iterations = stiffer constraints (default is 50).
+        p.setPhysicsEngineParameter(
+            numSolverIterations=200,
+            physicsClientId=self.client,
+        )
+        self.plane_id = p.loadURDF("plane.urdf", physicsClientId=self.client)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -66,27 +71,54 @@ class PyBulletSimulator:
             # Always use the convex hull so the body can be dynamic in PyBullet.
             # GEOM_FORCE_CONCAVE_TRIMESH makes bodies effectively static.
             mesh = mesh.convex_hull
-            vertices = mesh.vertices.tolist()
+            vertices = np.array(mesh.vertices, dtype=float)
+
+            # Rod GLB meshes are generated along the Z-axis and centered at origin,
+            # but the port data convention defines rods along the X-axis with end1
+            # at the origin.  The frontend applies this same correction visually
+            # (see meshCorrection.ts).  We must apply it to the collision shape
+            # vertices so the physics body matches the port-data coordinate system.
+            if part_instance.part.category == "rod":
+                end2 = next((pt for pt in part_instance.part.ports if pt.id == "end2"), None)
+                rod_length = end2.position[0] if end2 else float(np.max(np.abs(vertices[:, 2])) * 2)
+                # Rotate -90° around Y: [x,y,z] → [z, y, -x]
+                correction_rot = R.from_euler('y', -90, degrees=True)
+                vertices = correction_rot.apply(vertices)
+                # Translate so end1 sits at origin
+                vertices[:, 0] += rod_length / 2
+
             collision_shape = p.createCollisionShape(
                 p.GEOM_MESH,
-                vertices=vertices,
+                vertices=vertices.tolist(),
+                physicsClientId=self.client,
             )
         else:
             # fallback: simple box
-            collision_shape = p.createCollisionShape(p.GEOM_BOX, halfExtents=[5, 5, 5])
+            collision_shape = p.createCollisionShape(
+                p.GEOM_BOX, halfExtents=[5, 5, 5], physicsClientId=self.client,
+            )
         
         body_id = p.createMultiBody(
             baseMass=part_instance.part.mass_grams / 1000.0 if hasattr(part_instance.part, 'mass_grams') else 1.0,
             baseCollisionShapeIndex=collision_shape,
             basePosition=part_instance.position,
-            baseOrientation=part_instance.quaternion
+            baseOrientation=part_instance.quaternion,
+            physicsClientId=self.client,
         )
-        # Prevent bodies from sleeping so simulation remains live
-        p.changeDynamics(body_id, -1, activationState=p.ACTIVATION_STATE_DISABLE_SLEEPING)
+        # Prevent bodies from sleeping so simulation remains live.
+        # Add damping to stabilise constraint-coupled bodies.
+        p.changeDynamics(
+            body_id, -1,
+            activationState=p.ACTIVATION_STATE_DISABLE_SLEEPING,
+            linearDamping=0.3,
+            angularDamping=0.3,
+            physicsClientId=self.client,
+        )
         return body_id
 
     def create_joints(self):
         """Creates joints between parts at validated ports."""
+        cid = self.client
         # For each connection, create a constraint between the two part bodies at the port positions
         for conn in self.build.connections:
             if conn.from_instance not in self.part_bodies or conn.to_instance not in self.part_bodies:
@@ -100,9 +132,9 @@ class PyBulletSimulator:
             child_body = self.part_bodies[to_inst.instance_id]
             
             # Disable collision between joined parts to prevent binding
-            p.setCollisionFilterPair(parent_body, child_body, -1, -1, 0)
+            p.setCollisionFilterPair(parent_body, child_body, -1, -1, 0, physicsClientId=cid)
 
-            # Backward compatibility: infer dynamic joint types when older snapshots omit joint_type.
+            # Infer joint type from mate types
             mate_types = {from_port.mate_type, to_port.mate_type}
             joint_type = conn.joint_type
             if joint_type == "fixed":
@@ -111,85 +143,7 @@ class PyBulletSimulator:
                 elif "slider_hole" in mate_types:
                     joint_type = "prismatic"
 
-            if joint_type == "revolute":
-                # Try native revolute joint first (improved spinning reliability)
-                from_rot = R.from_quat(from_inst.quaternion)
-                to_rot = R.from_quat(to_inst.quaternion)
-                from_origin = np.array(from_inst.position, dtype=float)
-                to_origin = np.array(to_inst.position, dtype=float)
-
-                # World positions of connection ports
-                from_port_world = from_origin + from_rot.apply(np.array(from_port.position, dtype=float))
-                to_port_world = to_origin + to_rot.apply(np.array(to_port.position, dtype=float))
-                pivot_world = (from_port_world + to_port_world) * 0.5
-
-                # Get correct spin axis (use rotational_hole if present)
-                axis_inst = from_inst
-                axis_port = from_port
-                if from_port.mate_type != "rotational_hole" and to_port.mate_type == "rotational_hole":
-                    axis_inst = to_inst
-                    axis_port = to_port
-                axis_world = R.from_quat(axis_inst.quaternion).apply(np.array(axis_port.direction, dtype=float))
-                axis_norm = np.linalg.norm(axis_world)
-                if axis_norm <= 1e-8:
-                    axis_world = np.array([0.0, 0.0, 1.0], dtype=float)
-                else:
-                    axis_world = axis_world / axis_norm
-
-                # Parent/child pivot in each body's local frame
-                pivot_parent = from_rot.inv().apply(pivot_world - from_origin).tolist()
-                pivot_child = to_rot.inv().apply(pivot_world - to_origin).tolist()
-                axis_parent = from_rot.inv().apply(axis_world).tolist()
-                axis_child = to_rot.inv().apply(axis_world).tolist()
-
-                try:
-                    revolute_id = p.createConstraint(
-                        parentBodyUniqueId=parent_body,
-                        parentLinkIndex=-1,
-                        childBodyUniqueId=child_body,
-                        childLinkIndex=-1,
-                        jointType=p.JOINT_REVOLUTE,
-                        jointAxis=axis_child,
-                        parentFramePosition=pivot_parent,
-                        childFramePosition=pivot_child
-                    )
-                    p.changeConstraint(revolute_id, maxForce=20000)
-                    self.joint_constraints.append({"id": revolute_id, "parts": [from_inst.instance_id, to_inst.instance_id]})
-                except Exception:
-                    # Fallback: dual point-to-point as pseudo-hinge (legacy)
-                    try:
-                        secondary_world = pivot_world + axis_world * 10.0
-                        p1_parent = pivot_parent
-                        p1_child = pivot_child
-                        p2_parent = from_rot.inv().apply(secondary_world - from_origin).tolist()
-                        p2_child = to_rot.inv().apply(secondary_world - to_origin).tolist()
-                        cid1 = p.createConstraint(parent_body, -1, child_body, -1, p.JOINT_POINT2POINT, [0,0,0], p1_parent, p1_child)
-                        cid2 = p.createConstraint(parent_body, -1, child_body, -1, p.JOINT_POINT2POINT, [0,0,0], p2_parent, p2_child)
-                        p.changeConstraint(cid1, maxForce=20000)
-                        p.changeConstraint(cid2, maxForce=20000)
-                        self.joint_constraints.append({"id": cid1, "parts": [from_inst.instance_id, to_inst.instance_id]})
-                        self.joint_constraints.append({"id": cid2, "parts": [from_inst.instance_id, to_inst.instance_id]})
-                    except Exception:
-                        # As last resort, rigid constraint (use correctly transformed pivot points)
-                        fixed_id = p.createConstraint(
-                            parentBodyUniqueId=parent_body,
-                            parentLinkIndex=-1,
-                            childBodyUniqueId=child_body,
-                            childLinkIndex=-1,
-                            jointType=p.JOINT_FIXED,
-                            jointAxis=[0, 0, 0],
-                            parentFramePosition=pivot_parent,
-                            childFramePosition=pivot_child
-                        )
-                        p.changeConstraint(fixed_id, maxForce=10000)
-                        self.joint_constraints.append({"id": fixed_id, "parts": [from_inst.instance_id, to_inst.instance_id]})
-                continue # Joint(s) created, skip the standard block below
-
-            pb_joint_type = p.JOINT_FIXED
-            if joint_type == "prismatic":
-                pb_joint_type = p.JOINT_PRISMATIC
-
-            # Compute world positions of both ports and find the midpoint
+            # Compute rotations and positions
             from_rot = R.from_quat(from_inst.quaternion)
             to_rot = R.from_quat(to_inst.quaternion)
             from_origin = np.array(from_inst.position, dtype=float)
@@ -199,61 +153,87 @@ class PyBulletSimulator:
             to_port_world = to_origin + to_rot.apply(np.array(to_port.position, dtype=float))
             pivot_world = (from_port_world + to_port_world) * 0.5
 
-            # Transform pivot back into each body's local frame
-            pivot_parent = from_rot.inv().apply(pivot_world - from_origin).tolist()
-            pivot_child = to_rot.inv().apply(pivot_world - to_origin).tolist()
+            # Anchor arm length — larger arms resist torque better
+            # (constraint_force × arm = resistive_torque).
+            ARM_MM = 30.0
 
-            # The joint axis in parent (from_inst) local frame
-            joint_axis = from_port.direction if pb_joint_type != p.JOINT_FIXED else [0, 0, 0]
+            if joint_type == "revolute":
+                # Revolute: 2 P2P along rotation axis — allows rotation around
+                # that axis but locks translation + off-axis rotation.
+                axis_inst = from_inst
+                axis_port = from_port
+                if from_port.mate_type != "rotational_hole" and to_port.mate_type == "rotational_hole":
+                    axis_inst = to_inst
+                    axis_port = to_port
+                axis_world = R.from_quat(axis_inst.quaternion).apply(np.array(axis_port.direction, dtype=float))
+                axis_norm = np.linalg.norm(axis_world)
+                if axis_norm > 1e-8:
+                    axis_world = axis_world / axis_norm
+                else:
+                    axis_world = np.array([0.0, 0.0, 1.0])
 
-            try:
-                joint_id = p.createConstraint(
-                    parentBodyUniqueId=parent_body,
-                    parentLinkIndex=-1,
-                    childBodyUniqueId=child_body,
-                    childLinkIndex=-1,
-                    jointType=pb_joint_type,
-                    jointAxis=joint_axis,
-                    parentFramePosition=pivot_parent,
-                    childFramePosition=pivot_child
-                )
-            except Exception:
-                joint_id = p.createConstraint(
-                    parentBodyUniqueId=parent_body,
-                    parentLinkIndex=-1,
-                    childBodyUniqueId=child_body,
-                    childLinkIndex=-1,
-                    jointType=p.JOINT_FIXED,
-                    jointAxis=[0, 0, 0],
-                    parentFramePosition=pivot_parent,
-                    childFramePosition=pivot_child
-                )
+                anchors_world = [pivot_world, pivot_world + axis_world * ARM_MM]
+            else:
+                # Fixed/prismatic: 3 P2P at non-collinear points to lock all 6 DOF
+                direction = from_rot.apply(np.array(from_port.direction, dtype=float))
+                d_norm = np.linalg.norm(direction)
+                if d_norm > 1e-8:
+                    direction = direction / d_norm
+                else:
+                    direction = np.array([1.0, 0.0, 0.0])
 
-            p.changeConstraint(joint_id, maxForce=10000)
+                up = np.array([0.0, 1.0, 0.0]) if abs(direction[1]) < 0.9 else np.array([1.0, 0.0, 0.0])
+                perp1 = np.cross(direction, up)
+                perp1 = perp1 / (np.linalg.norm(perp1) + 1e-8)
+                perp2 = np.cross(direction, perp1)
 
-            self.joint_constraints.append({
-                "id": joint_id,
-                "parts": [from_inst.instance_id, to_inst.instance_id]
-            })
+                anchors_world = [
+                    pivot_world,
+                    pivot_world + perp1 * ARM_MM,
+                    pivot_world + perp2 * ARM_MM,
+                ]
+
+            # Create POINT2POINT constraints for each anchor.
+            # Force must exceed any applied torque / arm distance to stay rigid.
+            max_force = 100000
+            for anchor_world in anchors_world:
+                anchor_parent = from_rot.inv().apply(anchor_world - from_origin).tolist()
+                anchor_child = to_rot.inv().apply(anchor_world - to_origin).tolist()
+                try:
+                    c_id = p.createConstraint(
+                        parent_body, -1, child_body, -1,
+                        p.JOINT_POINT2POINT, [0, 0, 0],
+                        anchor_parent, anchor_child,
+                        physicsClientId=cid,
+                    )
+                    p.changeConstraint(c_id, maxForce=max_force, physicsClientId=cid)
+                    self.joint_constraints.append({
+                        "id": c_id,
+                        "parts": [from_inst.instance_id, to_inst.instance_id]
+                    })
+                except Exception:
+                    pass
 
     def simulate(self, steps: int = 240, movement_threshold: float = 2.0) -> CollapseResult:
         """Runs the simulation and returns a CollapseResult based on part movement and stress."""
+        cid = self.client
         # Add some linear/angular damping to stabilize K'NEX connections
         for body_id in self.part_bodies.values():
-            p.changeDynamics(body_id, -1, linearDamping=0.05, angularDamping=0.05)
+            p.changeDynamics(body_id, -1, linearDamping=0.05, angularDamping=0.05,
+                             physicsClientId=cid)
 
         initial_positions = {}
         for inst_id, body_id in self.part_bodies.items():
-            pos, _ = p.getBasePositionAndOrientation(body_id)
+            pos, _ = p.getBasePositionAndOrientation(body_id, physicsClientId=cid)
             initial_positions[inst_id] = pos
 
         # Let simulation settle
         for _ in range(steps):
-            p.stepSimulation()
+            p.stepSimulation(physicsClientId=cid)
 
         unstable_parts = []
         for inst_id, body_id in self.part_bodies.items():
-            final_pos, _ = p.getBasePositionAndOrientation(body_id)
+            final_pos, _ = p.getBasePositionAndOrientation(body_id, physicsClientId=cid)
             init_pos = initial_positions[inst_id]
             dist = sum((f - i) ** 2 for f, i in zip(final_pos, init_pos)) ** 0.5
             if dist > movement_threshold:
@@ -263,7 +243,7 @@ class PyBulletSimulator:
         stress_data = {inst_id: 0.0 for inst_id in self.part_bodies.keys()}
         max_stress = 1.0 # Avoid division by zero
         for joint in self.joint_constraints:
-            state = p.getConstraintState(joint["id"])
+            state = p.getConstraintState(joint["id"], physicsClientId=cid)
             if len(state) >= 3:
                 fx, fy, fz = state[0:3]
                 force_mag = (fx**2 + fy**2 + fz**2)**0.5

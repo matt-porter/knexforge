@@ -1,6 +1,7 @@
 import { sidecarBridge } from './sidecarBridge'
 import { useBuildStore } from '../stores/buildStore'
 import { useInteractionStore } from '../stores/interactionStore'
+import { createSimDiagnostics, type SimOrientationDiagnostics } from './simulationDiagnostics'
 
 type Transform = { position: [number, number, number]; quaternion: [number, number, number, number] }
 
@@ -11,6 +12,9 @@ let currentConnection: { close: () => void; setSpeed: (s: number) => void } | nu
 
 /** Diagnostic: count of transform frames received from the backend. */
 export let simDiagFrameCount = 0
+
+/** Orientation diagnostics instance — inspect from browser console via simDiagnostics. */
+export let simDiagnostics: SimOrientationDiagnostics | null = null
 
 export async function startSimulation(motorSpeed: number) {
   simDiagFrameCount = 0
@@ -38,6 +42,9 @@ export async function startSimulation(motorSpeed: number) {
   const instances = Object.values(parts)
   console.log('[SIM-FE] Sending %d parts, %d connections to backend', instances.length, connections.length)
 
+  simDiagnostics = createSimDiagnostics(parts)
+  console.log('[SIM-DIAG] Diagnostics initialized for %d parts', instances.length)
+
   try {
     currentConnection = sidecarBridge.connectSimulation(
       instances,
@@ -50,6 +57,7 @@ export async function startSimulation(motorSpeed: number) {
             ids.length > 0 ? data[ids[0]] : '(empty)')
         }
         simDiagFrameCount++
+        simDiagnostics?.processFrame(data as Record<string, Transform>)
         for (const [id, transform] of Object.entries(data)) {
           simulationTransforms.set(id, transform as Transform)
         }
@@ -72,6 +80,10 @@ export async function startSimulation(motorSpeed: number) {
 }
 
 export function stopSimulation() {
+  if (simDiagnostics) {
+    const report = simDiagnostics.getReport()
+    console.log('[SIM-DIAG] Simulation ended — %s', report.summary)
+  }
   if (currentConnection) {
     currentConnection.close()
     currentConnection = null

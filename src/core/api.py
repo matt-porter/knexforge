@@ -74,6 +74,27 @@ class LoadResponse(BaseModel):
     build_id: str
     manifest: dict
 
+# --- Sim-orientation diagnostic models ---
+
+class PartOrientationDiag(BaseModel):
+    initial_position: list[float]
+    initial_quaternion: list[float]
+    after_position: list[float]
+    after_quaternion: list[float]
+    rotation_delta_deg: float
+    euler_delta_deg: list[float]
+    flipped: bool
+
+class ConstraintDiag(BaseModel):
+    from_instance: str
+    to_instance: str
+    joint_type: str
+    anchor_count: int
+
+class SimOrientationResponse(BaseModel):
+    parts: Dict[str, PartOrientationDiag]
+    constraints: list[ConstraintDiag]
+
 # --- In-memory build store (for demo; replace with persistent store as needed) ---
 build_store: Dict[str, Build] = {}
 
@@ -157,6 +178,123 @@ def load(req: LoadRequest):
     build_store[build_id] = Build()
     return LoadResponse(build_id=build_id, manifest=manifest)
 
+# --- Diagnostics ---
+
+@app.post("/diagnostics/sim-orientation", response_model=SimOrientationResponse)
+def diagnostics_sim_orientation(req: BuildRequest):
+    """Step simulation 1 frame (zero gravity, no torque) and report orientation deltas."""
+    from .parts.loader import PartLoader
+    from .parts.models import PartInstance, Connection
+    import numpy as np
+    from scipy.spatial.transform import Rotation as R
+
+    library = PartLoader.load()
+    build = Build()
+
+    try:
+        for p_data in req.parts:
+            part_def = library.get(p_data["part_id"])
+            inst = PartInstance(
+                instance_id=p_data["instance_id"],
+                part=part_def,
+                position=tuple(p_data["position"]),
+                quaternion=tuple(p_data.get("rotation", p_data.get("quaternion", [0, 0, 0, 1]))),
+                color=p_data.get("color"),
+            )
+            build.add_part(inst, record=False)
+        for c in req.connections:
+            conn = Connection(**c)
+            build.connections.add(conn)
+            build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid build data: {e}")
+
+    try:
+        from .physics.pybullet import PyBulletSimulator
+        import pybullet as pb
+    except ImportError:
+        raise HTTPException(status_code=501, detail="pybullet not installed")
+
+    parts_diag: Dict[str, PartOrientationDiag] = {}
+    constraints_diag: list[ConstraintDiag] = []
+
+    with PyBulletSimulator(build) as sim:
+        for inst_id, part_inst in build.parts.items():
+            body_id = sim.load_part_mesh(part_inst)
+            sim.part_bodies[inst_id] = body_id
+
+        sim.create_joints()
+        pb.setGravity(0, 0, 0, physicsClientId=sim.client)
+
+        # Capture initial state
+        initial: Dict[str, tuple] = {}
+        for inst_id, body_id in sim.part_bodies.items():
+            pos, quat = pb.getBasePositionAndOrientation(body_id, physicsClientId=sim.client)
+            initial[inst_id] = (list(pos), list(quat))
+
+        # Step 1 frame (4 sub-steps, matching ws/simulate)
+        for _ in range(4):
+            pb.stepSimulation(physicsClientId=sim.client)
+
+        # Collect results
+        for inst_id, body_id in sim.part_bodies.items():
+            pos, quat = pb.getBasePositionAndOrientation(body_id, physicsClientId=sim.client)
+            i_pos, i_quat = initial[inst_id]
+
+            r1 = R.from_quat(i_quat)
+            r2 = R.from_quat(list(quat))
+            delta = r2 * r1.inv()
+            rotation_delta = float(np.degrees(delta.magnitude()))
+            euler = delta.as_euler("xyz", degrees=True).tolist()
+
+            parts_diag[inst_id] = PartOrientationDiag(
+                initial_position=i_pos,
+                initial_quaternion=i_quat,
+                after_position=list(pos),
+                after_quaternion=list(quat),
+                rotation_delta_deg=rotation_delta,
+                euler_delta_deg=euler,
+                flipped=rotation_delta > 45.0,
+            )
+
+        # Collect constraint info
+        body_to_inst = {v: k for k, v in sim.part_bodies.items()}
+        anchor_counts: dict[int, int] = {}
+        anchor_meta: dict[int, dict] = {}
+        for jc in sim.joint_constraints:
+            c_id = jc["id"]
+            info = pb.getConstraintInfo(c_id, physicsClientId=sim.client)
+            parent_body = info[0]
+            child_body = info[2]
+            joint_type_id = info[4]
+
+            joint_name = {
+                pb.JOINT_POINT2POINT: "P2P",
+                pb.JOINT_FIXED: "FIXED",
+                pb.JOINT_REVOLUTE: "REVOLUTE",
+                pb.JOINT_PRISMATIC: "PRISMATIC",
+            }.get(joint_type_id, f"UNKNOWN({joint_type_id})")
+
+            key = (parent_body, child_body)
+            anchor_counts[key] = anchor_counts.get(key, 0) + 1
+            anchor_meta[key] = {
+                "from_instance": body_to_inst.get(parent_body, f"body-{parent_body}"),
+                "to_instance": body_to_inst.get(child_body, f"body-{child_body}"),
+                "joint_type": joint_name,
+            }
+
+        for key, count in anchor_counts.items():
+            meta = anchor_meta[key]
+            constraints_diag.append(ConstraintDiag(
+                from_instance=meta["from_instance"],
+                to_instance=meta["to_instance"],
+                joint_type=meta["joint_type"],
+                anchor_count=count,
+            ))
+
+    return SimOrientationResponse(parts=parts_diag, constraints=constraints_diag)
+
+
 # --- WebSocket for real-time stability updates ---
 @app.websocket("/ws/stability")
 async def ws_stability(websocket: WebSocket):
@@ -227,13 +365,13 @@ async def ws_simulate(websocket: WebSocket):
                 )
 
                 if "motor" in part_inst.part.id:
-                    pb.changeDynamics(body_id, -1, mass=0.0)
+                    pb.changeDynamics(body_id, -1, mass=0.0, physicsClientId=sim.client)
                     logger.info("[SIM] Anchored motor body %d (mass=0)", body_id)
 
             sim.create_joints()
             logger.info("[SIM] Created %d joint constraints", len(sim.joint_constraints))
 
-            pb.setGravity(0, 0, 0.0)
+            pb.setGravity(0, 0, 0.0, physicsClientId=sim.client)
             motor_speed = float(data.get("motor_speed", 10.0))
 
             motor_ids = [i for i, part in build.parts.items() if "motor" in part.part.id]
@@ -246,16 +384,16 @@ async def ws_simulate(websocket: WebSocket):
                     d_id = conn.to_instance if m_id == conn.from_instance else conn.from_instance
 
                     motor_port_id = conn.from_port if m_id == conn.from_instance else conn.to_port
-                    logger.info(
-                        "[SIM] Motor connection: motor_port=%s  joint_type=%s",
-                        motor_port_id, conn.joint_type,
-                    )
-                    if motor_port_id != "drive_axle" or conn.joint_type != "revolute":
-                        logger.info("[SIM]   -> SKIPPED (not drive_axle revolute)")
-                        continue
 
                     m_inst = build.parts[m_id]
                     m_port = m_inst.get_port(motor_port_id)
+                    logger.info(
+                        "[SIM] Motor connection: motor_port=%s  mate_type=%s",
+                        motor_port_id, m_port.mate_type,
+                    )
+                    if m_port.mate_type != "rotational_hole":
+                        logger.info("[SIM]   -> SKIPPED (not rotational_hole)")
+                        continue
                     from scipy.spatial.transform import Rotation as R
                     m_rot = R.from_quat(m_inst.quaternion)
                     axis_world = m_rot.apply(m_port.direction)
@@ -291,19 +429,24 @@ async def ws_simulate(websocket: WebSocket):
                 except Exception:
                     break
 
+                # Torque scaled to realistic K'Nex masses (~1 g parts).
+                # constraint_force(100k) × arm(30mm) ≈ 3000 N·m max resistive torque,
+                # so keep applied torque well below that.
+                torque_scale = 50.0
+
                 for _ in range(4):
                     for b_id, axis in driven_info:
                         torque_vec = [
-                            float(axis[0] * motor_speed * 10000.0),
-                            float(axis[1] * motor_speed * 10000.0),
-                            float(axis[2] * motor_speed * 10000.0),
+                            float(axis[0] * motor_speed * torque_scale),
+                            float(axis[1] * motor_speed * torque_scale),
+                            float(axis[2] * motor_speed * torque_scale),
                         ]
-                        pb.applyExternalTorque(b_id, -1, torque_vec, pb.WORLD_FRAME)
-                    pb.stepSimulation()
+                        pb.applyExternalTorque(b_id, -1, torque_vec, pb.WORLD_FRAME, physicsClientId=sim.client)
+                    pb.stepSimulation(physicsClientId=sim.client)
 
                 transforms: dict[str, Any] = {}
                 for inst_id, body_id in sim.part_bodies.items():
-                    pos, quat = pb.getBasePositionAndOrientation(body_id)
+                    pos, quat = pb.getBasePositionAndOrientation(body_id, physicsClientId=sim.client)
                     transforms[inst_id] = {
                         "position": list(pos),
                         "quaternion": list(quat),
