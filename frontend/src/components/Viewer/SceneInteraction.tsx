@@ -3,7 +3,7 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { Plane, Vector3, Raycaster, Vector2 } from 'three'
 import { useInteractionStore } from '../../stores/interactionStore'
 import { useBuildStore } from '../../stores/buildStore'
-import { findNearestSnap } from '../../helpers/snapHelper'
+import { findNearestSnap, inferJointType } from '../../helpers/snapHelper'
 import type { KnexPartDef } from '../../types/parts'
 
 interface SceneInteractionProps {
@@ -121,11 +121,18 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
       // If snapped, create the connection using the exact port pair
       // that the snap helper computed
       if (snapTargetInstanceId && snapTargetPortId && snapPlacingPortId) {
+        const placingDef = defs.get(placingPartId)
+        const targetInstance = useBuildStore.getState().parts[snapTargetInstanceId]
+        const targetDef = targetInstance ? defs.get(targetInstance.part_id) : undefined
+        const placingPort = placingDef?.ports.find((p) => p.id === snapPlacingPortId)
+        const targetPort = targetDef?.ports.find((p) => p.id === snapTargetPortId)
+
         useBuildStore.getState().addConnection({
           from_instance: instanceId,
           from_port: snapPlacingPortId,
           to_instance: snapTargetInstanceId,
           to_port: snapTargetPortId,
+          joint_type: placingPort && targetPort ? inferJointType(placingPort, targetPort) : 'fixed',
         })
       }
       // Stay in place mode — allow placing more of the same part

@@ -3,7 +3,7 @@ import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { Quaternion, Vector3, MathUtils } from 'three'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
-import { getPortWorldPose } from '../../helpers/snapHelper'
+import { getPortWorldPose, inferJointType } from '../../helpers/snapHelper'
 import type { KnexPartDef, Port } from '../../types/parts'
 
 interface PortIndicatorsProps {
@@ -89,7 +89,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
         const availableIndicators: {
             positionKey: string
             worldPos: Vector3
-            variants: { targetPortId: string; placingPortId: string; ghostPos: Vector3; ghostQuat: Quaternion }[]
+            variants: { targetPortId: string; placingPortId: string; ghostPos: Vector3; ghostQuat: Quaternion; joint_type: 'fixed' | 'revolute' | 'prismatic' }[]
         }[] = []
 
         // Calculate all compatible combinations
@@ -215,6 +215,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                             placingPortId: placingPort.id,
                             ghostPos,
                             ghostQuat,
+                            joint_type: inferJointType(placingPort, targetPort),
                         })
                     }
                 }
@@ -289,6 +290,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                 from_port: variant.placingPortId,
                 to_instance: matchTargetId,
                 to_port: variant.targetPortId,
+                joint_type: variant.joint_type,
             })
 
             // Auto-select the newly added part for fast chain building
@@ -306,6 +308,16 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
         <group>
             {indicators.map((ind) => {
                 const isHovered = hoveredPortId === ind.positionKey
+                
+                // Check if any variant has an active port (motorized/drive port)
+                const targetInstance = matchTargetId ? parts[matchTargetId] : undefined
+                const hasActivePort = targetInstance && ind.variants.some(v => 
+                    v.targetPortId && defs.get(targetInstance.part_id)?.ports.find(p => p.id === v.targetPortId)?.is_active
+                )
+                
+                // Active motorized ports are red, regular ports are yellow
+                const indicatorColor = isHovered ? '#00ff00' : (hasActivePort ? '#ff3333' : '#ffff00')
+                
                 return (
                     <mesh
                         key={ind.positionKey}
@@ -316,7 +328,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                     >
                         <sphereGeometry args={[isHovered ? 6 : 4, 16, 16]} />
                         <meshBasicMaterial
-                            color={isHovered ? '#00ff00' : '#ffff00'}
+                            color={indicatorColor}
                             transparent
                             opacity={isHovered ? 0.9 : 0.6}
                             depthTest={false}

@@ -29,6 +29,8 @@ export interface SnapCandidate {
   worldDirection: [number, number, number]
   /** Distance from the cursor to the resulting ghost center. */
   distance: number
+  /** Inferred physics joint type for the connection. */
+  joint_type: 'fixed' | 'revolute' | 'prismatic'
 }
 
 export interface SnapResult {
@@ -38,6 +40,21 @@ export interface SnapResult {
   ghostPosition: [number, number, number] | null
   /** Rotation for the ghost part (aligned to the port). */
   ghostRotation: [number, number, number, number] | null
+}
+
+// ---------------------------------------------------------------------------
+// Joint inference
+// ---------------------------------------------------------------------------
+
+/** Infer the physics joint type from two mating ports. */
+export function inferJointType(
+  placingPort: Port,
+  targetPort: Port,
+): 'fixed' | 'revolute' | 'prismatic' {
+  const mateTypes = new Set([placingPort.mate_type, targetPort.mate_type])
+  if (mateTypes.has('rotational_hole')) return 'revolute'
+  if (mateTypes.has('slider_hole')) return 'prismatic'
+  return 'fixed'
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +192,7 @@ export function findNearestSnap(
             worldPosition: [targetWorldPos.x, targetWorldPos.y, targetWorldPos.z],
             worldDirection: [targetWorldDir.x, targetWorldDir.y, targetWorldDir.z],
             distance: dist,
+            joint_type: inferJointType(placingPort, targetPort),
           }
         }
       }

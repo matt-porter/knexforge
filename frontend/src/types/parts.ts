@@ -11,6 +11,8 @@ export interface Port {
   mate_type: 'rod_end' | 'rod_hole' | 'tab' | 'clip' | 'rod_side' | 'slide_hole' | 'connector_slot' | 'rotational_hole' | 'slider_hole'
   accepts: ('rod_end' | 'rod_hole' | 'tab' | 'clip' | 'rod_side' | 'slide_hole' | 'connector_slot' | 'rotational_hole' | 'slider_hole')[]
   allowed_angles_deg: number[]
+  is_active?: boolean // true for motorized/drive ports (e.g., motor drive axle)
+  description?: string // human-readable description of the port's purpose
 }
 
 /** A K'Nex part definition loaded from JSON. */
