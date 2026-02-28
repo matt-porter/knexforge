@@ -170,7 +170,7 @@ class PyBulletSimulator:
                         self.joint_constraints.append({"id": cid1, "parts": [from_inst.instance_id, to_inst.instance_id]})
                         self.joint_constraints.append({"id": cid2, "parts": [from_inst.instance_id, to_inst.instance_id]})
                     except Exception:
-                        # As last resort, rigid constraint
+                        # As last resort, rigid constraint (use correctly transformed pivot points)
                         fixed_id = p.createConstraint(
                             parentBodyUniqueId=parent_body,
                             parentLinkIndex=-1,
@@ -178,8 +178,8 @@ class PyBulletSimulator:
                             childLinkIndex=-1,
                             jointType=p.JOINT_FIXED,
                             jointAxis=[0, 0, 0],
-                            parentFramePosition=list(from_port.position),
-                            childFramePosition=list(to_port.position)
+                            parentFramePosition=pivot_parent,
+                            childFramePosition=pivot_child
                         )
                         p.changeConstraint(fixed_id, maxForce=10000)
                         self.joint_constraints.append({"id": fixed_id, "parts": [from_inst.instance_id, to_inst.instance_id]})
@@ -188,6 +188,20 @@ class PyBulletSimulator:
             pb_joint_type = p.JOINT_FIXED
             if joint_type == "prismatic":
                 pb_joint_type = p.JOINT_PRISMATIC
+
+            # Compute world positions of both ports and find the midpoint
+            from_rot = R.from_quat(from_inst.quaternion)
+            to_rot = R.from_quat(to_inst.quaternion)
+            from_origin = np.array(from_inst.position, dtype=float)
+            to_origin = np.array(to_inst.position, dtype=float)
+
+            from_port_world = from_origin + from_rot.apply(np.array(from_port.position, dtype=float))
+            to_port_world = to_origin + to_rot.apply(np.array(to_port.position, dtype=float))
+            pivot_world = (from_port_world + to_port_world) * 0.5
+
+            # Transform pivot back into each body's local frame
+            pivot_parent = from_rot.inv().apply(pivot_world - from_origin).tolist()
+            pivot_child = to_rot.inv().apply(pivot_world - to_origin).tolist()
 
             # The joint axis in parent (from_inst) local frame
             joint_axis = from_port.direction if pb_joint_type != p.JOINT_FIXED else [0, 0, 0]
@@ -200,8 +214,8 @@ class PyBulletSimulator:
                     childLinkIndex=-1,
                     jointType=pb_joint_type,
                     jointAxis=joint_axis,
-                    parentFramePosition=list(from_port.position),
-                    childFramePosition=list(to_port.position)
+                    parentFramePosition=pivot_parent,
+                    childFramePosition=pivot_child
                 )
             except Exception:
                 joint_id = p.createConstraint(
@@ -211,8 +225,8 @@ class PyBulletSimulator:
                     childLinkIndex=-1,
                     jointType=p.JOINT_FIXED,
                     jointAxis=[0, 0, 0],
-                    parentFramePosition=list(from_port.position),
-                    childFramePosition=list(to_port.position)
+                    parentFramePosition=pivot_parent,
+                    childFramePosition=pivot_child
                 )
 
             p.changeConstraint(joint_id, maxForce=10000)
