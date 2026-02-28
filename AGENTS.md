@@ -31,23 +31,36 @@ This file is the **single source of truth** for any AI coding agent working on t
 ---
 
 ## 2. Project Structure (Only Edit These Folders)
-knexforge/
-├── core/                  ← ALL Python logic lives here
-│   ├── init.py
-│   ├── build.py           ← Build, PartInstance, ConnectionGraph
-│   ├── snapping.py
-│   ├── physics/
-│   ├── parts/             ← loader + cache
-│   ├── instructions/
-│   └── tests/
-├── frontend/              ← React + TypeScript + Tauri ONLY
-├── ai/                    ← LegoGPT fork + dataset scripts
-├── parts/                 ← JSON definitions + meshes/
-├── schema/
-├── tools/                 ← generate_meshes.py, etc.
-├── docs/                  ← YOU ARE HERE
-└── README.md
 
+```
+Repository Root/
+├── src/                          ← ACTUAL PYTHON CODE LOCATION
+│   ├── core/                     ← All Python domain logic
+│   │   ├── build.py              ← Build, PartInstance, ConnectionGraph
+│   │   ├── snapping.py           ← Port-to-port alignment + tolerance
+│   │   ├── file_io.py            ← .knx load/save
+│   │   ├── api.py                ← FastAPI sidecar endpoints
+│   │   ├── action_history.py     ← JSONL action tracking
+│   │   ├── parts/                ← Part loader + models
+│   │   ├── physics/              ← Graph stability + PyBullet
+│   │   ├── instructions/         ← PDF generation
+│   │   └── tests/                ← pytest suite
+│   └── ai/                       ← Dataset generator + inference
+├── knexforge/core/               ← STUB (minimal, mostly empty)
+├── frontend/src/                 ← React + TypeScript app
+│   ├── components/Viewer/        ← 3D rendering components
+│   ├── stores/                   ← Zustand state management
+│   ├── services/sidecarBridge.ts ← Python API client
+│   └── hooks/                    ← Custom React hooks
+├── ai/scan-to-build/             ← Computer vision pipeline
+├── parts/                        ← Part JSON definitions + meshes/
+├── schema/                       ← JSON Schema for parts
+├── tools/                        ← Mesh generation scripts
+├── docs/                         ← Documentation (YOU ARE HERE)
+└── README.md
+```
+
+**⚠️ CRITICAL**: AGENTS.md and other docs may reference `knexforge/core/` but the **actual implementation is in `src/core/`**. Always check `src/core/` first for Python code.
 
 **Forbidden**:
 - Adding files to root
@@ -58,7 +71,7 @@ knexforge/
 
 ## 3. Coding Standards
 
-### Python (core/)
+### Python (`src/core/`)
 - Python 3.12+
 - `ruff` + `pyright` (strict)
 - Black line length 100
@@ -76,32 +89,32 @@ def snap_ports(
     tolerance_mm: float = 0.2
 ) -> Optional[Connection]:
     """Attempt to snap two ports. Returns Connection if successful."""
+```
 
-    TypeScript / React (frontend/)
-
-TypeScript 5.5+ strict mode
-eslint + prettier (config already in repo)
-Functional components + hooks only (no class components)
-Zustand for state, Immer for mutations
-React-Three-Fiber best practices: use useFrame, useThree, instanced meshes
+### TypeScript / React (`frontend/src/`)
+- TypeScript 5.5+ strict mode
+- eslint + prettier (config already in repo)
+- Functional components + hooks only (no class components)
+- Zustand for state, Immer for mutations
+- React-Three-Fiber best practices: use `useFrame`, `useThree`, instanced meshes
 
 
 4. How to Add / Change Features (Agent Workflow)
 
 New Part
 Add JSON to parts/
-Add .scad to parts/meshes/scad/
+Add .scad to parts/meshes/scad/ (if generating from OpenSCAD)
 Run python tools/generate_meshes.py --force
-Add test in core/tests/test_parts.py
+Add test in src/core/tests/test_parts.py
 
 New Core Feature
-Implement in core/
+Implement in src/core/
 Add corresponding pydantic model if data crosses to frontend/AI
 Write tests first (TDD)
-Expose via core/api.py (FastAPI router for Tauri)
+Expose via src/core/api.py (FastAPI router for Tauri)
 
 AI Changes
-Only edit inside ai/
+Only edit inside src/ai/ or ai/scan-to-build/
 Dataset generator must output exact JSONL format from README
 Always test generation loop with --dry-run flag
 
@@ -111,15 +124,14 @@ All 3D objects must be driven by Build state from Python
 
 5. Testing Requirements (Mandatory)
 
-core/tests/ must pass before any PR
+src/core/tests/ must pass before any PR
 Coverage ≥ 90% on new code
 Snapshot tests for instruction PDF output (optional but encouraged)
 AI generation tests must assert ≥ 95% valid builds on a 50-example smoke set
 
 Run:
 
-cd core
-pytest --cov
+pytest src/core/tests/ --cov
 
 6. Commit & PR Rules
 Commit message format (Conventional Commits):
@@ -143,10 +155,12 @@ PR Checklist (agent must verify):
 
 Hard-coding rod lengths or connector angles anywhere except part JSON
 Putting physics code in the renderer
-Using global variables in core
+Using global variables in src/core/
 Generating GLBs manually — always use the Python script
 Changing the JSON schema without bumping format_version and updating loader
 Importing trimesh or openscad in production code (only in tools/)
+
+**⚠️ Critical**: Always check `src/core/` for Python implementation, not `knexforge/core/`.
 
 
 8. How to Collaborate with Other Agents / Humans
@@ -162,8 +176,14 @@ If you need to touch multiple layers (core + frontend + ai), split into 3 PRs
 python tools/generate_meshes.py --force
 
 # Type checking + lint
-cd core && ruff check . && pyright
+ruff check src/ && pyright src/
 cd frontend && npm run type-check && npm run lint
+
+# Run tests
+pytest src/core/tests/ --cov
+
+# Start sidecar API (port 8000)
+python -m uvicorn src.core.api:app --reload
 
 # Run desktop app
 cd frontend && npm run tauri dev

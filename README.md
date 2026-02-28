@@ -71,13 +71,18 @@ Every piece is defined by **one JSON file + one GLB mesh**.
   ]
 }
 
-2. Python Core (core/)
+2. Python Core (`src/core/`)
 
-knexforge/core/build.py — Build, PartInstance, ConnectionGraph (NetworkX)
-knexforge/core/snapping.py — port-to-port alignment + tolerance
-knexforge/core/physics.py — PyBullet + lightweight graph-tension fallback
-knexforge/core/instructions.py — topological sort → exploded steps → ReportLab PDF
-FastAPI sidecar for Tauri communication (or direct subprocess)
+**Note**: While documentation may reference `core/`, the actual implementation is in `src/core/`.
+
+- `build.py` — Build, PartInstance, ConnectionGraph (NetworkX)
+- `snapping.py` — port-to-port alignment + tolerance
+- `physics/graph.py` — lightweight graph-based stability
+- `physics/pybullet.py` — full rigid-body simulation
+- `instructions/generator.py` — topological sort → exploded steps → PDF
+- `api.py` — FastAPI sidecar for Tauri communication
+
+See [docs/AGENT-ONBOARDING.md](docs/AGENT-ONBOARDING.md) for detailed file locations.
 
 3. Frontend (frontend/)
 
@@ -111,32 +116,45 @@ metadata.json — author, prompt (if AI-generated), version
 Fully version-controllable with Git.
 
 🚀 Quick Start (Development)
-Bash# 1. Clone
+
+```bash
+# 1. Clone
 git clone https://github.com/yourname/knexforge.git
 cd knexforge
 
-# 2. Python core
-cd core
-pip install -e .
-python -m knexforge.cli --help
+# 2. Python core (requires Python 3.12+)
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# or: .venv\Scripts\activate  # Windows
+pip install -e ".[dev,physics,meshgen]"
 
 # 3. Frontend + Tauri
-cd ../frontend
+cd frontend
 npm install
 npm run tauri dev
-Production build (one command):
-Bashnpm run tauri build
+
+# 4. Start sidecar API (separate terminal)
+cd ..
+python -m uvicorn src.core.api:app --reload --host 127.0.0.1 --port 8000
+```
+
+**Note**: The Python implementation is in `src/core/`, not `knexforge/core/`. See [docs/AGENT-ONBOARDING.md](docs/AGENT-ONBOARDING.md) for more details.
 
 📁 Project Structure
-textknexforge/
-├── core/                  # Python domain + AI oracle
-├── frontend/              # React + Tauri
-├── ai/                    # Fine-tuning scripts + dataset generator
-├── parts/                 # All official part JSON + meshes/
-├── schema/                # JSON Schema
-├── docs/                  # Architecture decision records
-├── examples/              # Sample .knx files
+
+```
+Repository Root/
+├── src/core/              # Python domain logic (build, snapping, physics)
+├── frontend/              # React + Tauri desktop app
+├── ai/                    # AI generation + scan-to-build pipeline
+├── parts/                 # Part JSON definitions + GLB meshes
+├── schema/                # JSON Schema for parts
+├── tools/                 # Mesh generation scripts
+├── docs/                  # Documentation (see AGENT-ONBOARDING.md)
 └── README.md
+```
+
+**Note**: While some documentation references `knexforge/core/`, the actual Python implementation is in `src/core/`. See [docs/AGENT-ONBOARDING.md](docs/AGENT-ONBOARDING.md) for complete file locations.
 
 🤝 Contributing
 We want this to be a community project!
