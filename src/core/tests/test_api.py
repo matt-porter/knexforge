@@ -34,15 +34,25 @@ def test_stability_endpoint():
     assert "details" in data
 
 def test_export_endpoint():
-    build_resp = client.post("/build", json={"parts": [], "connections": []})
-    build_id = build_resp.json()["build_id"]
-    resp = client.post("/export", json={"build_id": build_id, "format": "knx"})
+    resp = client.post("/export", json={"parts": [], "connections": []})
     assert resp.status_code == 200
     data = resp.json()
     assert "data" in data
+    assert data["success"] is True
 
 def test_load_endpoint():
-    resp = client.post("/load", json={"file": "dGVzdA=="})  # base64 for 'test'
+    # 'file_bytes' is base64 for a valid v1.0 build JSON
+    import base64
+    import json
+    # Minimal valid build data
+    data = {
+        "manifest": {"format_version": "1.0", "piece_count": 0},
+        "model": {"parts": [], "connections": []}
+    }
+    json_str = json.dumps(data)
+    b64_str = base64.b64encode(json_str.encode("utf-8")).decode("utf-8")
+    
+    resp = client.post("/load", json={"file_bytes": b64_str})
     assert resp.status_code == 200
     data = resp.json()
     assert "build_id" in data

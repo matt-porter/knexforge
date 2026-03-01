@@ -188,7 +188,16 @@ class Build:
         for c_dict in snapshot["connections"]:
             conn = Connection(**c_dict)
             self.connections.add(conn)
-            self._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
+            # Re-infer joint type from ports (don't trust snapshot joint_type)
+            from .snapping import infer_joint_type
+            inst_a = self.parts.get(conn.from_instance)
+            inst_b = self.parts.get(conn.to_instance)
+            if inst_a and inst_b:
+                joint_type = infer_joint_type(inst_a.get_port(conn.from_port), inst_b.get_port(conn.to_port))
+                conn = conn.model_copy(update={"joint_type": joint_type})
+                self._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=joint_type)
+            else:
+                self._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
         self._update_stability()
 
     def _replay_add_part(self, action: AddPartAction) -> None:
@@ -211,25 +220,12 @@ class Build:
         """Re-apply a SnapAction during redo."""
         from_inst, from_p = action.from_port.rsplit(".", 1)
         to_inst, to_p = action.to_port.rsplit(".", 1)
-        conn = Connection(
-            from_instance=from_inst,
-            from_port=from_p,
-            to_instance=to_inst,
-            to_port=to_p,
-            # We must recalculate joint type, or just pass it if SnapAction had it...
-            # For now, let's recalculate it or default to fixed. Let's just default to fixed unless we recalculate it.
-            # Actually, better to recalculate it.
-        )
+        
         # Recalculate joint type during replay
-        from .snapping import snap_ports
-        from_part = self.parts[from_inst]
-        to_part = self.parts[to_inst]
-        mate_types = {from_part.get_port(from_p).mate_type, to_part.get_port(to_p).mate_type}
-        joint_type = "fixed"
-        if "rotational_hole" in mate_types:
-            joint_type = "revolute"
-        elif "slider_hole" in mate_types:
-            joint_type = "prismatic"
+        from .snapping import infer_joint_type
+        inst_a = self.parts[from_inst]
+        inst_b = self.parts[to_inst]
+        joint_type = infer_joint_type(inst_a.get_port(from_p), inst_b.get_port(to_p))
         
         conn = Connection(
             from_instance=from_inst,

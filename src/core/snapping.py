@@ -119,6 +119,23 @@ def validate_physical_constraints(
     return True
 
 
+def infer_joint_type(from_port: Port, to_port: Port) -> str:
+    """Infer the joint type (fixed, revolute, prismatic) based on port properties."""
+    mate_types = {from_port.mate_type, to_port.mate_type}
+    
+    # 1. Explicit rotational/slider holes
+    if "rotational_hole" in mate_types:
+        return "revolute"
+    if "slider_hole" in mate_types:
+        return "prismatic"
+        
+    # 2. Implicit axles: rods passing through holes (center_axial ports)
+    if from_port.id.startswith("center_axial") or to_port.id.startswith("center_axial"):
+        return "revolute"
+        
+    return "fixed"
+
+
 def snap_ports(
     from_instance: PartInstance,
     from_port_id: str,
@@ -168,12 +185,7 @@ def snap_ports(
         return None
 
     # Determine joint type (Phase 1 Kinematics)
-    joint_type = "fixed"
-    mate_types = {from_port.mate_type, to_port.mate_type}
-    if "rotational_hole" in mate_types:
-        joint_type = "revolute"
-    elif "slider_hole" in mate_types:
-        joint_type = "prismatic"
+    joint_type = infer_joint_type(from_port, to_port)
 
     return Connection(
         from_instance=from_instance.instance_id,
@@ -251,32 +263,44 @@ def check_part_overlap(
     Checks:
     - Connector vs connector: bounding-sphere overlap (centers too close)
     - Rod vs rod: line-segment minimum distance
+    - Rod vs connector: distance from connector center to rod segment
     Skips parts in ``connected_ids`` (directly attached, expected to touch).
     """
-    # --- Rod vs Rod ---
+    new_is_rod = new_instance.part.category == "rod"
     new_seg = _rod_segment(new_instance)
-    if new_seg is not None:
-        for inst_id, inst in existing_parts.items():
-            if inst_id in connected_ids:
-                continue
-            seg = _rod_segment(inst)
-            if seg is None:
-                continue
-            dist = _segment_min_distance(new_seg[0], new_seg[1], seg[0], seg[1])
-            if dist < rod_clearance_mm:
-                return False
+    new_pos = np.array(new_instance.position)
 
-    # --- Connector / non-rod vs same-category overlap ---
-    if new_instance.part.category != "rod":
-        new_pos = np.array(new_instance.position)
-        for inst_id, inst in existing_parts.items():
-            if inst_id in connected_ids:
-                continue
-            if inst.part.category == "rod":
-                continue
-            dist = float(np.linalg.norm(new_pos - np.array(inst.position)))
+    for inst_id, inst in existing_parts.items():
+        if inst_id in connected_ids:
+            continue
+
+        inst_is_rod = inst.part.category == "rod"
+        inst_seg = _rod_segment(inst)
+        inst_pos = np.array(inst.position)
+
+        if new_is_rod and inst_is_rod:
+            # Rod vs Rod
+            if new_seg and inst_seg:
+                dist = _segment_min_distance(new_seg[0], new_seg[1], inst_seg[0], inst_seg[1])
+                if dist < rod_clearance_mm:
+                    return False
+        elif not new_is_rod and not inst_is_rod:
+            # Connector vs Connector
+            dist = float(np.linalg.norm(new_pos - inst_pos))
             if dist < connector_clearance_mm:
                 return False
+        else:
+            # Rod vs Connector
+            rod_seg = new_seg if new_is_rod else inst_seg
+            conn_pos = inst_pos if new_is_rod else new_pos
+            if rod_seg is not None:
+                # Treat connector center as a zero-length segment
+                dist = _segment_min_distance(conn_pos, conn_pos, rod_seg[0], rod_seg[1])
+                # Use a combined clearance: half of connector diameter + rod radius
+                # If connector_clearance is 15mm (radius-like), and rod_clearance is 3mm
+                # a good threshold is ~10-12mm.
+                if dist < (connector_clearance_mm * 0.7 + rod_clearance_mm):
+                    return False
 
     return True
 

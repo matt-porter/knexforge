@@ -459,13 +459,13 @@ def import_build(data: dict, library: PartLibrary | None = None) -> tuple[Build,
     if library is None:
         library = PartLoader.load()
 
-    # Validate structure first
-    is_valid, errors = validate_exported_data(data)
-    if not is_valid:
-        raise ValueError(f"Invalid export format:\n  - " + "\n  - ".join(errors))
-
     # Migrate to current version if needed (Task 5.8)
     migrated_data, original_version = migrate_data(data)
+
+    # Validate structure
+    is_valid, errors = validate_exported_data(migrated_data)
+    if not is_valid:
+        raise ValueError(f"Invalid export format:\n  - " + "\n  - ".join(errors))
 
     # Log migration info for debugging
     if original_version != "1.0":
@@ -547,78 +547,6 @@ def load_knx(path: Path, library: PartLibrary | None = None) -> tuple[Build, Man
 
     Raises:
         ValueError: If file format is invalid or parts not found in library.
-    """
-    if library is None:
-        library = PartLoader.load()
-
-    with zipfile.ZipFile(path, "r") as zf:
-        manifest_data = json.loads(zf.read("manifest.json"))
-        manifest = Manifest.model_validate(manifest_data)
-
-        model_data = json.loads(zf.read("model.json"))
-        build = _model_json_to_build(model_data, library)
-
-        if "action_history.jsonl" in zf.namelist():
-            history_text = zf.read("action_history.jsonl").decode("utf-8")
-            build.history = ActionHistory.from_jsonl(history_text)
-
-    build._stability_score = manifest.stability_score
-    return build, manifest
-
-
-def save_knx(build: Build, path: Path, manifest: Manifest | None = None) -> None:
-    """Save a Build as a .knx ZIP package.
-
-    Args:
-        build: The build to save.
-        path: Destination file path (should end in .knx).
-        manifest: Optional metadata. Auto-populated fields if omitted.
-    """
-    if manifest is None:
-        manifest = Manifest()
-
-    manifest.piece_count = len(build.parts)
-    manifest.stability_score = build.stability_score()
-
-    model_data = _build_to_model_json(build)
-
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(
-            "manifest.json",
-            json.dumps(manifest.model_dump(mode="json"), indent=2),
-        )
-
-        zf.writestr(
-            "model.json",
-            json.dumps(model_data, indent=2),
-        )
-
-        # Action history (JSONL)
-        history_jsonl = build.history.to_jsonl()
-        if history_jsonl:
-            zf.writestr("action_history.jsonl", history_jsonl)
-
-        # Embed required mesh files
-        mesh_files_added: set[str] = set()
-        for inst in build.parts.values():
-            mesh_rel = inst.part.mesh_file
-            if mesh_rel in mesh_files_added:
-                continue
-            mesh_abs = PARTS_DIR / mesh_rel
-            if mesh_abs.exists():
-                zf.write(mesh_abs, f"meshes/{mesh_abs.name}")
-                mesh_files_added.add(mesh_rel)
-
-
-def load_knx(path: Path, library: PartLibrary | None = None) -> tuple[Build, Manifest]:
-    """Load a .knx file and return the Build + Manifest.
-
-    Args:
-        path: Path to the .knx file.
-        library: Part library for resolving part_ids. Uses default loader if None.
-
-    Returns:
-        Tuple of (Build, Manifest).
     """
     if library is None:
         library = PartLoader.load()

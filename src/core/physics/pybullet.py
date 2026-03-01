@@ -134,14 +134,9 @@ class PyBulletSimulator:
             # Disable collision between joined parts to prevent binding
             p.setCollisionFilterPair(parent_body, child_body, -1, -1, 0, physicsClientId=cid)
 
-            # Infer joint type from mate types
-            mate_types = {from_port.mate_type, to_port.mate_type}
-            joint_type = conn.joint_type
-            if joint_type == "fixed":
-                if "rotational_hole" in mate_types:
-                    joint_type = "revolute"
-                elif "slider_hole" in mate_types:
-                    joint_type = "prismatic"
+            # Re-infer joint type from ports for physics consistency
+            from ..snapping import infer_joint_type
+            joint_type = infer_joint_type(from_port, to_port)
 
             # Compute rotations and positions
             from_rot = R.from_quat(from_inst.quaternion)

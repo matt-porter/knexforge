@@ -18,6 +18,7 @@ from .build import Build
 from .snapping import snap_ports
 from .file_io import save_knx, load_knx
 from .physics.graph import compute_stability
+from .parts.loader import PartLoader
 
 logger = logging.getLogger("knexforge.api")
 

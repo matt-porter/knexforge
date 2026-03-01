@@ -12,17 +12,21 @@ from core.snapping import align_rod_to_hole
 
 
 @pytest.fixture
+def library(clean_part_library):
+    """Alias for the clean part library fixture."""
+    return clean_part_library
+
+
+@pytest.fixture
 def simple_build(library):
     """Create a simple 2-part build (connector + rod)."""
     build = Build()
 
     c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
-    r1 = align_rod_to_hole(
-        PartInstance(instance_id="r1", part=library.get("rod-128-red-v1")),
-        "end1",
-        c1,
-        "A"
-    )
+    rod_part = library.get("rod-128-red-v1")
+    temp_rod = PartInstance(instance_id="r1", part=rod_part)
+    r1_pos, r1_quat = align_rod_to_hole(temp_rod, "end1", c1, "A")
+    r1 = PartInstance(instance_id="r1", part=rod_part, position=r1_pos, quaternion=r1_quat)
 
     build.add_part(c1)
     build.add_part(r1)
@@ -40,25 +44,25 @@ def complex_build(library):
     c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
     build.add_part(c1)
 
+    rod_part_red = library.get("rod-128-red-v1")
+    rod_part_blue = library.get("rod-54-blue-v1")
+
     # Add 3 rods in different directions
-    r1 = align_rod_to_hole(
-        PartInstance(instance_id="r1", part=library.get("rod-128-red-v1")),
-        "end1", c1, "A"
-    )
+    temp_r1 = PartInstance(instance_id="r1", part=rod_part_red)
+    r1_pos, r1_quat = align_rod_to_hole(temp_r1, "end1", c1, "A")
+    r1 = PartInstance(instance_id="r1", part=rod_part_red, position=r1_pos, quaternion=r1_quat)
     build.add_part(r1)
     build.attempt_snap("r1", "end1", "c1", "A")
 
-    r2 = align_rod_to_hole(
-        PartInstance(instance_id="r2", part=library.get("rod-64-blue-v1")),
-        "end1", c1, "B"
-    )
+    temp_r2 = PartInstance(instance_id="r2", part=rod_part_blue)
+    r2_pos, r2_quat = align_rod_to_hole(temp_r2, "end1", c1, "B")
+    r2 = PartInstance(instance_id="r2", part=rod_part_blue, position=r2_pos, quaternion=r2_quat)
     build.add_part(r2)
     build.attempt_snap("r2", "end1", "c1", "B")
 
-    r3 = align_rod_to_hole(
-        PartInstance(instance_id="r3", part=library.get("rod-64-blue-v1")),
-        "end1", c1, "C"
-    )
+    temp_r3 = PartInstance(instance_id="r3", part=rod_part_blue)
+    r3_pos, r3_quat = align_rod_to_hole(temp_r3, "end1", c1, "C")
+    r3 = PartInstance(instance_id="r3", part=rod_part_blue, position=r3_pos, quaternion=r3_quat)
     build.add_part(r3)
     build.attempt_snap("r3", "end1", "c1", "C")
 
@@ -157,14 +161,16 @@ def test_save_load_knx_file(simple_build):
             assert orig.position == loaded.position
 
 
-def test_export_validation_missing_part():
+def test_export_validation_missing_part(library):
     """Test that export fails if part not in library."""
     from core.file_io import export_build, ExportValidationError
 
     build = Build()
 
-    # Create a part with invalid ID
-    fake_part = type("FakePart", (), {"id": "nonexistent-part-xyz"})()
+    # Create a part with valid KnexPart but ID not in library
+    real_part = library.get("rod-128-red-v1")
+    fake_part = real_part.model_copy(update={"id": "nonexistent-part-xyz"})
+    
     instance = PartInstance(
         instance_id="test-inst",
         part=fake_part,
@@ -176,22 +182,22 @@ def test_export_validation_missing_part():
     with pytest.raises(ExportValidationError) as exc_info:
         export_build(build)
 
-    assert "nonexistent-part-xyz" in str(exc_info.value)
+    assert "nonexistent-part-xyz" in exc_info.value.missing_parts
 
 
 def test_import_invalid_format():
     """Test that import fails gracefully on invalid format."""
-    from core.file_io import import_build
+    from core.file_io import import_build, VersionMigrationError
 
-    # Missing 'parts' key
-    with pytest.raises(ValueError, match="missing 'parts'"):
+    # Missing version indicators (manifest or root parts/connections)
+    with pytest.raises(VersionMigrationError, match="Cannot determine format version"):
         import_build({"model": {"parts": []}})
 
     # Invalid part entry (missing required fields)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid export format"):
         import_build({
-            "manifest": {},
-            "model": {"parts": [{"part_id": "red-rod"}]},  # missing instance_id, position, etc.
+            "manifest": {"format_version": "1.0", "piece_count": 0},
+            "model": {"parts": [{"part_id": "red-rod"}], "connections": []},
         })
 
 
@@ -320,17 +326,16 @@ def test_export_import_with_colors():
     library = PartLoader.load()
 
     c1 = PartInstance(instance_id="c1", part=library.get("connector-4way-green-v1"))
-    r1 = align_rod_to_hole(
-        PartInstance(instance_id="r1", part=library.get("rod-128-red-v1")),
-        "end1", c1, "A"
-    )
+    rod_part = library.get("rod-128-red-v1")
+    temp_rod = PartInstance(instance_id="r1", part=rod_part)
+    r1_pos, r1_quat = align_rod_to_hole(temp_rod, "end1", c1, "A")
 
     # Add color override
     r1_with_color = PartInstance(
         instance_id="r1",
-        part=r1.part,
-        position=r1.position,
-        quaternion=r1.quaternion,
+        part=rod_part,
+        position=r1_pos,
+        quaternion=r1_quat,
         color="#FF00FF",  # Magenta override
     )
 
@@ -614,11 +619,11 @@ def test_import_legacy_format():
 
 
 def test_import_invalid_format_raises():
-    """Test that invalid format raises ValueError."""
-    from core.file_io import import_build
+    """Test that invalid format raises VersionMigrationError."""
+    from core.file_io import import_build, VersionMigrationError
 
     # Missing both manifest and model
-    with pytest.raises(ValueError, match="Invalid export format"):
+    with pytest.raises(VersionMigrationError, match="Cannot determine format version"):
         import_build({"random": "data"})
 
     # Missing parts array
@@ -629,15 +634,12 @@ def test_import_invalid_format_raises():
         })
 
 
-def test_full_migration_roundtrip():
+def test_full_migration_roundtrip(simple_build):
     """Test complete migration and round-trip for legacy data."""
     from core.file_io import export_build, import_build
 
-    library = PartLoader.load()
-    original_build = create_simple_build(library)
-
     # Export to current format
-    exported_data = export_build(original_build)
+    exported_data = export_build(simple_build)
 
     # Simulate legacy format by removing manifest wrapper
     legacy_style = {
