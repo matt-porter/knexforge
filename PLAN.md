@@ -192,12 +192,12 @@ static hosting. The same TypeScript physics module can later be reused server-si
   (4 tests: end-on clip, side-on clip, motor-driven chain, orientation diagnostics).
   All pass with 0.00° orientation delta — Rapier's native joints produce zero phantom drift.
 
-### [ ] Task 6.2: Static Hosting & CDN
-- **Goal**: Deploy the Vite/React app as a fully static site.
-- **Host**: Cloudflare Pages (unlimited bandwidth, instant global CDN, free tier).
-- **Build**: `npm run build` → deploy `dist/` via Cloudflare Pages Git integration.
-- **Domain**: Use free `*.pages.dev` subdomain initially; add custom domain later (~$10/yr).
-- **GLB assets**: Serve part meshes from the same CDN (already static files in `parts/meshes/`).
+### ✅ Task 6.2: Static Hosting & CDN
+- **Complete**: Configured deployment setup for Vite/React app as a fully static site.
+- **Complete**: Added `wrangler.toml` to automate Cloudflare Pages (Git integration) build configuration (`npm run build`, `dist/`).
+- **Complete**: Fixed TypeScript build errors to ensure CI passes successfully.
+- **Complete**: Configured SPA routing via `_redirects` for Cloudflare Pages.
+- **Complete**: Ensured GLB assets and `dataset.jsonl` are seamlessly copied to `dist/` by Vite plugin during build to serve from CDN.
 
 ### [ ] Task 6.3: User Authentication
 - **Goal**: Secure user sign-up, login, and session management.

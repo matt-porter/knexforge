@@ -1,0 +1,9 @@
+name = "knexforge"
+pages_build_output_dir = "frontend/dist"
+
+[build]
+command = "cd frontend && npm install && npm run build"
+watch_dir = "frontend/src"
+
+[env.production]
+# Add any production-specific variables here

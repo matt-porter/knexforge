@@ -208,7 +208,7 @@ export class SidecarBridge {
         return { success: false, data: null, error: result.error || 'Export failed' }
       }
 
-      return { success: true, data: result.data }
+      return { success: true, data: result.data ?? null }
     } catch (err) {
       console.error('[SidecarBridge] Export error:', err)
       return { success: false, data: null, error: String(err) }
@@ -248,9 +248,6 @@ export class SidecarBridge {
    * Save exported build data to a .knx file for download.
    */
   async saveKnxFile(data: ExportedBuildData, filename: string): Promise<void> {
-    // Create ZIP-like structure with manifest.json and model.json
-    const zipContent = new Uint8Array()
-
     // For browser download, we'll create a simple JSON file that can be loaded later
     // In production Tauri mode, this would create actual .knx ZIP files
     const jsonStr = JSON.stringify(data, null, 2)

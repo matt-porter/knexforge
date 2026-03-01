@@ -18,7 +18,6 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
-  const [importFile, setImportFile] = useState<File | null>(null)
   const [importPreview, setImportPreview] = useState<ExportedBuildData | null>(null)
 
   const partsList = Object.values(parts)
@@ -57,7 +56,6 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
     if (!file) return
 
     setIsImporting(true)
-    setImportFile(file)
 
     try {
       const result = await sidecarBridge.loadKnxFile(file)
@@ -66,11 +64,9 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
         setImportPreview(result.data)
       } else {
         alert(`Failed to read file: ${result.error}`)
-        setImportFile(null)
       }
     } catch (err) {
       alert(`Error reading file: ${String(err)}`)
-      setImportFile(null)
     } finally {
       setIsImporting(false)
     }
@@ -116,7 +112,6 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
         }
         
         setImportPreview(null)
-        setImportFile(null)
       } else {
         alert('Failed to import build')
       }
@@ -127,7 +122,6 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
 
   const cancelImport = () => {
     setImportPreview(null)
-    setImportFile(null)
   }
 
   const buttonStyle: React.CSSProperties = {
