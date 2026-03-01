@@ -173,17 +173,24 @@ backend server, removes WebSocket latency, and lets the entire app run on free-t
 static hosting. The same TypeScript physics module can later be reused server-side
 (via Node/Bun) for the AI training pipeline.
 
-### [ ] Task 6.1: Client-Side Physics with Rapier.js
-- **Goal**: Replace PyBullet simulation with in-browser Rapier.js (WASM, ~200KB).
-- **Port constraint logic**: Translate `src/core/physics/pybullet.py` joint creation
-  (P2P anchors, revolute axes, fixed 3-point locks) to Rapier's `ImpulseJoint` API.
-- **Port simulation loop**: Move the torque application + step + transform readback
-  from `api.py::ws_simulate` into a new `frontend/src/services/rapierSimulator.ts`.
-- **Keep existing Python physics** for headless AI pipeline use; mark as optional dep.
-- **Tuning**: Carry over the balanced constants (torque_scale=50, arm=30mm,
-  maxForce=100k, damping=0.3, solver_iterations=200) from Task 3.10.
-- **Tests**: Port `test_connector_orientation.py` assertions into Vitest to verify
-  no orientation flips in the browser engine.
+### ✅ Task 6.1: Client-Side Physics with Rapier.js
+- **Complete**: Created `frontend/src/services/rapierSimulator.ts` — full Rapier.js (WASM) simulator
+- **Joint system**: Uses Rapier's native `FixedImpulseJoint` and `RevoluteImpulseJoint` instead of
+  PyBullet's multi-P2P-constraint workaround. This eliminates the torque-vs-constraint-force
+  imbalance from Task 3.10 entirely — Rapier's unified solver handles motors and constraints together.
+- **Motor support**: Uses `RevoluteImpulseJoint.configureMotorVelocity()` for motor-driven joints,
+  replacing manual `applyExternalTorque()` calls. Cleaner, more stable, and easier to tune.
+- **Tuning carried over**: Linear/angular damping=0.3, zero gravity, 4 sub-steps at 1/240s (60fps).
+  Sensor colliders for mass/inertia computation, no inter-body collisions.
+- **Simulation loop**: Runs via `requestAnimationFrame` on the main thread. Writes transforms to
+  the same `simulationTransforms` Map that `PartMesh.tsx` reads in `useFrame`. No WebSocket needed.
+- **Updated `simulationManager.ts`**: Replaced WebSocket/sidecar-based simulation with direct Rapier
+  calls. Same public API (`startSimulation`, `stopSimulation`, `updateMotorSpeed`).
+  Diagnostics (`SimOrientationDiagnostics`) continue to work unchanged.
+- **Python physics preserved**: `src/core/physics/pybullet.py` kept for headless AI pipeline use.
+- **Tests**: Ported `test_connector_orientation.py` → `frontend/src/services/__tests__/rapierSimulator.test.ts`
+  (4 tests: end-on clip, side-on clip, motor-driven chain, orientation diagnostics).
+  All pass with 0.00° orientation delta — Rapier's native joints produce zero phantom drift.
 
 ### [ ] Task 6.2: Static Hosting & CDN
 - **Goal**: Deploy the Vite/React app as a fully static site.

@@ -128,10 +128,12 @@ src/core/tests/ must pass before any PR
 Coverage ≥ 90% on new code
 Snapshot tests for instruction PDF output (optional but encouraged)
 AI generation tests must assert ≥ 95% valid builds on a 50-example smoke set
+Frontend physics tests (`frontend/src/services/__tests__/`) must pass (Vitest)
 
 Run:
 
 pytest src/core/tests/ --cov
+cd frontend && npm run test
 
 6. Commit & PR Rules
 Commit message format (Conventional Commits):
@@ -151,7 +153,40 @@ PR Checklist (agent must verify):
 **Important**: After completing any task, **always** update PLAN.md to mark it done and commit your changes before moving on to the next task. Do not leave completed work uncommitted.
 
 
-7. Common Pitfalls (Avoid These!)
+7. Physics Architecture (Rapier.js + PyBullet)
+
+The app has **two physics engines** for different use-cases:
+
+**Client-side (Rapier.js WASM)** — `frontend/src/services/rapierSimulator.ts`
+- Primary engine for real-time simulation in the browser.
+- Uses **native Rapier joint types** (`FixedImpulseJoint`, `RevoluteImpulseJoint`),
+  NOT multi-P2P-constraint workarounds. This avoids torque-vs-constraint-force
+  imbalance (see Task 3.10 in PLAN.md for the PyBullet bug history).
+- Motor-driven joints use `RevoluteImpulseJoint.configureMotorVelocity()`,
+  NOT manual `addTorque()` calls. Rapier's unified solver handles motors and
+  constraints together, which is more stable than applying external torque.
+- Tuning constants: `linearDamping=0.3`, `angularDamping=0.3`, `timestep=1/240`
+  (4 sub-steps per 60fps frame), zero gravity, sensor colliders (no contacts).
+- The simulation loop runs on the main thread via `requestAnimationFrame`.
+  Transforms write directly to the `simulationTransforms` Map that `PartMesh.tsx`
+  reads in `useFrame`. No WebSocket or backend needed.
+
+**Server-side (PyBullet)** — `src/core/physics/pybullet.py`
+- Optional headless engine for AI training pipeline and stability analysis.
+- Uses multi-P2P constraints (2 for revolute, 3 for fixed) because PyBullet
+  lacks native fixed joints. Tuned with `maxForce=100k`, `ARM_MM=30`,
+  `torque_scale=50`, `solver_iterations=200`.
+- **Do NOT** change PyBullet tuning without updating the Rapier simulator too,
+  and vice versa. Both engines must produce equivalent behavior.
+
+**Rules**:
+- Never import Rapier in Python or PyBullet in TypeScript.
+- Joint type inference (`infer_joint_type` / `inferJointType`) must stay in sync
+  between `src/core/snapping.py` and `frontend/src/services/rapierSimulator.ts`.
+- Frontend tests for physics go in `frontend/src/services/__tests__/`.
+- Orientation tests must pass in BOTH engines (Python pytest + Vitest).
+
+8. Common Pitfalls (Avoid These!)
 
 Hard-coding rod lengths or connector angles anywhere except part JSON
 Putting physics code in the renderer
@@ -159,18 +194,20 @@ Using global variables in src/core/
 Generating GLBs manually — always use the Python script
 Changing the JSON schema without bumping format_version and updating loader
 Importing trimesh or openscad in production code (only in tools/)
+Using multi-P2P constraints in Rapier — use native joint types instead
+Applying external torque for motors in Rapier — use joint motor API instead
 
 **⚠️ Critical**: Always check `src/core/` for Python implementation, not `knexforge/core/`.
 
 
-8. How to Collaborate with Other Agents / Humans
+9. How to Collaborate with Other Agents / Humans
 
 When stuck: ask for clarification in PR comment using this exact phrase:"AGENT QUESTION: [your question] — reference AGENTS.md section X"
 Prefer small, focused PRs (≤ 400 lines)
 If you need to touch multiple layers (core + frontend + ai), split into 3 PRs
 
 
-9. Tooling & Commands You Can Use
+10. Tooling & Commands You Can Use
 
 # Mesh generation
 python tools/generate_meshes.py --force
@@ -191,5 +228,5 @@ cd frontend && npm run tauri dev
 You are now fully authorized to make changes.
 Welcome to the team!
 Follow this guide and we will ship the best open-source K'Nex builder in the world.
-Last updated: 2026-02-22
+Last updated: 2026-03-01
 Made for Claude, Grok, Codex and friends ❤️

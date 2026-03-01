@@ -26,7 +26,7 @@ const PART_IDS = [
  * Loads all part JSON definitions from public/parts/.
  * Returns a Map of part ID → KnexPartDef.
  */
-async function loadAllPartDefs(): Promise<Map<string, KnexPartDef>> {
+export async function loadAllPartDefs(): Promise<Map<string, KnexPartDef>> {
   const defs = new Map<string, KnexPartDef>()
 
   const results = await Promise.all(
