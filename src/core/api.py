@@ -72,7 +72,7 @@ class ExportResponse(BaseModel):
     error: str | None = None
 
 class LoadRequest(BaseModel):
-    file_bytes: bytes
+    data: dict
 
 class LoadResponse(BaseModel):
     build_id: str
@@ -212,12 +212,8 @@ def load(req: LoadRequest):
     from .file_io import import_build, ExportValidationError
 
     try:
-        # Parse the imported data
-        import json
-        imported_data = json.loads(req.file_bytes.decode("utf-8"))
-
-        # Import and create new build
-        build, manifest = import_build(imported_data)
+        # Import and create new build from the provided data
+        build, manifest = import_build(req.data)
 
         # Generate unique ID and store
         import uuid
@@ -230,8 +226,6 @@ def load(req: LoadRequest):
             build_id=build_id,
             manifest=manifest.model_dump(mode="json"),
         )
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {e}")
     except ExportValidationError as e:
         logger.warning(f"Import failed: {e}")
         raise HTTPException(
@@ -239,7 +233,10 @@ def load(req: LoadRequest):
             detail=f"Import failed: parts not found in library - {e.missing_parts}",
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid build file: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid build data: {e}")
+    except Exception as e:
+        logger.error(f"Import error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Diagnostics ---
 

@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { KnexViewer } from './components/Viewer/KnexViewer'
 import { PartPalette } from './components/PartPalette'
 import { ModelBrowser } from './components/ModelBrowser/ModelBrowser'
+import { BuildMenu } from './components/BuildMenu'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useBuildStore } from './stores/buildStore'
+import { sidecarBridge } from './services/sidecarBridge'
 import './App.css'
 
 // ---------------------------------------------------------------------------
@@ -105,6 +107,9 @@ function TabBar({
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
+      {/* File Operations */}
+      <BuildMenu />
+
       {/* Live stability indicator (always visible) */}
       <StabilityIndicator />
     </div>
@@ -148,6 +153,16 @@ function StabilityIndicator() {
 export default function App() {
   useKeyboardShortcuts()
   const [activeTab, setActiveTab] = useState<AppTab>('builder')
+  const setSidecarConnected = useBuildStore((s) => s.setSidecarConnected)
+
+  // Sidecar connection on mount
+  useEffect(() => {
+    const connect = async () => {
+      const ok = await sidecarBridge.connect()
+      setSidecarConnected(ok)
+    }
+    void connect()
+  }, [setSidecarConnected])
 
   // Listen for the "open-builder" event fired by the ModelBrowser's "Open in Builder" button
   useEffect(() => {

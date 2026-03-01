@@ -219,24 +219,27 @@ export class SidecarBridge {
    * Load a build from exported JSON data.
    */
   async loadBuild(data: ExportedBuildData): Promise<LoadResponse | null> {
-    if (!this._connected) return null
+    if (!this._connected) {
+      console.error('[SidecarBridge] loadBuild failed: bridge not connected')
+      return null
+    }
 
     try {
       const resp = await fetch(`${this._baseUrl}/load`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_bytes: Buffer.from(JSON.stringify(data)) }),
+        body: JSON.stringify({ data }),
       })
 
       if (!resp.ok) {
         const errorData = await resp.json()
-        console.error('[SidecarBridge] Load error:', errorData.detail)
+        console.error('[SidecarBridge] Load error:', errorData.detail || errorData)
         return null
       }
 
       return (await resp.json()) as LoadResponse
     } catch (err) {
-      console.error('[SidecarBridge] Load error:', err)
+      console.error('[SidecarBridge] Load request failed:', err)
       return null
     }
   }

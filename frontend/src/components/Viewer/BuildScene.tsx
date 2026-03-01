@@ -8,9 +8,72 @@ import { InstancedParts } from './InstancedParts'
 import { GhostPreview } from './GhostPreview'
 import { SceneInteraction } from './SceneInteraction'
 import { PortIndicators } from './PortIndicators'
+import { getPortWorldPose } from '../../helpers/snapHelper'
+import { Line } from '@react-three/drei'
+import { Vector3 } from 'three'
 
 /** Minimum instance count to switch from individual PartMesh to InstancedMesh. */
 const INSTANCING_THRESHOLD = 4
+
+/**
+ * Renders lines between connected ports to visualize the build's structure.
+ */
+function ConnectionLines({ 
+  connections, 
+  parts, 
+  defs 
+}: { 
+  connections: Connection[], 
+  parts: Record<string, PartInstance>, 
+  defs: Map<string, KnexPartDef> 
+}) {
+  const lines = useMemo(() => {
+    const result: { start: Vector3; end: Vector3; key: string }[] = []
+    
+    for (const conn of connections) {
+      const fromInst = parts[conn.from_instance]
+      const toInst = parts[conn.to_instance]
+      
+      if (!fromInst || !toInst) continue
+      
+      const fromDef = defs.get(fromInst.part_id)
+      const toDef = defs.get(toInst.part_id)
+      
+      if (!fromDef || !toDef) continue
+      
+      const fromPort = fromDef.ports.find(p => p.id === conn.from_port)
+      const toPort = toDef.ports.find(p => p.id === conn.to_port)
+      
+      if (!fromPort || !toPort) continue
+      
+      const { position: fromWorld } = getPortWorldPose(fromInst, fromPort)
+      const { position: toWorld } = getPortWorldPose(toInst, toPort)
+      
+      result.push({
+        start: fromWorld,
+        end: toWorld,
+        key: `${conn.from_instance}.${conn.from_port}-${conn.to_instance}.${conn.to_port}`
+      })
+    }
+    
+    return result
+  }, [connections, parts, defs])
+
+  return (
+    <group>
+      {lines.map(line => (
+        <Line
+          key={line.key}
+          points={[line.start, line.end]}
+          color="#4488ff"
+          lineWidth={1.5}
+          transparent
+          opacity={0.4}
+        />
+      ))}
+    </group>
+  )
+}
 
 /**
  * A demo build showing real K'Nex parts connected together.
@@ -241,6 +304,7 @@ interface BuildSceneProps {
 export function BuildScene({ loadDemoWhenEmpty = true }: BuildSceneProps) {
   const { defs, loading, error } = usePartDefs()
   const storeParts = useBuildStore((s) => s.parts)
+  const storeConnections = useBuildStore((s) => s.connections)
   const selectedPartId = useBuildStore((s) => s.selectedPartId)
   const loadBuild = useBuildStore((s) => s.loadBuild)
 
@@ -279,6 +343,7 @@ export function BuildScene({ loadDemoWhenEmpty = true }: BuildSceneProps) {
   return (
     <Suspense fallback={<LoadingIndicator />}>
       <BuildSceneInner parts={partsList} defs={defs} selectedPartId={selectedPartId} />
+      <ConnectionLines connections={storeConnections} parts={storeParts} defs={defs} />
       <GhostLayer defs={defs} />
       {/* Target points for port matching mode */}
       <PortIndicators defs={defs} />

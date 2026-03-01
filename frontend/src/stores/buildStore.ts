@@ -63,6 +63,8 @@ export interface BuildStore {
   redo: () => boolean
   /** Replace the entire build state (e.g., from loading a .knx file). */
   loadBuild: (parts: PartInstance[], connections: Connection[], stabilityScore?: number) => void
+  /** Append parts and connections to the current build. */
+  appendBuild: (parts: PartInstance[], connections: Connection[]) => void
   /** Clear the build completely. */
   clearBuild: () => void
   /** Set stability score (from sidecar response). */
@@ -238,6 +240,51 @@ export const useBuildStore = create<BuildStore>()(
         state.stressData = {}
         state.selectedPartId = null
         state.undoStack = []
+        state.redoStack = []
+      })
+      get().recalculateStability()
+    },
+
+    appendBuild: (parts: PartInstance[], connections: Connection[]) => {
+      set((state) => {
+        const before = createSnapshot(state)
+        
+        // Map old IDs to new IDs to avoid conflicts
+        const idMap: Record<string, string> = {}
+        
+        for (const p of parts) {
+          let newId = p.instance_id
+          // If collision, generate new ID
+          if (state.parts[newId]) {
+            newId = `${p.part_id}-${Math.random().toString(36).substring(2, 10)}`
+          }
+          idMap[p.instance_id] = newId
+          
+          state.parts[newId] = {
+            ...p,
+            instance_id: newId,
+            // rotation is expected as [x,y,z,w] in the store, 
+            // but coming from PartInstance which has rotation property.
+          }
+        }
+        
+        // Add connections with remapped IDs
+        for (const c of connections) {
+          const newFrom = idMap[c.from_instance]
+          const newTo = idMap[c.to_instance]
+          
+          // Only add if both sides of the connection were part of the appended set
+          // OR if they already existed in the store (idMap handles the mapping)
+          if (newFrom && newTo) {
+            state.connections.push({
+              ...c,
+              from_instance: newFrom,
+              to_instance: newTo
+            })
+          }
+        }
+        
+        state.undoStack.push({ type: 'add_part', before })
         state.redoStack = []
       })
       get().recalculateStability()
