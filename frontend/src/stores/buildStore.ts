@@ -20,6 +20,8 @@ export interface BuildAction {
   type: 'add_part' | 'remove_part' | 'snap'
   /** Snapshot before the action was applied (for undo). */
   before: BuildSnapshot
+  /** Snapshot after the action was applied (for redo). Optional for backward compatibility. */
+  after?: BuildSnapshot
 }
 
 /** Minimal snapshot of the build state for undo/redo. */
@@ -142,7 +144,8 @@ export const useBuildStore = create<BuildStore>()(
 
         const before = createSnapshot(state)
         state.parts[instance.instance_id] = instance
-        state.undoStack.push({ type: 'add_part', before })
+        const after = createSnapshot(state)
+        state.undoStack.push({ type: 'add_part', before, after })
         state.redoStack = []
       })
       get().recalculateStability()
@@ -162,7 +165,8 @@ export const useBuildStore = create<BuildStore>()(
         if (state.selectedPartId === instanceId) {
           state.selectedPartId = null
         }
-        state.undoStack.push({ type: 'remove_part', before })
+        const after = createSnapshot(state)
+        state.undoStack.push({ type: 'remove_part', before, after })
         state.redoStack = []
       })
       get().recalculateStability()
@@ -185,7 +189,8 @@ export const useBuildStore = create<BuildStore>()(
 
         const before = createSnapshot(state)
         state.connections.push(connection)
-        state.undoStack.push({ type: 'snap', before })
+        const after = createSnapshot(state)
+        state.undoStack.push({ type: 'snap', before, after })
         state.redoStack = []
       })
       get().recalculateStability()
@@ -203,9 +208,19 @@ export const useBuildStore = create<BuildStore>()(
 
       set((state) => {
         const action = state.undoStack.pop()!
-        const currentSnapshot = createSnapshot(state)
+        // Handle backward compatibility for old actions without 'after' field
+        const afterSnapshot = action.after ?? createSnapshot(state)
+        
+        // Capture current state BEFORE undo (this becomes the "before" for redo)
+        const currentStateBeforeUndo = createSnapshot(state)
+        
+        // Apply the undo (restore to state before original action)
         applySnapshot(state, action.before)
-        state.redoStack.push({ type: action.type, before: currentSnapshot })
+        
+        // After undoing:
+        // - before = state before this undo operation  
+        // - after = state after this undo operation (which is what we just applied)
+        state.redoStack.push({ type: action.type, before: currentStateBeforeUndo, after: afterSnapshot })
       })
       get().recalculateStability()
       return true
@@ -217,9 +232,19 @@ export const useBuildStore = create<BuildStore>()(
 
       set((state) => {
         const action = state.redoStack.pop()!
-        const currentSnapshot = createSnapshot(state)
-        applySnapshot(state, action.before)
-        state.undoStack.push({ type: action.type, before: currentSnapshot })
+        // Handle backward compatibility: if no 'after' snapshot, use before as fallback
+        const afterSnapshot = action.after ?? action.before
+        
+        // Capture current state BEFORE applying redo (this becomes the new "before")
+        const currentStateBeforeRedo = createSnapshot(state)
+        
+        // Apply the redo (restore to state after original action)
+        applySnapshot(state, afterSnapshot)
+        
+        // After redoing:
+        // - before = state before this redo operation
+        // - after = state after this redo operation (which is what we just applied)
+        state.undoStack.push({ type: action.type, before: currentStateBeforeRedo, after: afterSnapshot })
       })
       get().recalculateStability()
       return true
@@ -298,8 +323,9 @@ export const useBuildStore = create<BuildStore>()(
         state.stabilityScore = 100
         state.stressData = {}
         state.selectedPartId = null
+        const after = createSnapshot(state)
         // Keep undo so user can undo the clear
-        state.undoStack.push({ type: 'remove_part', before })
+        state.undoStack.push({ type: 'remove_part', before, after })
         state.redoStack = []
       })
       get().recalculateStability()

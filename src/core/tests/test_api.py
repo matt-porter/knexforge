@@ -52,7 +52,7 @@ def test_load_endpoint():
     json_str = json.dumps(data)
     b64_str = base64.b64encode(json_str.encode("utf-8")).decode("utf-8")
     
-    resp = client.post("/load", json={"file_bytes": b64_str})
+    resp = client.post("/load", json={"data": data})
     assert resp.status_code == 200
     data = resp.json()
     assert "build_id" in data

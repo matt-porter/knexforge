@@ -249,20 +249,51 @@ export class RapierSimulator {
           axisRot = toInst.rotation
         }
         const axisWorld = quatApply(axisRot, axisPortDir)
-        // Rapier revolute axis is in body1's local frame
-        const axisLocal = quatApply(quatConj(fromInst.rotation), axisWorld)
+        const axisLocalTo = quatApply(quatConj(toInst.rotation), axisWorld)
 
-        const params = RAPIER.JointData.revolute(a1, a2, {
-          x: axisLocal[0],
-          y: axisLocal[1],
-          z: axisLocal[2],
+        // Rapier's JS bindings for RevoluteJoint lack frame1/frame2 parameters.
+        // It forces body1 and body2 local frames to align exactly, causing violent
+        // "axis flipping" if they start at an arbitrary relative orientation.
+        // Workaround: insert a small dummy body aligned perfectly with toBody.
+        const dummyDesc = RAPIER.RigidBodyDesc.dynamic()
+          .setTranslation(toInst.position[0], toInst.position[1], toInst.position[2])
+          .setRotation(toRapierQuat(toInst.rotation))
+        const dummyBody = this.world.createRigidBody(dummyDesc)
+
+        // Give the dummy body a mass comparable to the real part so the solver can transmit forces.
+        // A 0.1 half-extent cuboid has volume = 8 * 0.001 = 0.008.
+        // We set density = mass / volume to achieve the exact mass of the toBody.
+        const dummyVolume = 0.008
+        const dummyDensity = toDef.mass_grams > 0 ? toDef.mass_grams / dummyVolume : 125.0
+
+        const dummyCollider = RAPIER.ColliderDesc.cuboid(0.1, 0.1, 0.1)
+          .setDensity(dummyDensity)
+          .setSensor(true)
+        this.world.createCollider(dummyCollider, dummyBody)
+
+        // 1. Fixed joint: fromBody -> dummyBody (preserves arbitrary relative rotation)
+        const relativeRot = quatMul(quatConj(toInst.rotation), fromInst.rotation)
+        const fixedParams = RAPIER.JointData.fixed(
+          a1,
+          { w: 1, x: 0, y: 0, z: 0 },
+          a2, // anchor in dummyBody is same as toBody because they are co-located
+          toRapierQuat(relativeRot),
+        )
+        const fixedJoint = this.world.createImpulseJoint(fixedParams, fromBody, dummyBody, true)
+        fixedJoint.setContactsEnabled(false)
+
+        // 2. Revolute joint: dummyBody -> toBody (frames are identical, so no flipping!)
+        const revoluteParams = RAPIER.JointData.revolute(a2, a2, {
+          x: axisLocalTo[0],
+          y: axisLocalTo[1],
+          z: axisLocalTo[2],
         })
-        const joint = this.world.createImpulseJoint(params, fromBody, toBody, true)
-        joint.setContactsEnabled(false)
+        const revoluteJoint = this.world.createImpulseJoint(revoluteParams, dummyBody, toBody, true)
+        revoluteJoint.setContactsEnabled(false)
 
         if (isMotorConn) {
-          const revolute = joint as RAPIER.RevoluteImpulseJoint
-          revolute.configureMotorVelocity(motorSpeed, 0.5)
+          const revolute = revoluteJoint as RAPIER.RevoluteImpulseJoint
+          revolute.configureMotorVelocity(motorSpeed, 50)
           this.motorJoints.push(revolute)
         }
       } else {
@@ -314,7 +345,7 @@ export class RapierSimulator {
   /** Update motor target velocity (rad/s). */
   setMotorSpeed(speed: number): void {
     for (const joint of this.motorJoints) {
-      joint.configureMotorVelocity(speed, 0.5)
+      joint.configureMotorVelocity(speed, 300)
     }
   }
 

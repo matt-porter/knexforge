@@ -183,7 +183,7 @@ def export(req: ExportRequest):
                 instance_id=p_data["instance_id"],
                 part=part_def,
                 position=tuple(p_data["position"]),
-                quaternion=tuple(p_data.get("quaternion", [0, 0, 0, 1])),
+                quaternion=tuple(p_data.get("rotation", p_data.get("quaternion", [0, 0, 0, 1]))),
                 color=p_data.get("color"),
             )
             build.add_part(inst, record=False)

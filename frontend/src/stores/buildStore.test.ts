@@ -461,21 +461,68 @@ describe('buildStore', () => {
       expect(state.connections).toHaveLength(0)
     })
 
-    it('is undoable', () => {
-      useBuildStore.getState().addPart(makePart('rod-1'))
-      useBuildStore.getState().addPart(makePart('rod-2'))
+    it('is undoable (restores parts and connections)', () => {
+      const store = useBuildStore.getState()
+      store.addPart(makePart('rod-1'))
+      store.addPart(makePart('conn-1', 'connector-8way-white-v1'))
+      useBuildStore.getState().addConnection(makeConnection('rod-1', 'end1', 'conn-1', 'A'))
 
       useBuildStore.getState().clearBuild()
       expect(useBuildStore.getState().partCount()).toBe(0)
+      expect(useBuildStore.getState().connections).toHaveLength(0)
 
       useBuildStore.getState().undo()
+      const state = useBuildStore.getState()
+      expect(state.partCount()).toBe(2)
+      expect(state.parts['rod-1']).toBeDefined()
+      expect(state.parts['conn-1']).toBeDefined()
+      expect(state.connections).toHaveLength(1)
+    })
+
+    it('is redoable after undo', () => {
+      const store = useBuildStore.getState()
+      store.addPart(makePart('rod-1'))
+      store.addPart(makePart('rod-2'))
+
+      // Clear the build
+      useBuildStore.getState().clearBuild()
+      expect(useBuildStore.getState().partCount()).toBe(0)
+
+      // Undo the clear (restores parts)
+      useBuildStore.getState().undo()
       expect(useBuildStore.getState().partCount()).toBe(2)
+
+      // Redo the clear (removes parts again)
+      useBuildStore.getState().redo()
+      expect(useBuildStore.getState().partCount()).toBe(0)
     })
 
     it('resets stability score', () => {
       useBuildStore.getState().setStabilityScore(42)
       useBuildStore.getState().clearBuild()
       expect(useBuildStore.getState().stabilityScore).toBe(100)
+    })
+
+    it('can undo/redo multiple times with clear', () => {
+      const store = useBuildStore.getState()
+      store.addPart(makePart('rod-1'))
+      store.addPart(makePart('rod-2'))
+
+      // Clear, undo, redo - should work smoothly
+      useBuildStore.getState().clearBuild()
+      expect(useBuildStore.getState().partCount()).toBe(0)
+
+      useBuildStore.getState().undo()
+      expect(useBuildStore.getState().partCount()).toBe(2)
+
+      useBuildStore.getState().redo()
+      const afterRedo = useBuildStore.getState()
+      expect(afterRedo.partCount()).toBe(0)
+
+      // Now add a new part (clear was redone, so only this part should exist)
+      store.addPart(makePart('rod-3'))
+      const finalState = useBuildStore.getState()
+      expect(finalState.partCount()).toBe(1) // only rod-3 since clear was redone
     })
   })
 
