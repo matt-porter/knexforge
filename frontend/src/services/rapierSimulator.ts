@@ -260,15 +260,17 @@ export class RapierSimulator {
           .setRotation(toRapierQuat(toInst.rotation))
         const dummyBody = this.world.createRigidBody(dummyDesc)
 
-        // Give the dummy body a mass comparable to the real part so the solver can transmit forces.
-        // A 0.1 half-extent cuboid has volume = 8 * 0.001 = 0.008.
-        // We set density = mass / volume to achieve the exact mass of the toBody.
-        const dummyVolume = 0.008
-        const dummyDensity = toDef.mass_grams > 0 ? toDef.mass_grams / dummyVolume : 125.0
+        // Give the dummy body a mass and inertia comparable to the real part
+        // so the solver can transmit forces without wobbling.
+        const he = getColliderHalfExtents(toDef)
+        const offset = getColliderOffset(toDef)
+        const volume = 8 * he[0] * he[1] * he[2]
+        const density = volume > 0 ? toDef.mass_grams / volume : 1
 
-        const dummyCollider = RAPIER.ColliderDesc.cuboid(0.1, 0.1, 0.1)
-          .setDensity(dummyDensity)
+        const dummyCollider = RAPIER.ColliderDesc.cuboid(he[0], he[1], he[2])
+          .setDensity(density)
           .setSensor(true)
+          .setTranslation(offset[0], offset[1], offset[2])
         this.world.createCollider(dummyCollider, dummyBody)
 
         // 1. Fixed joint: fromBody -> dummyBody (preserves arbitrary relative rotation)
@@ -345,7 +347,7 @@ export class RapierSimulator {
   /** Update motor target velocity (rad/s). */
   setMotorSpeed(speed: number): void {
     for (const joint of this.motorJoints) {
-      joint.configureMotorVelocity(speed, 300)
+      joint.configureMotorVelocity(speed, 2)
     }
   }
 
