@@ -89,7 +89,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
         const availableIndicators: {
             positionKey: string
             worldPos: Vector3
-            variants: { targetPortId: string; placingPortId: string; ghostPos: Vector3; ghostQuat: Quaternion; joint_type: 'fixed' | 'revolute' | 'prismatic' }[]
+            variants: { targetPortId: string; placingPortId: string; ghostPos: Vector3; ghostQuat: Quaternion; joint_type: 'fixed' | 'revolute' | 'prismatic'; angle: number }[]
         }[] = []
 
         // Calculate all compatible combinations
@@ -116,7 +116,9 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
             for (const placingPort of placingDef.ports) {
                 if (!arePortsCompatible(placingPort, targetPort)) continue
 
-                const angles = targetPort.allowed_angles_deg?.length > 0 ? targetPort.allowed_angles_deg : [0]
+                const targetAngles = targetPort.allowed_angles_deg?.length > 0 ? targetPort.allowed_angles_deg : [0]
+                const placingAngles = placingPort.allowed_angles_deg?.length > 0 ? placingPort.allowed_angles_deg : [0]
+                const angles = placingAngles.length > targetAngles.length ? placingAngles : targetAngles
 
                 for (const angle of angles) {
                     const { position: ghostPos, rotation: ghostQuat } = computeGhostTransform(
@@ -216,6 +218,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                             ghostPos,
                             ghostQuat,
                             joint_type: inferJointType(placingPort, targetPort),
+                            angle
                         })
                     }
                 }
@@ -223,6 +226,21 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
         }
 
         // Only return indicators that actually have valid variants
+        for (const ind of availableIndicators) {
+            // Sort variants so we cycle through different angles FIRST (which looks like switching ports if angle is the outer loop)
+            // Wait, if the loop was: Port -> Angle.
+            // Pushing order: A0, A90, A180, A270, B0, B90, B180, B270...
+            // If we sort by Angle first: 0(A,B,C), 90(A,B,C), 180(A,B,C)...
+            // This means we cycle through ports before rotating!
+            ind.variants.sort((a, b) => {
+                if (a.angle !== b.angle) {
+                    return a.angle - b.angle
+                }
+                // Then sort by port ID so they always appear in a consistent sequence
+                return a.placingPortId.localeCompare(b.placingPortId)
+            })
+        }
+
         return availableIndicators.filter(ind => ind.variants.length > 0)
     }, [mode, placingPartId, matchTargetId, parts, connections, defs, camera.position])
 
