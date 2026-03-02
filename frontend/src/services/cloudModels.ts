@@ -47,8 +47,7 @@ export async function saveCloudModel(
 
   const exportData = createExportData(parts, connections, title, stability)
   
-  const payload = {
-    user_id: user.id,
+  const payload: any = {
     title,
     data: exportData,
     piece_count: parts.length,
@@ -56,22 +55,34 @@ export async function saveCloudModel(
     updated_at: new Date().toISOString()
   }
 
-  if (id) {
+  // Robust UUID check: 8-4-4-4-12 hex chars
+  const isUuid = id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+
+  if (isUuid) {
+    // UPDATE: Only include fields that can change. Never try to update user_id.
     const { error } = await supabase
       .from('models')
       .update(payload)
       .eq('id', id)
     
-    if (error) throw error
-    return id
+    if (error) {
+      console.error('[CloudModels] Update error:', error)
+      throw error
+    }
+    return id!
   } else {
+    // INSERT: Include user_id for new records
+    payload.user_id = user.id
     const { data, error } = await supabase
       .from('models')
       .insert(payload)
       .select('id')
       .single()
     
-    if (error) throw error
+    if (error) {
+      console.error('[CloudModels] Insert error:', error)
+      throw error
+    }
     return data.id
   }
 }
