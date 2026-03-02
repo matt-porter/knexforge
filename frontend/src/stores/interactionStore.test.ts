@@ -12,6 +12,9 @@ describe('interactionStore', () => {
       snapTargetPortId: null,
       snapPlacingPortId: null,
       isSnapped: false,
+      activePortIndex: 0,
+      activeAngleIndex: 0,
+      snapVariantInfo: null,
       hoveredPartId: null,
     })
   })

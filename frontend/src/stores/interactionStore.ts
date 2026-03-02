@@ -14,6 +14,17 @@ import { immer } from 'zustand/middleware/immer'
 
 export type ToolMode = 'select' | 'place'
 
+/** Metadata about the current snap variant state, for the HUD to display. */
+export interface SnapVariantInfo {
+  portLabel: string
+  portIndex: number
+  totalPorts: number
+  allPortLabels: string[]
+  angleDeg: number
+  angleIndex: number
+  totalAngles: number
+}
+
 export interface InteractionStore {
   // --- State ---
   /** Current tool mode. */
@@ -33,8 +44,12 @@ export interface InteractionStore {
   snapPlacingPortId: string | null
   /** Whether the ghost is currently snapped to a valid port. */
   isSnapped: boolean
-  /** Index of the active snap variant when multiple are possible. */
-  activeSnapVariantIndex: number
+  /** Index of the active port group (Tab cycles this). */
+  activePortIndex: number
+  /** Index of the active rotation within the current port group (R cycles this). */
+  activeAngleIndex: number
+  /** Metadata for the snap variant HUD (written by PortIndicators). */
+  snapVariantInfo: SnapVariantInfo | null
   /** Hovered part instance ID. */
   hoveredPartId: string | null
 
@@ -62,8 +77,12 @@ export interface InteractionStore {
   setMatchTargetId: (instanceId: string | null) => void
   /** Rotate the ghost 90° around Y axis. */
   rotateGhost: () => void
-  /** Cycles to the next snap configuration when multiple are available. */
-  cycleSnapVariant: () => void
+  /** Cycle to the next port group (Tab key). */
+  cyclePort: () => void
+  /** Cycle to the next rotation angle within the current port group (R key when snapped). */
+  cycleAngle: () => void
+  /** Set snap variant HUD metadata (called by PortIndicators). */
+  setSnapVariantInfo: (info: SnapVariantInfo | null) => void
   
   // --- Simulation Actions ---
   toggleSimulation: () => void
@@ -117,7 +136,9 @@ export const useInteractionStore = create<InteractionStore>()(
     snapTargetPortId: null,
     snapPlacingPortId: null,
     isSnapped: false,
-    activeSnapVariantIndex: 0,
+    activePortIndex: 0,
+    activeAngleIndex: 0,
+    snapVariantInfo: null,
     hoveredPartId: null,
     isSimulating: false,
     motorSpeed: 10.0,
@@ -135,7 +156,9 @@ export const useInteractionStore = create<InteractionStore>()(
         state.snapTargetPortId = null
         state.snapPlacingPortId = null
         state.isSnapped = false
-        state.activeSnapVariantIndex = 0
+        state.activePortIndex = 0
+        state.activeAngleIndex = 0
+        state.snapVariantInfo = null
       })
     },
 
@@ -150,7 +173,9 @@ export const useInteractionStore = create<InteractionStore>()(
         state.snapTargetPortId = null
         state.snapPlacingPortId = null
         state.isSnapped = false
-        state.activeSnapVariantIndex = 0
+        state.activePortIndex = 0
+        state.activeAngleIndex = 0
+        state.snapVariantInfo = null
       })
     },
 
@@ -168,12 +193,11 @@ export const useInteractionStore = create<InteractionStore>()(
 
     setSnapTarget: (instanceId: string | null, portId: string | null, placingPortId?: string | null) => {
       set((state) => {
-        // Only reset the variant index if we're snapping to a DIFFERENT instance.
-        // Port changes on the same instance happen when PortIndicators cycles
-        // through variants at the same position (e.g., center_axial_1 → center_tangent),
-        // and we must NOT reset the index in that case or Tab cycling breaks.
+        // Only reset indices if we're snapping to a DIFFERENT instance.
         if (state.snapTargetInstanceId !== instanceId) {
-          state.activeSnapVariantIndex = 0
+          state.activePortIndex = 0
+          state.activeAngleIndex = 0
+          state.snapVariantInfo = null
         }
         state.snapTargetInstanceId = instanceId
         state.snapTargetPortId = portId
@@ -200,9 +224,22 @@ export const useInteractionStore = create<InteractionStore>()(
       })
     },
 
-    cycleSnapVariant: () => {
+    cyclePort: () => {
       set((state) => {
-        state.activeSnapVariantIndex += 1
+        state.activePortIndex += 1
+        state.activeAngleIndex = 0
+      })
+    },
+
+    cycleAngle: () => {
+      set((state) => {
+        state.activeAngleIndex += 1
+      })
+    },
+
+    setSnapVariantInfo: (info: SnapVariantInfo | null) => {
+      set((state) => {
+        state.snapVariantInfo = info
       })
     },
 

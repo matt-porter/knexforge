@@ -299,6 +299,17 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Fix**: Pick the longer of `placingAngles` vs `targetAngles` so all rotations are available.
 - **Files**: `PortIndicators.tsx`, `portIndicatorSim.test.ts`
 
+### ✅ Task 9.3: Port & Rotation Picker HUD
+- **Goal**: Better UX for selecting which connector port and rotation to use when attaching to a rod
+- **Problem**: Old Tab cycling went through ALL port×angle combos in a flat list — confusing for multi-port connectors
+- **Fix**: Two-axis control separating port selection from rotation:
+  - **Tab** cycles which connector port connects (A → B → C → center)
+  - **R** cycles rotation angle within the current port (0° → 90° → 180° → 270°)
+- **HUD**: `SnapVariantHUD.tsx` — floating overlay at viewport bottom showing current port name, rotation angle, counts, and keyboard hints
+- **Store**: Replaced `activeSnapVariantIndex` with `activePortIndex` + `activeAngleIndex` in `interactionStore.ts`
+- **PortIndicators**: Restructured variants into port groups (grouped by `placingPortId`) with per-group angle sorting
+- **Tests**: Updated `tabCycling.test.ts` with 6 tests covering port cycling, angle cycling, index resets
+
 ### ✅ Task 9.2: PortIndicator Spheres Inside Connector Meshes
 - **Root cause**: Part mesh `handlePointerOver` called `e.stopPropagation()`, blocking
   PortIndicator spheres at connector centers (slot ports, center ports at `[0,0,0]`) from

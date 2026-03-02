@@ -61,12 +61,17 @@ export function useKeyboardShortcuts(): void {
         return
       }
 
-      // R: rotate ghost preview
+      // R: cycle rotation angle in targeted/snapped mode, otherwise rotate ghost
       if (e.key === 'r' || e.key === 'R') {
-        const { mode } = useInteractionStore.getState()
+        const { mode, isSnapped, matchTargetId } = useInteractionStore.getState()
         if (mode === 'place') {
           e.preventDefault()
-          useInteractionStore.getState().rotateGhost()
+          if (matchTargetId || isSnapped) {
+            // In targeted mode, always cycle angle even if cursor drifted off indicator
+            useInteractionStore.getState().cycleAngle()
+          } else {
+            useInteractionStore.getState().rotateGhost()
+          }
           return
         }
       }

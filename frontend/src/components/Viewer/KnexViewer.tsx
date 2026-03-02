@@ -2,6 +2,7 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid, Environment } from '@react-three/drei'
 import { BuildScene } from './BuildScene'
 import { VisualModeToggle } from './VisualModeToggle'
+import { SnapVariantHUD } from './SnapVariantHUD'
 import { useInteractionStore } from '../../stores/interactionStore'
 import { useBuildStore } from '../../stores/buildStore'
 import { useEffect, useRef } from 'react'
@@ -41,6 +42,7 @@ function CameraController() {
  * The BuildScene renders actual K'Nex parts from GLB meshes.
  */
 export function KnexViewer({ loadDemoWhenEmpty = true }: { loadDemoWhenEmpty?: boolean }) {
+  usePlacementKeyCapture()
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Canvas
@@ -90,53 +92,28 @@ export function KnexViewer({ loadDemoWhenEmpty = true }: { loadDemoWhenEmpty?: b
         <Environment preset="city" />
       </Canvas>
       <VisualModeToggle />
-      <PlacementHintOverlay />
+      <SnapVariantHUD />
       <ContextMenu />
     </div>
   )
 }
 
-function PlacementHintOverlay() {
-  const { mode, placingPartId, matchTargetId, isSnapped } = useInteractionStore()
-
+/**
+ * Captures Tab key in place mode to cycle ports (prevent browser focus shift).
+ * Mounted once inside KnexViewer so it's always active when the canvas is visible.
+ */
+function usePlacementKeyCapture() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Use e.code === 'Tab' for better cross-layout support and prevent focus shifting
       if (e.code === 'Tab') {
         e.preventDefault()
         e.stopPropagation()
-        // We unconditionally increment; PortIndicators modulo down works 
-        useInteractionStore.getState().cycleSnapVariant()
+        useInteractionStore.getState().cyclePort()
       }
     }
 
-    // Use capture phase to intercept Tab before the browser tries to shift focus away from the canvas
     window.addEventListener('keydown', handleKeyDown, { capture: true })
     return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
   }, [])
-
-  if (mode !== 'place' || !placingPartId) return null
-
-  // If we are in targeted mode
-  if (matchTargetId) {
-    if (isSnapped) {
-      return (
-        <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '8px 16px', borderRadius: '4px', pointerEvents: 'none', userSelect: 'none', zIndex: 100 }}>
-          Press <strong>Tab</strong> to cycle attachment modes (End / Side / Slide)
-        </div>
-      )
-    }
-    return (
-      <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '8px 16px', borderRadius: '4px', pointerEvents: 'none', userSelect: 'none', zIndex: 100 }}>
-        Select a yellow port to attach.
-      </div>
-    )
-  }
-
-  // Free-roam mode
-  return (
-    <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '8px 16px', borderRadius: '4px', pointerEvents: 'none', userSelect: 'none', zIndex: 100 }}>
-      Press <strong>Esc</strong> to cancel placement.
-    </div>
-  )
 }
+
