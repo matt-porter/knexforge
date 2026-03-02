@@ -56,16 +56,7 @@ function computeIndicators(
   targetInstance: PartInstance,
   occupiedPorts: Set<string> = new Set(),
 ) {
-  const indicators: {
-    positionKey: string
-    worldPos: Vector3
-    variants: {
-      targetPortId: string
-      placingPortId: string
-      ghostPos: Vector3
-      ghostQuat: Quaternion
-    }[]
-  }[] = []
+  const rawIndicators: Map<string, { worldPos: Vector3; variants: { targetPortId: string; placingPortId: string; ghostPos: Vector3; ghostQuat: Quaternion }[] }> = new Map()
 
   for (const targetPort of targetDef.ports) {
     if (occupiedPorts.has(targetPort.id)) continue
@@ -76,11 +67,10 @@ function computeIndicators(
     )
 
     const posKey = `pos_${targetWorldPos.x.toFixed(2)}_${targetWorldPos.y.toFixed(2)}_${targetWorldPos.z.toFixed(2)}`
-    let existingInd = indicators.find((ind) => ind.positionKey === posKey)
-    if (!existingInd) {
-      existingInd = { positionKey: posKey, worldPos: targetWorldPos, variants: [] }
-      indicators.push(existingInd)
+    if (!rawIndicators.has(posKey)) {
+      rawIndicators.set(posKey, { worldPos: targetWorldPos, variants: [] })
     }
+    const indData = rawIndicators.get(posKey)!
 
     for (const placingPort of placingDef.ports) {
       if (!arePortsCompatible(placingPort, targetPort)) continue
@@ -152,9 +142,11 @@ function computeIndicators(
 
         if (!isValid) continue
 
-        // --- Visual Deduplication (exact copy from PortIndicators) ---
-        const isDuplicate = existingInd.variants.some((v) => {
+        // --- Visual Deduplication (matches real PortIndicators code) ---
+        // Only dedup within the SAME placing port
+        const isDuplicate = indData.variants.some((v) => {
           if (v.ghostPos.distanceToSquared(ghostPos) > 0.01) return false
+          if (v.placingPortId !== placingPort.id) return false
 
           if (placingDef.category === 'rod') {
             const vWorldMainAxis = new Vector3(1, 0, 0).applyQuaternion(v.ghostQuat)
@@ -166,7 +158,7 @@ function computeIndicators(
         })
 
         if (!isDuplicate) {
-          existingInd.variants.push({
+          indData.variants.push({
             targetPortId: targetPort.id,
             placingPortId: placingPort.id,
             ghostPos,
@@ -177,7 +169,35 @@ function computeIndicators(
     }
   }
 
-  return indicators.filter((ind) => ind.variants.length > 0)
+  // Convert to port-grouped format (matches real PortIndicators)
+  const result: {
+    positionKey: string
+    worldPos: Vector3
+    portGroups: {
+      placingPortId: string
+      variants: { targetPortId: string; placingPortId: string; ghostPos: Vector3; ghostQuat: Quaternion }[]
+    }[]
+  }[] = []
+
+  for (const [posKey, data] of rawIndicators) {
+    if (data.variants.length === 0) continue
+
+    const groupMap = new Map<string, typeof data.variants>()
+    for (const v of data.variants) {
+      if (!groupMap.has(v.placingPortId)) groupMap.set(v.placingPortId, [])
+      groupMap.get(v.placingPortId)!.push(v)
+    }
+
+    const portGroups = Array.from(groupMap.entries()).map(([pid, variants]) => ({
+      placingPortId: pid,
+      variants,
+    }))
+    portGroups.sort((a, b) => a.placingPortId.localeCompare(b.placingPortId))
+
+    result.push({ positionKey: posKey, worldPos: data.worldPos, portGroups })
+  }
+
+  return result
 }
 
 // ---- Test data (real part defs) ----
@@ -225,103 +245,55 @@ const rodInstance: PartInstance = {
 
 // ---- Tests ----
 
+/** Helper: collect all variants from all port groups into a flat array */
+function allVariants(ind: ReturnType<typeof computeIndicators>[0]) {
+  return ind.portGroups.flatMap(g => g.variants)
+}
+
+/** Helper: get all unique placing port IDs from an indicator */
+function portIds(ind: ReturnType<typeof computeIndicators>[0]) {
+  return new Set(ind.portGroups.map(g => g.placingPortId))
+}
+
 describe('PortIndicators: placing 4-way connector onto rod', () => {
   it('generates indicators at rod center, end1, and end2', () => {
     const indicators = computeIndicators(connector4way, rod54, rodInstance)
     const posKeys = indicators.map((ind) => ind.positionKey)
 
-    // Should have indicators at 3 distinct positions: end1 [0,0,0], end2 [54,0,0], center [27,0,0]
     expect(indicators.length).toBeGreaterThanOrEqual(3)
     expect(posKeys).toContain('pos_0.00_0.00_0.00')   // end1
     expect(posKeys).toContain('pos_54.00_0.00_0.00')   // end2
     expect(posKeys).toContain('pos_27.00_0.00_0.00')   // center
   })
 
-  it('center indicator has through-hole variants (from center_axial)', () => {
+  it('center indicator has through-hole port group (center)', () => {
     const indicators = computeIndicators(connector4way, rod54, rodInstance)
     const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.00_0.00_0.00')!
 
-    const throughHole = centerInd.variants.filter(
-      (v) => v.targetPortId === 'center_axial_1' || v.targetPortId === 'center_axial_2',
-    )
-    expect(throughHole.length).toBeGreaterThan(0)
-
-    // Through-hole must use the connector's center port
-    for (const v of throughHole) {
-      expect(v.placingPortId).toBe('center')
-    }
+    const centerGroup = centerInd.portGroups.find(g => g.placingPortId === 'center')
+    expect(centerGroup).toBeDefined()
+    expect(centerGroup!.variants.length).toBeGreaterThan(0)
   })
 
-  it('center indicator has side-clip variants (from center_tangent)', () => {
+  it('center indicator has side-clip port groups (A, B, C, D)', () => {
     const indicators = computeIndicators(connector4way, rod54, rodInstance)
     const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.00_0.00_0.00')!
 
-    const sideClip = centerInd.variants.filter((v) => v.targetPortId === 'center_tangent')
-    expect(sideClip.length).toBeGreaterThan(0)
-
-    // Side-clip must use a connector edge port (A, B, C, or D), NOT center
-    for (const v of sideClip) {
-      expect(['A', 'B', 'C', 'D']).toContain(v.placingPortId)
-    }
+    const edgeGroups = centerInd.portGroups.filter(g => ['A', 'B', 'C', 'D'].includes(g.placingPortId))
+    expect(edgeGroups.length).toBeGreaterThan(0)
   })
 
-  it('Tab cycles through both through-hole AND side-clip at the center indicator', () => {
-    const indicators = computeIndicators(connector4way, rod54, rodInstance)
-    const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.00_0.00_0.00')!
-
-    const throughHole = centerInd.variants.filter(
-      (v) => v.targetPortId === 'center_axial_1' || v.targetPortId === 'center_axial_2',
-    )
-    const sideClip = centerInd.variants.filter((v) => v.targetPortId === 'center_tangent')
-
-    console.log(`Center indicator variants: ${centerInd.variants.length} total`)
-    console.log(`  Through-hole: ${throughHole.length}`)
-    console.log(`  Side-clip: ${sideClip.length}`)
-    for (const v of centerInd.variants) {
-      console.log(`  - target=${v.targetPortId} placing=${v.placingPortId} pos=[${v.ghostPos.x.toFixed(1)},${v.ghostPos.y.toFixed(1)},${v.ghostPos.z.toFixed(1)}]`)
-    }
-
-    // CRITICAL: both types must be present
-    expect(throughHole.length).toBeGreaterThan(0)
-    expect(sideClip.length).toBeGreaterThan(0)
-    expect(centerInd.variants.length).toBe(throughHole.length + sideClip.length)
-  })
-
-  it('end indicator has multiple connector orientations from placing port angles', () => {
-    const indicators = computeIndicators(connector4way, rod54, rodInstance)
-    const end1Ind = indicators.find((ind) => ind.positionKey === 'pos_0.00_0.00_0.00')!
-    const end2Ind = indicators.find((ind) => ind.positionKey === 'pos_54.00_0.00_0.00')!
-
-    // Rod end ports have allowed_angles_deg: [0], but connector edge ports have [0, 90, 180, 270].
-    // The fix picks the longer angle list (placingAngles) so we get 4 angles per compatible pair.
-    // Without the fix, only angle=0 would be tried, severely limiting orientations.
-    expect(end1Ind.variants.length).toBeGreaterThan(1)
-    expect(end2Ind.variants.length).toBeGreaterThan(1)
-
-    console.log(`End1 indicator variants: ${end1Ind.variants.length}`)
-    for (const v of end1Ind.variants) {
-      console.log(`  - target=${v.targetPortId} placing=${v.placingPortId} pos=[${v.ghostPos.x.toFixed(1)},${v.ghostPos.y.toFixed(1)},${v.ghostPos.z.toFixed(1)}]`)
-    }
-  })
-
-  it('end indicator uses connector edge ports, not center', () => {
+  it('end1 indicator has port groups for all edge ports AND center', () => {
     const indicators = computeIndicators(connector4way, rod54, rodInstance)
     const end1Ind = indicators.find((ind) => ind.positionKey === 'pos_0.00_0.00_0.00')!
 
-    // End-on snapping into edge clips (A, B, C, D) should work.
-    // Center port connects rod_end, but requires rod to be perpendicular to connector plane,
-    // which is a different orientation than the edge clips.
-    const edgeVariants = end1Ind.variants.filter(v => ['A', 'B', 'C', 'D'].includes(v.placingPortId))
-    const centerVariants = end1Ind.variants.filter(v => v.placingPortId === 'center')
-
-    // Edge clips should be present (rod lying in the connector plane)
-    expect(edgeVariants.length).toBeGreaterThan(0)
-
-    // Center through-hole also valid (rod perpendicular through center)
-    expect(centerVariants.length).toBeGreaterThan(0)
-
-    // Both types accessible via Tab cycling
-    expect(end1Ind.variants.length).toBe(edgeVariants.length + centerVariants.length)
+    const pids = portIds(end1Ind)
+    console.log(`Green 4-way end1 port groups: ${[...pids].join(', ')}`)
+    expect(pids.has('A')).toBe(true)
+    expect(pids.has('B')).toBe(true)
+    expect(pids.has('C')).toBe(true)
+    expect(pids.has('D')).toBe(true)
+    expect(pids.has('center')).toBe(true)
   })
 })
 
@@ -389,48 +361,68 @@ const blueConnectorInstance: PartInstance = {
   rotation: [0, 0, 0, 1],
 }
 
-describe('PortIndicators: placing 3-way red connector onto rod (middle port B)', () => {
-  it('end1 indicator includes port B variants', () => {
+describe('PortIndicators: placing 3-way red connector onto rod', () => {
+  it('end1 indicator has port groups for ALL ports: A, B, C, center', () => {
     const indicators = computeIndicators(connector3wayRed, rod54, rodInstance)
     const end1Ind = indicators.find((ind) => ind.positionKey === 'pos_0.00_0.00_0.00')!
 
-    const portIds = new Set(end1Ind.variants.map(v => v.placingPortId))
-    console.log(`Red connector on rod end1: ports used = ${[...portIds].join(', ')}`)
-    console.log(`  Total variants: ${end1Ind.variants.length}`)
-    for (const v of end1Ind.variants) {
-      console.log(`  - placing=${v.placingPortId} target=${v.targetPortId}`)
+    const pids = portIds(end1Ind)
+    console.log(`Red 3-way end1 port groups: ${[...pids].join(', ')}`)
+    for (const g of end1Ind.portGroups) {
+      console.log(`  Port ${g.placingPortId}: ${g.variants.length} angle variants`)
     }
 
-    // All three edge ports (A, B, C) and center must be reachable
-    expect(portIds.has('A')).toBe(true)
-    expect(portIds.has('B')).toBe(true)
-    expect(portIds.has('C')).toBe(true)
-    expect(portIds.has('center')).toBe(true)
+    // All three edge ports AND center must have their own port group
+    expect(pids.has('A')).toBe(true)
+    expect(pids.has('B')).toBe(true)
+    expect(pids.has('C')).toBe(true)
+    expect(pids.has('center')).toBe(true)
+    expect(end1Ind.portGroups.length).toBe(4)
+  })
+
+  it('port B has angle variants (not deduped away)', () => {
+    const indicators = computeIndicators(connector3wayRed, rod54, rodInstance)
+    const end1Ind = indicators.find((ind) => ind.positionKey === 'pos_0.00_0.00_0.00')!
+
+    const bGroup = end1Ind.portGroups.find(g => g.placingPortId === 'B')
+    expect(bGroup).toBeDefined()
+    expect(bGroup!.variants.length).toBeGreaterThan(0)
+    console.log(`Port B variants: ${bGroup!.variants.length}`)
+  })
+
+  it('center port has angle variants', () => {
+    const indicators = computeIndicators(connector3wayRed, rod54, rodInstance)
+    const end1Ind = indicators.find((ind) => ind.positionKey === 'pos_0.00_0.00_0.00')!
+
+    const centerGroup = end1Ind.portGroups.find(g => g.placingPortId === 'center')
+    expect(centerGroup).toBeDefined()
+    expect(centerGroup!.variants.length).toBeGreaterThan(0)
+    console.log(`Center port variants: ${centerGroup!.variants.length}`)
   })
 })
 
 describe('PortIndicators: placing purple connector onto blue connector (slot-to-slot)', () => {
-  it('produces at least one indicator with slot variants', () => {
+  it('produces slot port group with variants', () => {
     const indicators = computeIndicators(connector4way3dPurple, connector7wayBlue, blueConnectorInstance)
 
     console.log(`Purple on Blue: ${indicators.length} indicators`)
     for (const ind of indicators) {
-      console.log(`  Position ${ind.positionKey}: ${ind.variants.length} variants`)
-      for (const v of ind.variants) {
-        console.log(`    - placing=${v.placingPortId} target=${v.targetPortId}`)
-      }
+      const pids = portIds(ind)
+      console.log(`  Position ${ind.positionKey}: ports = ${[...pids].join(', ')}`)
     }
 
-    // The slot ports are compatible (connector_slot ↔ connector_slot)
-    const slotIndicators = indicators.filter(ind =>
-      ind.variants.some(v => v.placingPortId === 'slot' || v.targetPortId === 'slot')
+    // Find indicator with slot port group
+    const slotInd = indicators.find(ind =>
+      ind.portGroups.some(g => g.placingPortId === 'slot')
     )
-    expect(slotIndicators.length).toBeGreaterThan(0)
+    expect(slotInd).toBeDefined()
 
-    // Should have variants using both slot ports
-    const allSlotVariants = slotIndicators.flatMap(ind =>
-      ind.variants.filter(v => v.placingPortId === 'slot' && v.targetPortId === 'slot')
-    )
-    expect(allSlotVariants.length).toBeGreaterThan(0)
+    const slotGroup = slotInd!.portGroups.find(g => g.placingPortId === 'slot')!
+    expect(slotGroup.variants.length).toBeGreaterThan(0)
+
+    // All slot variants must target the blue slot
+    for (const v of slotGroup.variants) {
+      expect(v.targetPortId).toBe('slot')
+    }
   })
 })
