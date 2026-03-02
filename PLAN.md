@@ -289,3 +289,22 @@ share on a public gallery — all hosted at $0/month on free tiers.
 ### ✅ Task 8.4: Auto-Save & Top Bar UI
 - **Goal**: Name the current model and save automatically or on-click
 - **Files**: `frontend/src/App.tsx`
+
+## Phase 9 — Port Indicator & Snap Fixes
+
+### ✅ Task 9.1: Tab Cycling Uses Both Placing and Target Angles
+- **Root cause**: Only `targetPort.allowed_angles_deg` was used in the angle loop.
+  Rod end ports have `[0]`, so placing a connector on a rod end only tried 1 angle per port,
+  missing most connector orientations.
+- **Fix**: Pick the longer of `placingAngles` vs `targetAngles` so all rotations are available.
+- **Files**: `PortIndicators.tsx`, `portIndicatorSim.test.ts`
+
+### ✅ Task 9.2: PortIndicator Spheres Inside Connector Meshes
+- **Root cause**: Part mesh `handlePointerOver` called `e.stopPropagation()`, blocking
+  PortIndicator spheres at connector centers (slot ports, center ports at `[0,0,0]`) from
+  receiving pointer events. The R3F raycast hits the connector surface first.
+- **Fix**: In place mode, skip `stopPropagation` on part meshes. A nearest-hit guard
+  prevents farther parts from overriding `matchTargetId`. Indicator spheres behind the
+  mesh now receive events. Select mode behavior unchanged.
+- **Fixes**: Red connector center-port attachment, purple↔blue slot-to-slot connections.
+- **Files**: `PartMesh.tsx`, `InstancedParts.tsx`, `portIndicatorSim.test.ts`
