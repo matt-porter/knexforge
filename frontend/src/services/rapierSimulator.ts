@@ -149,9 +149,15 @@ export class RapierSimulator {
 
     const partDefs = await loadAllPartDefs()
 
-    // Zero gravity — matching PyBullet simulation
-    this.world = new RAPIER.World({ x: 0, y: 0, z: 0 })
+    // Earth gravity in mm/s² (positions are in mm)
+    this.world = new RAPIER.World({ x: 0, y: -9810, z: 0 })
     this.world.timestep = 1 / 240 // 4 sub-steps at 60fps
+
+    // --- Create static ground plane at Y=0 ---
+    const groundDesc = RAPIER.RigidBodyDesc.fixed()
+    const groundBody = this.world.createRigidBody(groundDesc)
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(10000, 0.1, 10000)
+    this.world.createCollider(groundColliderDesc, groundBody)
 
     // --- Create rigid bodies ---
     const motorIds: string[] = []
@@ -169,8 +175,8 @@ export class RapierSimulator {
       const bodyDesc = isMotor
         ? RAPIER.RigidBodyDesc.fixed()
         : RAPIER.RigidBodyDesc.dynamic()
-            .setLinearDamping(0.3) // Task 3.10 tuning
-            .setAngularDamping(0.3)
+            .setLinearDamping(0.5) // Increased for gravity stability
+            .setAngularDamping(0.5)
             .setCanSleep(false)
 
       bodyDesc
@@ -179,7 +185,9 @@ export class RapierSimulator {
 
       const body = this.world.createRigidBody(bodyDesc)
 
-      // Sensor collider for mass/inertia only — no contact forces.
+      // Use real colliders so parts can rest on the ground.
+      // We set collision groups to disable inter-part collisions while 
+      // allowing part-to-ground collision.
       if (!isMotor) {
         const he = getColliderHalfExtents(def)
         const offset = getColliderOffset(def)
@@ -188,13 +196,25 @@ export class RapierSimulator {
 
         const colliderDesc = RAPIER.ColliderDesc.cuboid(he[0], he[1], he[2])
           .setDensity(density)
-          .setSensor(true)
+          .setSensor(false) // Not a sensor anymore
           .setTranslation(offset[0], offset[1], offset[2])
+          .setFriction(0.5)
+          .setRestitution(0.1)
+          // Collision groups: membership in group 0, filter group 1 (ground)
+          // 0x00010002 -> Member of group 0 (bit 0), interacts with group 1 (bit 1)
+          .setCollisionGroups(0x00010002)
 
         this.world.createCollider(colliderDesc, body)
       }
 
       this.bodies.set(inst.instance_id, body)
+    }
+
+    // Update ground collider to be in group 1 and interact with group 0
+    // 0x00020001 -> Member of group 1, interacts with group 0
+    const groundCollider = groundBody.collider(0)
+    if (groundCollider) {
+        groundCollider.setCollisionGroups(0x00020001)
     }
 
     // --- Create joints ---

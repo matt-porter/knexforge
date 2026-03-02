@@ -4,8 +4,10 @@
 
 import { useState } from 'react'
 import { useBuildStore } from '../stores/buildStore'
+import { useUserStore } from '../stores/userStore'
 import { sidecarBridge, type ExportedBuildData } from '../services/sidecarBridge'
-import type { PartInstance, Connection } from '../types/parts'
+import { saveCloudModel } from '../services/cloudModels'
+import { parseExportedBuildData } from '../services/localModels'
 
 interface BuildMenuProps {
   onExportStart?: () => void
@@ -14,13 +16,41 @@ interface BuildMenuProps {
 }
 
 export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
-  const { parts, connections } = useBuildStore()
+  const { parts, connections, currentModelId, currentModelTitle, stabilityScore, setCurrentModelMeta } = useBuildStore()
+  const { user } = useUserStore()
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
+  const [isSavingCloud, setIsSavingCloud] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [importPreview, setImportPreview] = useState<ExportedBuildData | null>(null)
 
   const partsList = Object.values(parts)
+
+  const handleCloudSave = async () => {
+    if (!user) return
+    if (partsList.length === 0) return
+
+    setIsSavingCloud(true)
+    try {
+      // Use currentModelId if it's a UUID (cloud model)
+      const cloudId = currentModelId?.includes('-') ? currentModelId : undefined
+      const newId = await saveCloudModel(
+        currentModelTitle,
+        partsList,
+        connections,
+        stabilityScore,
+        cloudId
+      )
+      if (!cloudId) {
+        setCurrentModelMeta(newId, currentModelTitle)
+      }
+      alert('Model saved to cloud!')
+    } catch (err) {
+      alert(`Cloud save failed: ${String(err)}`)
+    } finally {
+      setIsSavingCloud(false)
+    }
+  }
 
   const handleExport = async () => {
     if (partsList.length === 0) {
@@ -72,30 +102,6 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
     }
   }
 
-  const processImport = (data: ExportedBuildData) => {
-    const partsList: PartInstance[] = data.model.parts.map((p) => ({
-      instance_id: p.instance_id,
-      part_id: p.part_id,
-      position: p.position as [number, number, number],
-      rotation: p.quaternion as [number, number, number, number],
-      color: p.color,
-    }))
-
-    const connectionsList: Connection[] = data.model.connections.map((c) => {
-      const fromLastDot = c.from.lastIndexOf('.')
-      const toLastDot = c.to.lastIndexOf('.')
-      return {
-        from_instance: c.from.substring(0, fromLastDot),
-        from_port: c.from.substring(fromLastDot + 1),
-        to_instance: c.to.substring(0, toLastDot),
-        to_port: c.to.substring(toLastDot + 1),
-        joint_type: (c.joint_type as 'fixed' | 'revolute' | 'prismatic') || 'fixed',
-      }
-    })
-
-    return { partsList, connectionsList }
-  }
-
   const handleConfirmImport = async (mode: 'replace' | 'append') => {
     if (!importPreview) return
 
@@ -103,12 +109,12 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
       const result = await sidecarBridge.loadBuild(importPreview)
 
       if (result) {
-        const { partsList, connectionsList } = processImport(importPreview)
+        const { parts, connections } = parseExportedBuildData(importPreview)
 
         if (mode === 'replace') {
-          useBuildStore.getState().loadBuild(partsList, connectionsList)
+          useBuildStore.getState().loadBuild(parts, connections)
         } else {
-          useBuildStore.getState().appendBuild(partsList, connectionsList)
+          useBuildStore.getState().appendBuild(parts, connections)
         }
         
         setImportPreview(null)
@@ -142,6 +148,23 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
 
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '0 8px' }}>
+      {user && (
+        <button
+          onClick={handleCloudSave}
+          disabled={isSavingCloud || partsList.length === 0}
+          style={{
+            ...buttonStyle,
+            opacity: isSavingCloud || partsList.length === 0 ? 0.5 : 1,
+            cursor: isSavingCloud || partsList.length === 0 ? 'default' : 'pointer',
+            borderColor: '#4488ff',
+            color: '#4488ff',
+          }}
+        >
+          <span>☁️</span>
+          {isSavingCloud ? 'Saving...' : 'Cloud Save'}
+        </button>
+      )}
+
       <button
         onClick={handleExport}
         disabled={isExporting || partsList.length === 0}

@@ -4,8 +4,10 @@ import { PartPalette } from './components/PartPalette'
 import { ModelBrowser } from './components/ModelBrowser/ModelBrowser'
 import { MyModels } from './components/MyModels/MyModels'
 import { BuildMenu } from './components/BuildMenu'
+import { AuthModal } from './components/Auth/AuthModal'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useBuildStore } from './stores/buildStore'
+import { useUserStore } from './stores/userStore'
 import { sidecarBridge } from './services/sidecarBridge'
 import './App.css'
 
@@ -28,6 +30,56 @@ const TAB_BAR_COLORS = {
   textInactive: '#666',
   accent: '#4488ff',
 } as const
+
+function AuthButton() {
+  const { user, signOut } = useUserStore()
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  if (user) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 18px', borderLeft: `1px solid ${TAB_BAR_COLORS.border}` }}>
+        <span style={{ fontSize: 12, color: '#aaa' }}>{user.email}</span>
+        <button
+          onClick={() => signOut()}
+          style={{
+            background: 'transparent',
+            border: `1px solid ${TAB_BAR_COLORS.border}`,
+            color: '#888',
+            padding: '4px 10px',
+            borderRadius: 4,
+            fontSize: 11,
+            cursor: 'pointer'
+          }}
+        >
+          Sign Out
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', padding: '0 18px', borderLeft: `1px solid ${TAB_BAR_COLORS.border}` }}>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          style={{
+            background: TAB_BAR_COLORS.accent,
+            color: '#fff',
+            border: 'none',
+            padding: '6px 16px',
+            borderRadius: 4,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
+          Sign In
+        </button>
+      </div>
+      <AuthModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+    </>
+  )
+}
 
 function TabBar({
   activeTab,
@@ -114,6 +166,9 @@ function TabBar({
 
       {/* File Operations */}
       <BuildMenu />
+
+      {/* Auth */}
+      <AuthButton />
 
       {/* Live stability indicator (always visible) */}
       <StabilityIndicator />
@@ -244,15 +299,18 @@ export default function App() {
   useKeyboardShortcuts()
   const [activeTab, setActiveTab] = useState<AppTab>('builder')
   const setSidecarConnected = useBuildStore((s) => s.setSidecarConnected)
+  const initializeUser = useUserStore((s) => s.initialize)
 
-  // Sidecar connection on mount
+  // Auth and sidecar initialization
   useEffect(() => {
+    void initializeUser()
+    
     const connect = async () => {
       const ok = await sidecarBridge.connect()
       setSidecarConnected(ok)
     }
     void connect()
-  }, [setSidecarConnected])
+  }, [setSidecarConnected, initializeUser])
 
   // Listen for the "open-builder" event fired by the ModelBrowser's "Open in Builder" button
   useEffect(() => {
