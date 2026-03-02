@@ -209,6 +209,9 @@ function ModelBrowserSidebar() {
     // Load into the 3D viewer via BuildStore
     const { parts, connections } = datasetEntryToBuild(entry)
     loadBuild(parts, connections, entry.stability)
+    
+    // Clear local model ID so any modifications save as a new build
+    useBuildStore.getState().setCurrentModelMeta(null, `Example: ${entry.id}`)
   }
 
   return (

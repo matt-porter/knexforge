@@ -125,7 +125,7 @@ function TabBar({
 // Current Model Info & Quick Save
 // ---------------------------------------------------------------------------
 
-import { saveLocalModel } from './services/localModels'
+import { saveLocalModel, createExportData } from './services/localModels'
 
 function CurrentModelInfo() {
   const currentModelId = useBuildStore((s) => s.currentModelId)
@@ -133,7 +133,9 @@ function CurrentModelInfo() {
   const parts = useBuildStore((s) => s.parts)
   const connections = useBuildStore((s) => s.connections)
   const setCurrentModelMeta = useBuildStore((s) => s.setCurrentModelMeta)
+  const stabilityScore = useBuildStore((s) => s.stabilityScore)
   const [isSaving, setIsSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCurrentModelMeta(currentModelId, e.target.value)
@@ -145,17 +147,19 @@ function CurrentModelInfo() {
 
     setIsSaving(true)
     try {
-      const result = await sidecarBridge.exportBuild(partsList, connections)
-      if (result.success && result.data) {
-        // use custom ID or generate a new one
-        const id = currentModelId || `model-${Date.now()}`
-        
-        saveLocalModel(id, currentModelTitle, result.data)
-        
-        if (!currentModelId) {
-          setCurrentModelMeta(id, currentModelTitle)
-        }
+      const data = createExportData(partsList, connections, currentModelTitle, stabilityScore)
+      
+      // use custom ID or generate a new one
+      const id = currentModelId || `model-${Date.now()}`
+      
+      saveLocalModel(id, currentModelTitle, data)
+      
+      if (!currentModelId) {
+        setCurrentModelMeta(id, currentModelTitle)
       }
+
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
     } catch (err) {
       console.error('Save failed:', err)
     } finally {
@@ -184,17 +188,19 @@ function CurrentModelInfo() {
         disabled={isSaving || Object.keys(parts).length === 0}
         style={{
           padding: '4px 12px',
-          background: '#4488ff',
+          background: saveSuccess ? '#44cc88' : '#4488ff',
           color: '#fff',
           border: 'none',
           borderRadius: 4,
           cursor: isSaving || Object.keys(parts).length === 0 ? 'default' : 'pointer',
           opacity: isSaving || Object.keys(parts).length === 0 ? 0.5 : 1,
           fontWeight: 600,
-          fontSize: 12
+          fontSize: 12,
+          transition: 'background-color 0.2s ease, transform 0.1s ease',
+          transform: isSaving ? 'scale(0.95)' : 'scale(1)',
         }}
       >
-        {isSaving ? 'Saving...' : 'Save Local'}
+        {isSaving ? 'Saving...' : saveSuccess ? '✓ Saved!' : 'Save Local'}
       </button>
     </div>
   )

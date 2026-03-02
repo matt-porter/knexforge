@@ -54,6 +54,7 @@ export function saveLocalModel(id: string, title: string, data: ExportedBuildDat
   saveLocalModelsIndex(index)
   
   localStorage.setItem(`knexforge_model_${id}`, JSON.stringify(data))
+  window.dispatchEvent(new CustomEvent('knexforge:local-models-updated'))
 }
 
 export function deleteLocalModel(id: string) {
@@ -61,4 +62,36 @@ export function deleteLocalModel(id: string) {
   const newIndex = index.filter((m) => m.id !== id)
   saveLocalModelsIndex(newIndex)
   localStorage.removeItem(`knexforge_model_${id}`)
+  window.dispatchEvent(new CustomEvent('knexforge:local-models-updated'))
+}
+
+import type { PartInstance, Connection } from '../types/parts'
+
+export function createExportData(parts: PartInstance[], connections: Connection[], title: string = 'Untitled Build', stability: number = 100): ExportedBuildData {
+  return {
+    manifest: {
+      format_version: "1.0",
+      app_version: "1.0.0",
+      created_at: new Date().toISOString(),
+      author: "Local User",
+      title,
+      description: "",
+      piece_count: parts.length,
+      stability_score: stability
+    },
+    model: {
+      parts: parts.map(p => ({
+        instance_id: p.instance_id,
+        part_id: p.part_id,
+        position: p.position,
+        quaternion: p.rotation,
+        color: p.color
+      })),
+      connections: connections.map(c => ({
+        from: `${c.from_instance}.${c.from_port}`,
+        to: `${c.to_instance}.${c.to_port}`,
+        joint_type: c.joint_type || 'fixed'
+      }))
+    }
+  }
 }

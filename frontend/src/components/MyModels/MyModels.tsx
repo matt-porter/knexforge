@@ -8,6 +8,10 @@ export function MyModels() {
 
   useEffect(() => {
     setModels(getLocalModelsIndex())
+    
+    const handleUpdate = () => setModels(getLocalModelsIndex())
+    window.addEventListener('knexforge:local-models-updated', handleUpdate)
+    return () => window.removeEventListener('knexforge:local-models-updated', handleUpdate)
   }, [])
 
   const handleOpen = (id: string, title: string) => {
