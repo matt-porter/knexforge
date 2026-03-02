@@ -1,11 +1,12 @@
 # K'NexForge
 
-**AI-Powered Open-Source K'Nex CAD Builder**
+**AI-Powered K'Nex CAD Builder**
 
-Build, simulate, share, and **AI-generate** professional K'Nex models with step-by-step printable instructions — all in one modern, free, cross-platform app.
+Build, simulate, share, and **AI-generate** professional K'Nex models with step-by-step printable instructions — all in one modern, cross-platform app.
 
 ![K'NexForge Screenshot](https://via.placeholder.com/800x400/FFCC00/000000?text=K%27NexForge+Screenshot+Coming+Soon)
 
+Deployment live at: https://knexforge.mattporter.workers.dev/
 
 Credit to https://www.printables.com/model/143840-knex-parts-customizable/files for SCAD models
 ---
@@ -22,6 +23,12 @@ Credit to https://www.printables.com/model/143840-knex-parts-customizable/files 
 - **Modern UI** — drag-and-drop + keyboard-first like kneditor, but beautiful and fast
 
 ---
+
+## Deployment
+
+`npm run build` - to package everything up
+
+`wrangler deploy` - to deploy cloudflare worker
 
 ## 🏗️ Architecture Overview
 ┌─────────────────────┐    ┌─────────────────────┐
@@ -70,6 +77,7 @@ Every piece is defined by **one JSON file + one GLB mesh**.
     { "id": "C", "position": [-6.25, -10.825, 0], "direction": [-0.5, -0.866, 0], "mate_type": "rod_hole", "accepts": ["rod_end"], "allowed_angles_deg": [0,90,180,270] }
   ]
 }
+```
 
 2. Python Core (`src/core/`)
 
@@ -139,6 +147,8 @@ cd ..
 python -m uvicorn src.core.api:app --reload --host 127.0.0.1 --port 8000
 ```
 
+## 
+
 **Note**: The Python implementation is in `src/core/`, not `knexforge/core/`. See [docs/AGENT-ONBOARDING.md](docs/AGENT-ONBOARDING.md) for more details.
 
 📁 Project Structure
@@ -168,9 +178,6 @@ Write tutorials
 
 See CONTRIBUTING.md.
 Not affiliated with K’Nex / Basic Fun — fan project only.
-
-📜 License
-MIT — free for personal, educational, and commercial use.
 
 🛣️ Roadmap
 
