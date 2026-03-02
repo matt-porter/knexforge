@@ -1,4 +1,5 @@
 import type { ExportedBuildData } from './sidecarBridge'
+import type { PartInstance, Connection } from '../types/parts'
 
 export interface LocalModelMeta {
   id: string
@@ -8,6 +9,7 @@ export interface LocalModelMeta {
 }
 
 const INDEX_KEY = 'knexforge_models_index'
+const LAST_MODEL_KEY = 'knexforge_last_model_id'
 
 export function getLocalModelsIndex(): LocalModelMeta[] {
   try {
@@ -33,6 +35,18 @@ export function loadLocalModelData(id: string): ExportedBuildData | null {
   }
 }
 
+export function saveLastModelId(id: string | null) {
+  if (id) {
+    localStorage.setItem(LAST_MODEL_KEY, id)
+  } else {
+    localStorage.removeItem(LAST_MODEL_KEY)
+  }
+}
+
+export function getLastModelId(): string | null {
+  return localStorage.getItem(LAST_MODEL_KEY)
+}
+
 export function saveLocalModel(id: string, title: string, data: ExportedBuildData) {
   const index = getLocalModelsIndex()
   const existingIndex = index.findIndex((m) => m.id === id)
@@ -54,6 +68,7 @@ export function saveLocalModel(id: string, title: string, data: ExportedBuildDat
   saveLocalModelsIndex(index)
   
   localStorage.setItem(`knexforge_model_${id}`, JSON.stringify(data))
+  saveLastModelId(id)
   window.dispatchEvent(new CustomEvent('knexforge:local-models-updated'))
 }
 
@@ -62,10 +77,38 @@ export function deleteLocalModel(id: string) {
   const newIndex = index.filter((m) => m.id !== id)
   saveLocalModelsIndex(newIndex)
   localStorage.removeItem(`knexforge_model_${id}`)
+  if (getLastModelId() === id) {
+    saveLastModelId(null)
+  }
   window.dispatchEvent(new CustomEvent('knexforge:local-models-updated'))
 }
 
-import type { PartInstance, Connection } from '../types/parts'
+export function parseExportedBuildData(data: ExportedBuildData): {
+  parts: PartInstance[]
+  connections: Connection[]
+} {
+  const parts: PartInstance[] = data.model.parts.map((p) => ({
+    instance_id: p.instance_id,
+    part_id: p.part_id,
+    position: p.position as [number, number, number],
+    rotation: p.quaternion as [number, number, number, number],
+    color: p.color,
+  }))
+
+  const connections: Connection[] = data.model.connections.map((c) => {
+    const fromLastDot = c.from.lastIndexOf('.')
+    const toLastDot = c.to.lastIndexOf('.')
+    return {
+      from_instance: c.from.substring(0, fromLastDot),
+      from_port: c.from.substring(fromLastDot + 1),
+      to_instance: c.to.substring(0, toLastDot),
+      to_port: c.to.substring(toLastDot + 1),
+      joint_type: (c.joint_type as 'fixed' | 'revolute' | 'prismatic') || 'fixed',
+    }
+  })
+
+  return { parts, connections }
+}
 
 export function createExportData(parts: PartInstance[], connections: Connection[], title: string = 'Untitled Build', stability: number = 100): ExportedBuildData {
   return {

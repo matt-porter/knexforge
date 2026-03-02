@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useEffect } from 'react'
+import { Suspense, useMemo, useEffect, useRef } from 'react'
 import type { Connection, KnexPartDef, PartInstance } from '../../types/parts'
 import { usePartDefs, preloadAllMeshes } from '../../hooks/usePartLibrary'
 import { useBuildStore } from '../../stores/buildStore'
@@ -9,6 +9,9 @@ import { GhostPreview } from './GhostPreview'
 import { SceneInteraction } from './SceneInteraction'
 import { PortIndicators } from './PortIndicators'
 import { getPortWorldPose } from '../../helpers/snapHelper'
+import { useDatasetStore } from '../../stores/datasetStore'
+import { datasetEntryToBuild } from '../../hooks/useDataset'
+import { getLastModelId, loadLocalModelData, parseExportedBuildData, getLocalModelsIndex } from '../../services/localModels'
 import { Line } from '@react-three/drei'
 import { Vector3 } from 'three'
 
@@ -73,139 +76,6 @@ function ConnectionLines({
       ))}
     </group>
   )
-}
-
-/**
- * A demo build showing real K'Nex parts connected together.
- * Used as fallback when the build store is empty (no build loaded).
- */
-function createDemoBuild(): PartInstance[] {
-  return [
-    // Central 8-way white connector at origin
-    {
-      instance_id: 'hub-1',
-      part_id: 'connector-8way-white-v1',
-      position: [0, 30, 0],
-      rotation: [0, 0, 0, 1],
-    },
-    // Blue rod extending right (+X) from hub
-    {
-      instance_id: 'rod-1',
-      part_id: 'rod-54-blue-v1',
-      position: [12.7, 30, 0],
-      rotation: [0, 0, 0, 1],
-    },
-    // Blue rod extending left (-X) from hub
-    {
-      instance_id: 'rod-2',
-      part_id: 'rod-54-blue-v1',
-      position: [-66.7, 30, 0],
-      rotation: [0, 0, 0, 1],
-    },
-    // Red rod extending up (+Y) from hub
-    {
-      instance_id: 'rod-3',
-      part_id: 'rod-128-red-v1',
-      position: [0, 42.7, 0],
-      rotation: [0, 0, 0.707, 0.707], // 90° around Z
-    },
-    // Orange connector at right end of rod-1 (port B at local [-12.7,0,0] aligns with rod end2)
-    {
-      instance_id: 'conn-2',
-      part_id: 'connector-2way-orange-v1',
-      position: [79.4, 30, 0],
-      rotation: [0, 0, 0, 1],
-    },
-    // Orange connector at left end of rod-2 (port A at local [12.7,0,0] aligns with rod end1)
-    {
-      instance_id: 'conn-3',
-      part_id: 'connector-2way-orange-v1',
-      position: [-79.4, 30, 0],
-      rotation: [0, 0, 0, 1],
-    },
-    // Yellow rod diagonal (NE from hub, roughly 45°)
-    {
-      instance_id: 'rod-4',
-      part_id: 'rod-86-yellow-v1',
-      position: [8.98, 38.98, 0],
-      rotation: [0, 0, 0.383, 0.924], // ~45° around Z
-    },
-    // Yellow 4-way connector at the top of the red rod
-    {
-      instance_id: 'conn-4',
-      part_id: 'connector-5way-yellow-v1',
-      position: [0, 170.7, 0],
-      rotation: [0, 0, 0.707, 0.707], // 90° around Z
-    },
-    // Green rod (short) as a decorative piece
-    {
-      instance_id: 'rod-5',
-      part_id: 'rod-16-green-v1',
-      position: [80, 30, 0],
-      rotation: [0, 0, 0, 1],
-    },
-    // White rod extending forward from hub (+Z)
-    {
-      instance_id: 'rod-6',
-      part_id: 'rod-32-white-v1',
-      position: [0, 42.7, 0],
-      rotation: [0.5, 0.5, -0.5, 0.5], // pointing up
-    },
-    // A wheel on the ground
-    {
-      instance_id: 'wheel-1',
-      part_id: 'wheel-medium-black-v1',
-      position: [80, 0, 0],
-      rotation: [0, 0, 0, 1],
-    },
-    // Grey rod (longest) as a base element
-    {
-      instance_id: 'rod-7',
-      part_id: 'rod-190-grey-v1',
-      position: [-95, 0, 0],
-      rotation: [0, 0, 0, 1],
-    },
-    // Green 3-way connector
-    {
-      instance_id: 'conn-5',
-      part_id: 'connector-4way-green-v1',
-      position: [0, 0, 40],
-      rotation: [0, 0, 0, 1],
-    },
-    // Purple 4-way 3D connector
-    {
-      instance_id: 'conn-6',
-      part_id: 'connector-4way-3d-purple-v1',
-      position: [0, 0, -40],
-      rotation: [0, 0, 0, 1],
-    },
-    // A Motor at the base
-    {
-      instance_id: 'motor-1',
-      part_id: 'motor-v1',
-      position: [0, 0, 80],
-      rotation: [0, 0, 0, 1],
-    },
-    // A Rod in the motor
-    {
-      instance_id: 'motor-rod',
-      part_id: 'rod-128-red-v1',
-      position: [-64, 0, 80],
-      rotation: [0, 0, 0, 1], // aligned with Z drive axle
-    },
-  ]
-}
-
-function createDemoConnections(): Connection[] {
-  return [
-    {
-      from_instance: 'motor-1',
-      from_port: 'drive_axle',
-      to_instance: 'motor-rod',
-      to_port: 'center_tangent',
-      joint_type: 'revolute',
-    },
-  ]
 }
 
 interface BuildSceneInnerProps {
@@ -304,30 +174,67 @@ interface BuildSceneProps {
  * when the store is empty (no build loaded yet) and loadDemoWhenEmpty is true.
  */
 export function BuildScene({ loadDemoWhenEmpty = true }: BuildSceneProps) {
-  const { defs, loading, error } = usePartDefs()
-  const storeParts = useBuildStore((s) => s.parts)
-  const storeConnections = useBuildStore((s) => s.connections)
-  const selectedPartId = useBuildStore((s) => s.selectedPartId)
-  const loadBuild = useBuildStore((s) => s.loadBuild)
+    const { defs, loading, error } = usePartDefs()
+    const storeParts = useBuildStore((s) => s.parts)
+    const storeConnections = useBuildStore((s) => s.connections)
+    const selectedPartId = useBuildStore((s) => s.selectedPartId)
+    const loadBuild = useBuildStore((s) => s.loadBuild)
+    const setCurrentModelMeta = useBuildStore((s) => s.setCurrentModelMeta)
+    
+    const { loadDataset } = useDatasetStore()
+    const initialLoadRef = useRef(false)
 
-  // Preload all GLB meshes once definitions are available
-  useMemo(() => {
-    if (defs.size > 0) {
-      preloadAllMeshes(defs)
-    }
-  }, [defs])
+    // Preload all GLB meshes once definitions are available
+    useMemo(() => {
+        if (defs.size > 0) {
+            preloadAllMeshes(defs)
+        }
+    }, [defs])
 
-  // Load demo build into store if store is empty and defs are ready
-  const demoParts = useMemo(() => createDemoBuild(), [])
-  const demoConns = useMemo(() => createDemoConnections(), [])
-  useEffect(() => {
-    if (loadDemoWhenEmpty && defs.size > 0 && Object.keys(storeParts).length === 0) {
-      loadBuild(demoParts, demoConns)
-    }
-  }, [loadDemoWhenEmpty, defs.size, storeParts, loadBuild, demoParts, demoConns])
+    // Handle initial load
+    useEffect(() => {
+        if (!loadDemoWhenEmpty || defs.size === 0 || initialLoadRef.current) return
+        
+        // If store already has parts, we don't need to load anything
+        if (Object.keys(storeParts).length > 0) {
+            initialLoadRef.current = true
+            return
+        }
 
-  // Build the parts list from the store
-  const partsList = useMemo(() => Object.values(storeParts), [storeParts])
+        const triggerInitialLoad = async () => {
+            initialLoadRef.current = true
+            
+            // 1. Try to load last used model or most recent from local index
+            const lastId = getLastModelId()
+            const index = getLocalModelsIndex()
+            const targetId = lastId || (index.length > 0 ? index[0].id : null)
+
+            if (targetId) {
+                const localData = loadLocalModelData(targetId)
+                const meta = index.find(m => m.id === targetId)
+                if (localData && meta) {
+                    const { parts, connections } = parseExportedBuildData(localData)
+                    loadBuild(parts, connections)
+                    setCurrentModelMeta(targetId, meta.title)
+                    return
+                }
+            }
+
+            // 2. Fallback to proc_0001 from dataset
+            await loadDataset()
+            const entry0001 = useDatasetStore.getState().entries.find(e => e.id === 'proc_0001')
+            if (entry0001) {
+                const { parts, connections } = datasetEntryToBuild(entry0001)
+                loadBuild(parts, connections)
+                setCurrentModelMeta(null, 'Example: Motorized Spinner')
+            }
+        }
+
+        triggerInitialLoad()
+    }, [loadDemoWhenEmpty, defs.size, loadBuild, loadDataset, setCurrentModelMeta])
+
+    // Build the parts list from the store
+    const partsList = useMemo(() => Object.values(storeParts), [storeParts])
 
   if (error) {
     return (

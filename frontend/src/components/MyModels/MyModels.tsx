@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { getLocalModelsIndex, deleteLocalModel, loadLocalModelData, type LocalModelMeta } from '../../services/localModels'
+import { getLocalModelsIndex, deleteLocalModel, loadLocalModelData, type LocalModelMeta, parseExportedBuildData, saveLastModelId } from '../../services/localModels'
 import { useBuildStore } from '../../stores/buildStore'
-import type { PartInstance, Connection } from '../../types/parts'
 
 export function MyModels() {
   const [models, setModels] = useState<LocalModelMeta[]>([])
@@ -21,29 +20,12 @@ export function MyModels() {
       return
     }
 
-    const partsList: PartInstance[] = data.model.parts.map((p) => ({
-      instance_id: p.instance_id,
-      part_id: p.part_id,
-      position: p.position as [number, number, number],
-      rotation: p.quaternion as [number, number, number, number],
-      color: p.color,
-    }))
-
-    const connectionsList: Connection[] = data.model.connections.map((c) => {
-      const fromLastDot = c.from.lastIndexOf('.')
-      const toLastDot = c.to.lastIndexOf('.')
-      return {
-        from_instance: c.from.substring(0, fromLastDot),
-        from_port: c.from.substring(fromLastDot + 1),
-        to_instance: c.to.substring(0, toLastDot),
-        to_port: c.to.substring(toLastDot + 1),
-        joint_type: (c.joint_type as 'fixed' | 'revolute' | 'prismatic') || 'fixed',
-      }
-    })
+    const { parts, connections } = parseExportedBuildData(data)
 
     const buildStore = useBuildStore.getState()
-    buildStore.loadBuild(partsList, connectionsList)
+    buildStore.loadBuild(parts, connections)
     buildStore.setCurrentModelMeta(id, title)
+    saveLastModelId(id)
     
     // Fire event to switch tabs
     window.dispatchEvent(new CustomEvent('knexforge:open-builder'))
@@ -65,6 +47,7 @@ export function MyModels() {
     const buildStore = useBuildStore.getState()
     buildStore.clearBuild()
     buildStore.setCurrentModelMeta(null, 'Untitled Build')
+    saveLastModelId(null)
     window.dispatchEvent(new CustomEvent('knexforge:open-builder'))
   }
 
