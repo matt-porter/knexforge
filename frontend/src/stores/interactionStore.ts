@@ -125,7 +125,7 @@ const ROTATE_Y_90: [number, number, number, number] = [
 // ---------------------------------------------------------------------------
 
 export const useInteractionStore = create<InteractionStore>()(
-  immer((set) => ({
+  immer((set, get) => ({
     // --- Initial state ---
     mode: 'select',
     placingPartId: null,
@@ -225,9 +225,14 @@ export const useInteractionStore = create<InteractionStore>()(
     },
 
     cyclePort: () => {
+      const now = Date.now()
+      const last = (get() as any)._lastCycleTime || 0
+      if (now - last < 100) return
+
       set((state) => {
         state.activePortIndex += 1
         state.activeAngleIndex = 0
+        ;(state as any)._lastCycleTime = now
       })
     },
 

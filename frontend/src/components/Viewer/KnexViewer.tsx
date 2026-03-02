@@ -3,7 +3,6 @@ import { OrbitControls, Grid, Environment } from '@react-three/drei'
 import { BuildScene } from './BuildScene'
 import { VisualModeToggle } from './VisualModeToggle'
 import { SnapVariantHUD } from './SnapVariantHUD'
-import { useInteractionStore } from '../../stores/interactionStore'
 import { useBuildStore } from '../../stores/buildStore'
 import { useEffect, useRef } from 'react'
 import { Vector3 } from 'three'
@@ -42,7 +41,6 @@ function CameraController() {
  * The BuildScene renders actual K'Nex parts from GLB meshes.
  */
 export function KnexViewer({ loadDemoWhenEmpty = true }: { loadDemoWhenEmpty?: boolean }) {
-  usePlacementKeyCapture()
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <Canvas
@@ -96,24 +94,5 @@ export function KnexViewer({ loadDemoWhenEmpty = true }: { loadDemoWhenEmpty?: b
       <ContextMenu />
     </div>
   )
-}
-
-/**
- * Captures Tab key in place mode to cycle ports (prevent browser focus shift).
- * Mounted once inside KnexViewer so it's always active when the canvas is visible.
- */
-function usePlacementKeyCapture() {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Tab') {
-        e.preventDefault()
-        e.stopPropagation()
-        useInteractionStore.getState().cyclePort()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown, { capture: true })
-    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
-  }, [])
 }
 

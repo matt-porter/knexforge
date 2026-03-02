@@ -61,6 +61,16 @@ export function useKeyboardShortcuts(): void {
         return
       }
 
+      // Tab: cycle ports in snap mode
+      if (e.key === 'Tab') {
+        const { mode } = useInteractionStore.getState()
+        if (mode === 'place') {
+          e.preventDefault()
+          useInteractionStore.getState().cyclePort()
+          return
+        }
+      }
+
       // R: cycle rotation angle in targeted/snapped mode, otherwise rotate ghost
       if (e.key === 'r' || e.key === 'R') {
         const { mode, isSnapped, matchTargetId } = useInteractionStore.getState()

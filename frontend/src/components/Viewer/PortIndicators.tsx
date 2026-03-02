@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
-import { useThree, type ThreeEvent } from '@react-three/fiber'
+import { type ThreeEvent } from '@react-three/fiber'
 import { Quaternion, Vector3, MathUtils } from 'three'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
@@ -27,14 +27,14 @@ function computeGhostTransform(
     targetWorldDir: Vector3,
     angleDeg: number = 0
 ): { position: Vector3; rotation: Quaternion } {
-    const desiredDir = targetWorldDir.clone().negate()
+    const desiredDir = targetWorldDir.clone().normalize().negate()
     const placingLocalDir = new Vector3(
         placingPort.direction[0],
         placingPort.direction[1],
         placingPort.direction[2],
-    )
+    ).normalize()
     const baseQuat = new Quaternion().setFromUnitVectors(placingLocalDir, desiredDir)
-    const twistQuat = new Quaternion().setFromAxisAngle(targetWorldDir, MathUtils.degToRad(angleDeg))
+    const twistQuat = new Quaternion().setFromAxisAngle(targetWorldDir.clone().normalize(), MathUtils.degToRad(angleDeg))
     const ghostQuat = twistQuat.clone().multiply(baseQuat)
 
     const placingLocalPos = new Vector3(
@@ -98,7 +98,6 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
     const { mode, placingPartId, matchTargetId } = useInteractionStore()
     const parts = useBuildStore((s) => s.parts)
     const connections = useBuildStore((s) => s.connections)
-    const { camera } = useThree()
 
     const [hoveredPortId, setHoveredPortId] = useState<string | null>(null)
     const hoveredPortIdRef = useRef<string | null>(null)
@@ -112,17 +111,15 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
 
         if (!targetInstance || !placingDef || !targetDef) return []
 
-        // Find which ports on the target instance are already occupied
-        const occupiedPorts = new Set<string>()
-        for (const conn of connections) {
-            if (conn.from_instance === matchTargetId) occupiedPorts.add(conn.from_port)
-            if (conn.to_instance === matchTargetId) occupiedPorts.add(conn.to_port)
-        }
-
         const rawIndicators: Map<string, { worldPos: Vector3; variants: SnapVariant[] }> = new Map()
 
         for (const targetPort of targetDef.ports) {
-            if (occupiedPorts.has(targetPort.id)) continue
+            // Find if this specific port on the target instance is already occupied
+            const isOccupied = connections.some(conn => 
+                (conn.from_instance === matchTargetId && conn.from_port === targetPort.id) ||
+                (conn.to_instance === matchTargetId && conn.to_port === targetPort.id)
+            )
+            if (isOccupied) continue
 
             const { position: targetWorldPos, direction: targetWorldDir } = getPortWorldPose(
                 targetInstance,
@@ -175,15 +172,13 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                         const is3DConnectorEdge = Math.abs(connectorDir[2]) > 0.9
 
                         if (rodMateType === 'rod_side') {
-                            if (isFlatConnectorEdge) {
-                                if (Math.abs(rodWorldMainAxis.dot(connectorWorldZ)) < 0.99) isValid = false
-                            } else if (is3DConnectorEdge) {
-                                if (Math.abs(rodWorldMainAxis.dot(connectorWorldZ)) > 0.1) isValid = false
-                            }
+                            const dot = Math.abs(rodWorldMainAxis.dot(connectorWorldZ))
+                            // Side-clipping always makes the rod axial to the connector plane (perpendicular to radial slots)
+                            if (dot < 0.99) isValid = false
                         }
 
-                        if (rodPortId.startsWith('center_axial')) {
-                            if (connectorPortId !== 'center') {
+                        if (rodPortId.startsWith('center_axial') || rodPortId === 'center_tangent') {
+                            if (connectorPortId !== 'center' && rodPortId.startsWith('center_axial')) {
                                 isValid = false
                             }
                             if (connectorPortId === 'center') {
@@ -191,15 +186,16 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                             }
                         }
 
-                        if (rodMateType === 'rod_end' && !rodPortId.startsWith('center_axial')) {
-                            if (connectorPortId !== 'center') {
-                                if (isFlatConnectorEdge) {
-                                    if (Math.abs(rodWorldMainAxis.dot(connectorWorldZ)) > 0.1) isValid = false
-                                }
-                            } else {
+                        if (rodMateType === 'rod_end' && !rodPortId.startsWith('center_axial') && rodPortId !== 'center_tangent') {
+                            const dot = Math.abs(rodWorldMainAxis.dot(connectorWorldZ))
+
+                            if (isFlatConnectorEdge) {
+                                if (dot > 0.1) isValid = false
+                            } else if (is3DConnectorEdge) {
                                 if (Math.abs(rodWorldMainAxis.dot(connectorWorldZ)) < 0.99) isValid = false
                             }
                         }
+
                     }
 
                     if (!isValid) continue
@@ -257,8 +253,12 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                 })
             }
 
-            // Sort port groups alphabetically for consistent order
-            portGroups.sort((a, b) => a.placingPortId.localeCompare(b.placingPortId))
+            // Sort port groups by raw ID for consistent cross-environment order
+            portGroups.sort((a, b) => {
+                if (a.placingPortId < b.placingPortId) return -1
+                if (a.placingPortId > b.placingPortId) return 1
+                return 0
+            })
 
             result.push({
                 positionKey: posKey,
@@ -268,7 +268,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
         }
 
         return result
-    }, [mode, placingPartId, matchTargetId, parts, connections, defs, camera.position])
+    }, [mode, placingPartId, matchTargetId, parts, connections, defs])
 
     const activePortIndex = useInteractionStore((s) => s.activePortIndex)
     const activeAngleIndex = useInteractionStore((s) => s.activeAngleIndex)
