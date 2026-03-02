@@ -2,7 +2,7 @@
   "manifest": {
     "format_version": "1.0",
     "app_version": "0.1.0",
-    "created_at": "2026-03-01T19:49:16.278585Z",
+    "created_at": "2026-03-02T08:58:44.448890Z",
     "author": "",
     "title": "",
     "description": "",
@@ -29,7 +29,7 @@
         "color": null
       },
       {
-        "instance_id": "rod-128-red-v1-mm85s74v",
+        "instance_id": "rod-128-red-v1-mm8xhlgp",
         "part_id": "rod-128-red-v1",
         "position": [
           0,
@@ -38,14 +38,14 @@
         ],
         "quaternion": [
           0,
+          -0.7071067811865475,
           0,
-          0,
-          1
+          0.7071067811865475
         ],
         "color": null
       },
       {
-        "instance_id": "connector-3way-red-v1-mm85s74w",
+        "instance_id": "connector-3way-red-v1-mm8xhlgq",
         "part_id": "connector-3way-red-v1",
         "position": [
           -0.004630304354792614,
@@ -55,22 +55,22 @@
         "quaternion": [
           0,
           0,
-          0,
-          1
+          -0.9238097537211765,
+          0.38285184984484405
         ],
         "color": null
       }
     ],
     "connections": [
       {
-        "from": "connector-3way-red-v1-mm85s74w.B",
-        "to": "rod-128-red-v1-mm85s74v.center_tangent",
-        "joint_type": "fixed"
-      },
-      {
-        "from": "rod-128-red-v1-mm85s74v.end1",
+        "from": "rod-128-red-v1-mm8xhlgp.end1",
         "to": "d67fec5a-3f07-4c07-883c-e846ad83f366.drive_axle",
         "joint_type": "revolute"
+      },
+      {
+        "from": "connector-3way-red-v1-mm8xhlgq.B",
+        "to": "rod-128-red-v1-mm8xhlgp.center_tangent",
+        "joint_type": "fixed"
       }
     ]
   }

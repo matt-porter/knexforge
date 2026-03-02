@@ -52,6 +52,14 @@ model.json
 
 action_history.jsonl
 One JSON action per line (exactly the format the LLM outputs). Enables perfect undo, replay, and “continue this build” feature.
+
+Example:
+```json
+{"step": 1, "action": "add_part", "part_id": "connector-3way-yellow-v1", "instance_id": "c1", "position": [0.0, 0.0, 0.0], "quaternion": [0.0, 0.0, 0.0, 1.0], "color": null}
+{"step": 2, "action": "add_part", "part_id": "rod-150-red-v1", "instance_id": "r1", "position": [0.0, 150.0, 0.0], "quaternion": [0.0, 0.0, 0.0, 1.0], "color": null}
+{"step": 3, "action": "snap", "from_port": "c1.A", "to_port": "r1.end1"}
+```
+
 Part Definition Format
 See schema/knex-part.schema.json (already created)
 Why This Design?

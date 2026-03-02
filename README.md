@@ -106,9 +106,10 @@ Fork of LegoGPT (CMU 2025)
 Llama-3.2-1B-Instruct (or Qwen2.5-3B) fine-tuned on K’Nex action sequences
 Training format (JSON Lines — one action per line):
 
-```
-{"step":1,"action":"add_part","part_id":"connector-3way-yellow-v1","instance_id":"c1","position":[0,0,0],"quaternion":[0,0,0,1]}
-{"step":2,"action":"add_rod","part_id":"rod-150-red-v1","instance_id":"r1","from_port":"c1.A","to_port":"new"}
+```json
+{"step":1,"action":"add_part","part_id":"connector-3way-yellow-v1","instance_id":"c1","position":[0,0,0],"quaternion":[0,0,0,1], "color": null}
+{"step":2,"action":"add_part","part_id":"rod-150-red-v1","instance_id":"r1","position":[0,150,0],"quaternion":[0,0,0,1], "color": null}
+{"step":3,"action":"snap","from_port":"c1.A","to_port":"r1.end1"}
 ...
 ```
 
