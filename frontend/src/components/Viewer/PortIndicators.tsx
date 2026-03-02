@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useEffect } from 'react'
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useThree, type ThreeEvent } from '@react-three/fiber'
 import { Quaternion, Vector3, MathUtils } from 'three'
 import { useBuildStore } from '../../stores/buildStore'
@@ -69,6 +69,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
 
     // Track the hovered port indicator to highlight it
     const [hoveredPortId, setHoveredPortId] = useState<string | null>(null)
+    const hoveredPortIdRef = useRef<string | null>(null)
 
     const indicators = useMemo(() => {
         if (mode !== 'place' || !placingPartId || !matchTargetId) return []
@@ -265,18 +266,22 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
         (e: ThreeEvent<PointerEvent>, ind: typeof indicators[0]) => {
             e.stopPropagation()
 
-            setHoveredPortId((prevHovered) => {
-                if (prevHovered !== ind.positionKey) {
-                    useInteractionStore.setState({ activeSnapVariantIndex: 0 })
-                }
-                return ind.positionKey
-            })
+            // Read current value to decide whether to reset variant index,
+            // but do NOT call external setState inside the updater function
+            // (that triggers "Cannot update a component while rendering").
+            const prevHovered = hoveredPortIdRef.current
+            if (prevHovered !== ind.positionKey) {
+                useInteractionStore.setState({ activeSnapVariantIndex: 0 })
+            }
+            hoveredPortIdRef.current = ind.positionKey
+            setHoveredPortId(ind.positionKey)
         },
         []
     )
 
     const handlePointerOut = useCallback((e: ThreeEvent<PointerEvent>) => {
         e.stopPropagation()
+        hoveredPortIdRef.current = null
         setHoveredPortId(null)
         useInteractionStore.getState().setSnapTarget(null, null, null)
     }, [])
