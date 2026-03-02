@@ -189,11 +189,20 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
   }
 
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation()
+    // In place mode, don't stop propagation so PortIndicator spheres
+    // positioned at/inside this mesh can also receive pointer events.
+    const { mode } = useInteractionStore.getState()
+    if (mode !== 'place') {
+      e.stopPropagation()
+    }
     if (e.instanceId !== undefined) {
       const inst = instances[e.instanceId]
+      // Only the nearest intersection should set hovered/match state.
+      if (mode === 'place' && e.intersections.length > 0 && e.intersections[0]?.object !== e.object) {
+        return
+      }
       useInteractionStore.getState().setHoveredPart(inst.instance_id)
-      if (useInteractionStore.getState().mode === 'place') {
+      if (mode === 'place') {
         useInteractionStore.getState().setMatchTargetId(inst.instance_id)
       }
     }

@@ -324,3 +324,113 @@ describe('PortIndicators: placing 4-way connector onto rod', () => {
     expect(end1Ind.variants.length).toBe(edgeVariants.length + centerVariants.length)
   })
 })
+
+// ---- Additional part definitions for regression tests ----
+
+const connector3wayRed: KnexPartDef = {
+  format_version: '1.1',
+  id: 'connector-3way-red-v1',
+  name: 'Red 3-Way Connector (90°)',
+  category: 'connector',
+  mesh_file: 'meshes/connector-3way-red.glb',
+  default_color: '#FF0000',
+  mass_grams: 1.3,
+  ports: [
+    { id: 'A', position: [12.7, 0, 0], direction: [1, 0, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'B', position: [8.98, 8.98, 0], direction: [0.707, 0.707, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'C', position: [0, 12.7, 0], direction: [0, 1, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'center', position: [0, 0, 0], direction: [0, 0, 1], mate_type: 'rod_hole', accepts: ['rod_end'], allowed_angles_deg: [0, 90, 180, 270] },
+  ],
+}
+
+const connector4way3dPurple: KnexPartDef = {
+  format_version: '1.1',
+  id: 'connector-4way-3d-purple-v1',
+  name: 'Purple 4-Way 3D Connector',
+  category: 'connector',
+  mesh_file: 'meshes/connector-4way-3d-purple.glb',
+  default_color: '#800080',
+  mass_grams: 1.8,
+  ports: [
+    { id: 'A', position: [12.7, 0, 0], direction: [1, 0, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'B', position: [8.98, 8.98, 0], direction: [0.7071, 0.7071, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'C', position: [0, 12.7, 0], direction: [0, 1, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'D', position: [-8.98, 8.98, 0], direction: [-0.7071, 0.7071, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'slot', position: [0, 0, 0], direction: [-1, 0, 0], mate_type: 'connector_slot', accepts: ['connector_slot'], allowed_angles_deg: [90, 270] },
+    { id: 'center', position: [0, 0, 0], direction: [0, 0, 1], mate_type: 'rod_hole', accepts: ['rod_end'], allowed_angles_deg: [0, 90, 180, 270] },
+  ],
+}
+
+const connector7wayBlue: KnexPartDef = {
+  format_version: '1.1',
+  id: 'connector-7way-blue-v1',
+  name: 'Blue 7-Way Connector',
+  category: 'connector',
+  mesh_file: 'meshes/connector-7way-blue.glb',
+  default_color: '#0000FF',
+  mass_grams: 2.0,
+  ports: [
+    { id: 'A', position: [12.7, 0, 0], direction: [1, 0, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'B', position: [8.98, 8.98, 0], direction: [0.7071, 0.7071, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'C', position: [0, 12.7, 0], direction: [0, 1, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'D', position: [-8.98, 8.98, 0], direction: [-0.7071, 0.7071, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'E', position: [-12.7, 0, 0], direction: [-1, 0, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'F', position: [-8.98, -8.98, 0], direction: [-0.7071, -0.7071, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'G', position: [0, -12.7, 0], direction: [0, -1, 0], mate_type: 'rod_hole', accepts: ['rod_end', 'rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'slot', position: [0, 0, 0], direction: [0.7071, -0.7071, 0], mate_type: 'connector_slot', accepts: ['connector_slot'], allowed_angles_deg: [90, 270] },
+    { id: 'center', position: [0, 0, 0], direction: [0, 0, 1], mate_type: 'rod_hole', accepts: ['rod_end'], allowed_angles_deg: [0, 90, 180, 270] },
+  ],
+}
+
+const blueConnectorInstance: PartInstance = {
+  instance_id: 'blue-conn-1',
+  part_id: 'connector-7way-blue-v1',
+  position: [0, 0, 0],
+  rotation: [0, 0, 0, 1],
+}
+
+describe('PortIndicators: placing 3-way red connector onto rod (middle port B)', () => {
+  it('end1 indicator includes port B variants', () => {
+    const indicators = computeIndicators(connector3wayRed, rod54, rodInstance)
+    const end1Ind = indicators.find((ind) => ind.positionKey === 'pos_0.00_0.00_0.00')!
+
+    const portIds = new Set(end1Ind.variants.map(v => v.placingPortId))
+    console.log(`Red connector on rod end1: ports used = ${[...portIds].join(', ')}`)
+    console.log(`  Total variants: ${end1Ind.variants.length}`)
+    for (const v of end1Ind.variants) {
+      console.log(`  - placing=${v.placingPortId} target=${v.targetPortId}`)
+    }
+
+    // All three edge ports (A, B, C) and center must be reachable
+    expect(portIds.has('A')).toBe(true)
+    expect(portIds.has('B')).toBe(true)
+    expect(portIds.has('C')).toBe(true)
+    expect(portIds.has('center')).toBe(true)
+  })
+})
+
+describe('PortIndicators: placing purple connector onto blue connector (slot-to-slot)', () => {
+  it('produces at least one indicator with slot variants', () => {
+    const indicators = computeIndicators(connector4way3dPurple, connector7wayBlue, blueConnectorInstance)
+
+    console.log(`Purple on Blue: ${indicators.length} indicators`)
+    for (const ind of indicators) {
+      console.log(`  Position ${ind.positionKey}: ${ind.variants.length} variants`)
+      for (const v of ind.variants) {
+        console.log(`    - placing=${v.placingPortId} target=${v.targetPortId}`)
+      }
+    }
+
+    // The slot ports are compatible (connector_slot ↔ connector_slot)
+    const slotIndicators = indicators.filter(ind =>
+      ind.variants.some(v => v.placingPortId === 'slot' || v.targetPortId === 'slot')
+    )
+    expect(slotIndicators.length).toBeGreaterThan(0)
+
+    // Should have variants using both slot ports
+    const allSlotVariants = slotIndicators.flatMap(ind =>
+      ind.variants.filter(v => v.placingPortId === 'slot' && v.targetPortId === 'slot')
+    )
+    expect(allSlotVariants.length).toBeGreaterThan(0)
+  })
+})

@@ -153,9 +153,19 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
 
   const handlePointerOver = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
-      e.stopPropagation()
+      // In place mode, don't stop propagation so PortIndicator spheres
+      // positioned at/inside this mesh can also receive pointer events.
+      const { mode } = useInteractionStore.getState()
+      if (mode !== 'place') {
+        e.stopPropagation()
+      }
+      // Only the nearest intersection should set hovered/match state.
+      // R3F fires events front-to-back; skip if we're not the first hit.
+      if (mode === 'place' && e.intersections.length > 0 && e.intersections[0]?.object !== e.object) {
+        return
+      }
       useInteractionStore.getState().setHoveredPart(instance.instance_id)
-      if (useInteractionStore.getState().mode === 'place') {
+      if (mode === 'place') {
         useInteractionStore.getState().setMatchTargetId(instance.instance_id)
       }
     },
