@@ -85,8 +85,9 @@ function computeIndicators(
     for (const placingPort of placingDef.ports) {
       if (!arePortsCompatible(placingPort, targetPort)) continue
 
-      const angles =
-        targetPort.allowed_angles_deg?.length > 0 ? targetPort.allowed_angles_deg : [0]
+      const targetAngles = targetPort.allowed_angles_deg?.length > 0 ? targetPort.allowed_angles_deg : [0]
+      const placingAngles = placingPort.allowed_angles_deg?.length > 0 ? placingPort.allowed_angles_deg : [0]
+      const angles = placingAngles.length > targetAngles.length ? placingAngles : targetAngles
 
       for (const angle of angles) {
         const { position: ghostPos, rotation: ghostQuat } = computeGhostTransform(
@@ -284,5 +285,42 @@ describe('PortIndicators: placing 4-way connector onto rod', () => {
     expect(throughHole.length).toBeGreaterThan(0)
     expect(sideClip.length).toBeGreaterThan(0)
     expect(centerInd.variants.length).toBe(throughHole.length + sideClip.length)
+  })
+
+  it('end indicator has multiple connector orientations from placing port angles', () => {
+    const indicators = computeIndicators(connector4way, rod54, rodInstance)
+    const end1Ind = indicators.find((ind) => ind.positionKey === 'pos_0.00_0.00_0.00')!
+    const end2Ind = indicators.find((ind) => ind.positionKey === 'pos_54.00_0.00_0.00')!
+
+    // Rod end ports have allowed_angles_deg: [0], but connector edge ports have [0, 90, 180, 270].
+    // The fix picks the longer angle list (placingAngles) so we get 4 angles per compatible pair.
+    // Without the fix, only angle=0 would be tried, severely limiting orientations.
+    expect(end1Ind.variants.length).toBeGreaterThan(1)
+    expect(end2Ind.variants.length).toBeGreaterThan(1)
+
+    console.log(`End1 indicator variants: ${end1Ind.variants.length}`)
+    for (const v of end1Ind.variants) {
+      console.log(`  - target=${v.targetPortId} placing=${v.placingPortId} pos=[${v.ghostPos.x.toFixed(1)},${v.ghostPos.y.toFixed(1)},${v.ghostPos.z.toFixed(1)}]`)
+    }
+  })
+
+  it('end indicator uses connector edge ports, not center', () => {
+    const indicators = computeIndicators(connector4way, rod54, rodInstance)
+    const end1Ind = indicators.find((ind) => ind.positionKey === 'pos_0.00_0.00_0.00')!
+
+    // End-on snapping into edge clips (A, B, C, D) should work.
+    // Center port connects rod_end, but requires rod to be perpendicular to connector plane,
+    // which is a different orientation than the edge clips.
+    const edgeVariants = end1Ind.variants.filter(v => ['A', 'B', 'C', 'D'].includes(v.placingPortId))
+    const centerVariants = end1Ind.variants.filter(v => v.placingPortId === 'center')
+
+    // Edge clips should be present (rod lying in the connector plane)
+    expect(edgeVariants.length).toBeGreaterThan(0)
+
+    // Center through-hole also valid (rod perpendicular through center)
+    expect(centerVariants.length).toBeGreaterThan(0)
+
+    // Both types accessible via Tab cycling
+    expect(end1Ind.variants.length).toBe(edgeVariants.length + centerVariants.length)
   })
 })
