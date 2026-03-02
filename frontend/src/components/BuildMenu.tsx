@@ -21,6 +21,7 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
   const [isSavingCloud, setIsSavingCloud] = useState(false)
+  const [cloudSaveSuccess, setCloudSaveSuccess] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [importPreview, setImportPreview] = useState<ExportedBuildData | null>(null)
 
@@ -31,6 +32,7 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
     if (partsList.length === 0) return
 
     setIsSavingCloud(true)
+    setCloudSaveSuccess(false)
     try {
       // Use currentModelId if it's a UUID (cloud model)
       const cloudId = currentModelId?.includes('-') ? currentModelId : undefined
@@ -44,7 +46,9 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
       if (!cloudId) {
         setCurrentModelMeta(newId, currentModelTitle)
       }
-      alert('Model saved to cloud!')
+      
+      setCloudSaveSuccess(true)
+      setTimeout(() => setCloudSaveSuccess(false), 2000)
     } catch (err) {
       alert(`Cloud save failed: ${String(err)}`)
     } finally {
@@ -156,12 +160,13 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
             ...buttonStyle,
             opacity: isSavingCloud || partsList.length === 0 ? 0.5 : 1,
             cursor: isSavingCloud || partsList.length === 0 ? 'default' : 'pointer',
-            borderColor: '#4488ff',
-            color: '#4488ff',
+            borderColor: cloudSaveSuccess ? '#44cc88' : '#4488ff',
+            background: cloudSaveSuccess ? '#44cc88' : '#1a1a3e',
+            color: cloudSaveSuccess ? '#fff' : '#4488ff',
           }}
         >
-          <span>☁️</span>
-          {isSavingCloud ? 'Saving...' : 'Cloud Save'}
+          <span>{cloudSaveSuccess ? '✓' : '☁️'}</span>
+          {isSavingCloud ? 'Saving...' : cloudSaveSuccess ? 'Saved!' : 'Cloud Save'}
         </button>
       )}
 
