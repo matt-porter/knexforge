@@ -219,6 +219,8 @@ interface BuildSceneInnerProps {
  * (for part types with many instances) or individual PartMesh components.
  */
 function BuildSceneInner({ parts, defs, selectedPartId }: BuildSceneInnerProps) {
+  const hoveredPartId = useInteractionStore((s) => s.hoveredPartId)
+
   // Group instances by part_id
   const grouped = useMemo(() => {
     const map = new Map<string, PartInstance[]>()
@@ -240,10 +242,10 @@ function BuildSceneInner({ parts, defs, selectedPartId }: BuildSceneInnerProps) 
         if (!def) return null
 
         // Use InstancedMesh for part types with many instances
-        // (InstancedMesh doesn't support per-instance selection highlight,
-        //  so only use it when nothing in the group is selected)
-        const hasSelection = instances.some((i) => i.instance_id === selectedPartId)
-        if (instances.length >= INSTANCING_THRESHOLD && !hasSelection) {
+        // (InstancedMesh doesn't support per-instance selection/hover highlight,
+        //  so only use it when nothing in the group is selected/hovered)
+        const hasSelectionOrHover = instances.some((i) => i.instance_id === selectedPartId || i.instance_id === hoveredPartId)
+        if (instances.length >= INSTANCING_THRESHOLD && !hasSelectionOrHover) {
           return <InstancedParts key={partId} def={def} instances={instances} />
         }
 

@@ -278,6 +278,8 @@ function SimulationControls() {
 
   const handlePlayToggle = () => {
     if (!isSimulating) {
+      // Cancel placing mode before starting simulation
+      useInteractionStore.getState().cancelPlacing()
       toggleSimulation()
       void startSimulation(motorSpeed)
     } else {

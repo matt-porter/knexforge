@@ -67,7 +67,55 @@ export function useKeyboardShortcuts(): void {
         if (mode === 'place') {
           e.preventDefault()
           useInteractionStore.getState().rotateGhost()
+          return
         }
+      }
+
+      // Quick part selection
+      const partShortcuts: Record<string, string> = {
+        '1': 'rod-16-green-v1',
+        '2': 'rod-32-white-v1',
+        '3': 'rod-54-blue-v1',
+        '4': 'rod-86-yellow-v1',
+        '5': 'rod-128-red-v1',
+        '6': 'rod-190-grey-v1',
+        'q': 'connector-1way-grey-v1',
+        'w': 'connector-2way-orange-v1',
+        'e': 'connector-3way-red-v1',
+        't': 'connector-4way-green-v1',
+        'y': 'connector-5way-yellow-v1',
+        'u': 'connector-8way-white-v1',
+        'i': 'connector-4way-3d-purple-v1',
+        'o': 'connector-7way-blue-v1',
+      }
+
+      if (e.key in partShortcuts) {
+        e.preventDefault()
+        const partId = partShortcuts[e.key]
+        const { selectedPartId } = useBuildStore.getState()
+        if (selectedPartId) {
+          useInteractionStore.getState().startPlacing(partId, selectedPartId)
+        } else {
+          useInteractionStore.getState().startPlacing(partId)
+        }
+        return
+      }
+
+      // Quick Duplication: Ctrl+D
+      if (ctrl && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault()
+        const { selectedPartId, parts } = useBuildStore.getState()
+        if (selectedPartId && parts[selectedPartId]) {
+          const partId = parts[selectedPartId].part_id
+          useInteractionStore.getState().startPlacing(partId, selectedPartId)
+        }
+        return
+      }
+
+      // Focus camera on selected part: F
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('knexforge:focus-camera'))
         return
       }
     }

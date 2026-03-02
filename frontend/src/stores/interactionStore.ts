@@ -42,6 +42,9 @@ export interface InteractionStore {
   isSimulating: boolean
   motorSpeed: number
 
+  // --- Context Menu State ---
+  contextMenu: { x: number; y: number; partId: string } | null
+
   // --- Actions ---
   /** Start placing a part type. Switches to place mode. targetId specifies a specific instance to snap to. */
   startPlacing: (partId: string, targetId?: string) => void
@@ -55,6 +58,8 @@ export interface InteractionStore {
   setSnapTarget: (instanceId: string | null, portId: string | null, placingPortId?: string | null) => void
   /** Set hovered part. */
   setHoveredPart: (instanceId: string | null) => void
+  /** Set the target part for placing mode. */
+  setMatchTargetId: (instanceId: string | null) => void
   /** Rotate the ghost 90° around Y axis. */
   rotateGhost: () => void
   /** Cycles to the next snap configuration when multiple are available. */
@@ -63,6 +68,10 @@ export interface InteractionStore {
   // --- Simulation Actions ---
   toggleSimulation: () => void
   setMotorSpeed: (speed: number) => void
+
+  // --- Context Menu Actions ---
+  openContextMenu: (x: number, y: number, partId: string) => void
+  closeContextMenu: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -112,6 +121,7 @@ export const useInteractionStore = create<InteractionStore>()(
     hoveredPartId: null,
     isSimulating: false,
     motorSpeed: 10.0,
+    contextMenu: null,
 
     // --- Actions ---
     startPlacing: (partId: string, targetId?: string) => {
@@ -178,6 +188,12 @@ export const useInteractionStore = create<InteractionStore>()(
       })
     },
 
+    setMatchTargetId: (instanceId: string | null) => {
+      set((state) => {
+        state.matchTargetId = instanceId
+      })
+    },
+
     rotateGhost: () => {
       set((state) => {
         state.ghostRotation = multiplyQuaternions(state.ghostRotation, ROTATE_Y_90)
@@ -199,6 +215,18 @@ export const useInteractionStore = create<InteractionStore>()(
     setMotorSpeed: (speed: number) => {
       set((state) => {
         state.motorSpeed = speed
+      })
+    },
+
+    openContextMenu: (x: number, y: number, partId: string) => {
+      set((state) => {
+        state.contextMenu = { x, y, partId }
+      })
+    },
+
+    closeContextMenu: () => {
+      set((state) => {
+        state.contextMenu = null
       })
     },
   })),

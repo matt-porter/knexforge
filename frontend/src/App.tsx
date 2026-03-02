@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { KnexViewer } from './components/Viewer/KnexViewer'
 import { PartPalette } from './components/PartPalette'
 import { ModelBrowser } from './components/ModelBrowser/ModelBrowser'
+import { MyModels } from './components/MyModels/MyModels'
 import { BuildMenu } from './components/BuildMenu'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useBuildStore } from './stores/buildStore'
@@ -12,7 +13,7 @@ import './App.css'
 // Tab types
 // ---------------------------------------------------------------------------
 
-type AppTab = 'builder' | 'browser'
+type AppTab = 'builder' | 'my-models' | 'browser'
 
 // ---------------------------------------------------------------------------
 // Top tab bar
@@ -37,7 +38,8 @@ function TabBar({
 }) {
   const tabs: { id: AppTab; label: string; icon: string }[] = [
     { id: 'builder', label: 'Builder', icon: '🔧' },
-    { id: 'browser', label: 'Model Browser', icon: '📂' },
+    { id: 'my-models', label: 'My Models', icon: '💾' },
+    { id: 'browser', label: 'Example Models', icon: '📂' },
   ]
 
   return (
@@ -106,12 +108,94 @@ function TabBar({
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
+      
+      {/* Current Model Info */}
+      <CurrentModelInfo />
 
       {/* File Operations */}
       <BuildMenu />
 
       {/* Live stability indicator (always visible) */}
       <StabilityIndicator />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Current Model Info & Quick Save
+// ---------------------------------------------------------------------------
+
+import { saveLocalModel } from './services/localModels'
+
+function CurrentModelInfo() {
+  const currentModelId = useBuildStore((s) => s.currentModelId)
+  const currentModelTitle = useBuildStore((s) => s.currentModelTitle)
+  const parts = useBuildStore((s) => s.parts)
+  const connections = useBuildStore((s) => s.connections)
+  const setCurrentModelMeta = useBuildStore((s) => s.setCurrentModelMeta)
+  const [isSaving, setIsSaving] = useState(false)
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentModelMeta(currentModelId, e.target.value)
+  }
+
+  const handleSave = async () => {
+    const partsList = Object.values(parts)
+    if (partsList.length === 0) return
+
+    setIsSaving(true)
+    try {
+      const result = await sidecarBridge.exportBuild(partsList, connections)
+      if (result.success && result.data) {
+        // use custom ID or generate a new one
+        const id = currentModelId || `model-${Date.now()}`
+        
+        saveLocalModel(id, currentModelTitle, result.data)
+        
+        if (!currentModelId) {
+          setCurrentModelMeta(id, currentModelTitle)
+        }
+      }
+    } catch (err) {
+      console.error('Save failed:', err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 18px', borderLeft: `1px solid ${TAB_BAR_COLORS.border}` }}>
+      <input
+        type="text"
+        value={currentModelTitle}
+        onChange={handleTitleChange}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          color: '#fff',
+          fontSize: 14,
+          fontWeight: 600,
+          outline: 'none',
+          width: 200
+        }}
+      />
+      <button
+        onClick={handleSave}
+        disabled={isSaving || Object.keys(parts).length === 0}
+        style={{
+          padding: '4px 12px',
+          background: '#4488ff',
+          color: '#fff',
+          border: 'none',
+          borderRadius: 4,
+          cursor: isSaving || Object.keys(parts).length === 0 ? 'default' : 'pointer',
+          opacity: isSaving || Object.keys(parts).length === 0 ? 0.5 : 1,
+          fontWeight: 600,
+          fontSize: 12
+        }}
+      >
+        {isSaving ? 'Saving...' : 'Save Local'}
+      </button>
     </div>
   )
 }
@@ -192,6 +276,19 @@ export default function App() {
           <div style={{ flex: 1, position: 'relative' }}>
             <KnexViewer loadDemoWhenEmpty={true} />
           </div>
+        </div>
+
+        {/* My Models tab */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            visibility: activeTab === 'my-models' ? 'visible' : 'hidden',
+            pointerEvents: activeTab === 'my-models' ? 'auto' : 'none',
+          }}
+        >
+          <MyModels />
         </div>
 
         {/* Model Browser tab */}

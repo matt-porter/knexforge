@@ -1,6 +1,6 @@
 import { useRef, useMemo, useEffect } from 'react'
 import { useGLTF } from '@react-three/drei'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import {
   InstancedMesh,
   Matrix4,
@@ -76,9 +76,12 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
     })
   }, [def.default_color, visualMode])
 
+  const isSimulating = useInteractionStore((s) => s.isSimulating)
+
   // Update instance matrices whenever instances change
   useEffect(() => {
     if (!meshRef.current) return
+    if (isSimulating) return
 
     const instanceMatrix = new Matrix4()
     const tempPos = new Vector3()
@@ -128,9 +131,7 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
     if (meshRef.current.instanceColor) {
       meshRef.current.instanceColor.needsUpdate = true
     }
-  }, [instances, def.default_color, correctionMatrix, visualMode, explosionFactor, stressData])
-
-  const isSimulating = useInteractionStore((s) => s.isSimulating)
+  }, [instances, def.default_color, correctionMatrix, visualMode, explosionFactor, stressData, isSimulating])
 
   // Fast 60 FPS update loop for simulation data
   useFrame(() => {
@@ -163,12 +164,55 @@ export function InstancedParts({ def, instances }: InstancedPartsProps) {
 
   if (!geometry || instances.length === 0) return null
 
+  const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation()
+    const { mode } = useInteractionStore.getState()
+    if (mode === 'select' && e.instanceId !== undefined) {
+      const inst = instances[e.instanceId]
+      useBuildStore.getState().selectPart(inst.instance_id)
+      
+      if (e.altKey) {
+        useInteractionStore.getState().startPlacing(inst.part_id, inst.instance_id)
+      }
+    }
+  }
+
+  const handleContextMenu = (e: ThreeEvent<MouseEvent>) => {
+    e.stopPropagation()
+    const { mode } = useInteractionStore.getState()
+    if (mode === 'select' && e.instanceId !== undefined) {
+      const inst = instances[e.instanceId]
+      useBuildStore.getState().selectPart(inst.instance_id)
+      const nativeEvent = e.nativeEvent as MouseEvent
+      useInteractionStore.getState().openContextMenu(nativeEvent.clientX, nativeEvent.clientY, inst.instance_id)
+    }
+  }
+
+  const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation()
+    if (e.instanceId !== undefined) {
+      const inst = instances[e.instanceId]
+      useInteractionStore.getState().setHoveredPart(inst.instance_id)
+      if (useInteractionStore.getState().mode === 'place') {
+        useInteractionStore.getState().setMatchTargetId(inst.instance_id)
+      }
+    }
+  }
+
+  const handlePointerOut = () => {
+    useInteractionStore.getState().setHoveredPart(null)
+  }
+
   return (
     <instancedMesh
       ref={meshRef}
       args={[geometry, material, instances.length]}
       castShadow
       receiveShadow
+      onClick={handleClick}
+      onContextMenu={handleContextMenu}
+      onPointerOver={handlePointerOver}
+      onPointerOut={handlePointerOut}
     />
   )
 }

@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef } from 'react'
+import { useMemo, useCallback, useRef, useEffect } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { Quaternion, Color, Vector3, type Mesh, type MeshStandardMaterial, type Group } from 'three'
@@ -125,15 +125,39 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
       const { mode } = useInteractionStore.getState()
       if (mode !== 'select') return
       e.stopPropagation()
+
       useBuildStore.getState().selectPart(instance.instance_id)
+
+      if (e.altKey) {
+        useInteractionStore.getState().startPlacing(instance.part_id, instance.instance_id)
+      }
     },
-    [instance.instance_id],
+    [instance.instance_id, instance.part_id],
+  )
+
+  const handleContextMenu = useCallback(
+    (e: ThreeEvent<MouseEvent>) => {
+      const { mode } = useInteractionStore.getState()
+      if (mode !== 'select') return
+      e.stopPropagation()
+      
+      useBuildStore.getState().selectPart(instance.instance_id)
+      
+      // Extract screen coordinates from the event
+      // e.nativeEvent contains the actual DOM MouseEvent with clientX/Y
+      const nativeEvent = e.nativeEvent as MouseEvent
+      useInteractionStore.getState().openContextMenu(nativeEvent.clientX, nativeEvent.clientY, instance.instance_id)
+    },
+    [instance.instance_id]
   )
 
   const handlePointerOver = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
       e.stopPropagation()
       useInteractionStore.getState().setHoveredPart(instance.instance_id)
+      if (useInteractionStore.getState().mode === 'place') {
+        useInteractionStore.getState().setMatchTargetId(instance.instance_id)
+      }
     },
     [instance.instance_id],
   )
@@ -155,20 +179,29 @@ export function PartMesh({ instance, def, selected = false, opacity = 1 }: PartM
     }
   })
 
+  // Reset to static position when simulation stops
+  useEffect(() => {
+    if (!groupRef.current || isSimulating) return
+
+    groupRef.current.position.set(explodedPosition[0], explodedPosition[1], explodedPosition[2])
+    groupRef.current.quaternion.copy(initialQuat)
+  }, [isSimulating, explodedPosition, initialQuat])
+
   return (
     <group
       ref={groupRef}
       position={explodedPosition}
       quaternion={initialQuat}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
       {/* Inner group applies mesh correction (GLB orientation → port data alignment) */}
       <group position={correction.position} rotation={correction.rotation}>
         <primitive object={clonedScene} />
-        {visualMode === 'instruction' && (
-          <Outlines thickness={1.5} color="black" />
+        {(visualMode === 'instruction' || selected) && (
+          <Outlines thickness={selected ? 2.5 : 1.5} color={selected ? "#ffaa00" : "black"} />
         )}
       </group>
     </group>

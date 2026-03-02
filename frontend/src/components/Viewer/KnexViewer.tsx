@@ -3,7 +3,37 @@ import { OrbitControls, Grid, Environment } from '@react-three/drei'
 import { BuildScene } from './BuildScene'
 import { VisualModeToggle } from './VisualModeToggle'
 import { useInteractionStore } from '../../stores/interactionStore'
-import { useEffect } from 'react'
+import { useBuildStore } from '../../stores/buildStore'
+import { useEffect, useRef } from 'react'
+import { Vector3 } from 'three'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
+import { ContextMenu } from './ContextMenu'
+
+/**
+ * Handles camera focus events to center the view on the selected part.
+ */
+function CameraController() {
+  const controlsRef = useRef<OrbitControlsImpl>(null)
+  
+  useEffect(() => {
+    const handleFocus = () => {
+      const { selectedPartId, parts } = useBuildStore.getState()
+      if (!selectedPartId || !parts[selectedPartId] || !controlsRef.current) return
+      
+      const part = parts[selectedPartId]
+      const targetPos = new Vector3(part.position[0], part.position[1], part.position[2])
+      
+      // Update orbit controls target
+      controlsRef.current.target.copy(targetPos)
+      controlsRef.current.update()
+    }
+    
+    window.addEventListener('knexforge:focus-camera', handleFocus)
+    return () => window.removeEventListener('knexforge:focus-camera', handleFocus)
+  }, [])
+  
+  return <OrbitControls ref={controlsRef} makeDefault />
+}
 
 /**
  * Main 3D viewer component.
@@ -54,13 +84,14 @@ export function KnexViewer({ loadDemoWhenEmpty = true }: { loadDemoWhenEmpty?: b
         />
 
         {/* Orbit controls for camera navigation */}
-        <OrbitControls makeDefault />
+        <CameraController />
 
         {/* HDR environment for reflections */}
         <Environment preset="city" />
       </Canvas>
       <VisualModeToggle />
       <PlacementHintOverlay />
+      <ContextMenu />
     </div>
   )
 }

@@ -246,3 +246,46 @@ static hosting. The same TypeScript physics module can later be reused server-si
 **Phase 6 Success Criteria**: App is globally accessible as a static site with
 client-side physics. Users can create accounts, save builds to the cloud, and
 share on a public gallery — all hosted at $0/month on free tiers.
+
+## Phase 7 — UI / UX Improvements
+
+### ✅ Task 7.1: Advanced Canvas Interaction
+- **Goal**: Implement canvas right-click context menu
+- **Features**: Delete, duplicate, focus camera, change color
+- **Files**: `frontend/src/components/Viewer/SceneInteraction.tsx`
+
+### ✅ Task 7.2: Quick Duplication
+- **Goal**: Add `Ctrl+D` and `Alt+Click` to quickly duplicate the selected part
+- **Files**: `frontend/src/components/Viewer/SceneInteraction.tsx` and keyboard hooks.
+
+### ✅ Task 7.3: Selection Highlighting
+- **Goal**: Use 3D outlines/glow to make the selected part pop clearly
+- **Files**: `frontend/src/components/Viewer/PartMesh.tsx`, `InstancedParts.tsx`
+
+### ✅ Task 7.4: Camera Focusing
+- **Goal**: Press `F` to focus camera on the currently selected part
+- **Files**: `frontend/src/components/Viewer/KnexViewer.tsx` or new `CameraRig.tsx`
+
+### ✅ Task 7.5: Keyboard Shortcuts for Parts
+- **Goal**: 1-9 for rods, q-p for connectors
+- **Files**: Keyboard shortcuts hook
+
+
+## Phase 8 — Local-First Storage (Browser)
+
+### ✅ Task 8.1: Local Storage Service
+- **Goal**: Persist models to `localStorage` for offline play
+- **Features**: Save, load, list, and delete models
+- **Files**: `frontend/src/services/localModels.ts`
+
+### ✅ Task 8.2: App State Updates
+- **Goal**: Track current model ID and Title in BuildStore
+- **Files**: `frontend/src/stores/buildStore.ts`
+
+### ✅ Task 8.3: My Models Tab
+- **Goal**: UI to browse and manage local models
+- **Files**: `frontend/src/components/MyModels.tsx`, `App.tsx`
+
+### ✅ Task 8.4: Auto-Save & Top Bar UI
+- **Goal**: Name the current model and save automatically or on-click
+- **Files**: `frontend/src/App.tsx`

@@ -33,6 +33,10 @@ export interface BuildSnapshot {
 
 export interface BuildStore {
   // --- State ---
+  /** Current local model ID (if loaded from/saved to local storage) */
+  currentModelId: string | null
+  /** Current local model Title */
+  currentModelTitle: string
   /** All placed part instances, keyed by instance_id. */
   parts: Record<string, PartInstance>
   /** All connections between parts. */
@@ -69,6 +73,8 @@ export interface BuildStore {
   appendBuild: (parts: PartInstance[], connections: Connection[]) => void
   /** Clear the build completely. */
   clearBuild: () => void
+  /** Update color of a specific part instance. */
+  updatePartColor: (instanceId: string, color: string) => void
   /** Set stability score (from sidecar response). */
   setStabilityScore: (score: number) => void
   /** Set stress data. */
@@ -77,6 +83,8 @@ export interface BuildStore {
   recalculateStability: () => Promise<void>
   /** Set sidecar connection status. */
   setSidecarConnected: (connected: boolean) => void
+  /** Update current model metadata */
+  setCurrentModelMeta: (id: string | null, title?: string) => void
 
   // --- Derived ---
   /** Get the number of placed parts. */
@@ -128,6 +136,8 @@ function applySnapshot(
 export const useBuildStore = create<BuildStore>()(
   immer((set, get) => ({
     // --- Initial state ---
+    currentModelId: null,
+    currentModelTitle: 'Untitled Build',
     parts: {},
     connections: [],
     stabilityScore: 100,
@@ -331,6 +341,20 @@ export const useBuildStore = create<BuildStore>()(
       get().recalculateStability()
     },
 
+    updatePartColor: (instanceId: string, color: string) => {
+      set((state) => {
+        const part = state.parts[instanceId]
+        if (part) {
+          const before = createSnapshot(state)
+          part.color = color
+          const after = createSnapshot(state)
+          // Store as an add_part mutation for undo
+          state.undoStack.push({ type: 'add_part', before, after })
+          state.redoStack = []
+        }
+      })
+    },
+
     setStabilityScore: (score: number) => {
       set((state) => {
         state.stabilityScore = score
@@ -365,6 +389,15 @@ export const useBuildStore = create<BuildStore>()(
     setSidecarConnected: (connected: boolean) => {
       set((state) => {
         state.sidecarConnected = connected
+      })
+    },
+
+    setCurrentModelMeta: (id: string | null, title?: string) => {
+      set((state) => {
+        state.currentModelId = id
+        if (title !== undefined) {
+          state.currentModelTitle = title
+        }
       })
     },
 

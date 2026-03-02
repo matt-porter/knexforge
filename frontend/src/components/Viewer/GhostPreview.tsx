@@ -44,6 +44,8 @@ export function GhostPreview({ def }: GhostPreviewProps) {
         mesh.material = mat
         mesh.castShadow = false
         mesh.receiveShadow = false
+        // Prevent ghost from intercepting raycasts (which would block PortIndicator hover/clicks)
+        mesh.raycast = () => null
       }
     })
 

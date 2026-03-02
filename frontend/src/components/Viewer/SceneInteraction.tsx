@@ -49,8 +49,11 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
   useFrame(() => {
     const { mode, placingPartId, matchTargetId } = useInteractionStore.getState()
 
-    // In targeted mode (matchTargetId), PortIndicators calculates the position on hover.
-    if (mode !== 'place' || !placingPartId || matchTargetId) return
+    if (mode !== 'place' || !placingPartId) return
+    
+    // In targeted mode, PortIndicators calculates the exact snapped position on hover.
+    // We yield control to it if we are currently snapped to a port.
+    if (matchTargetId && useInteractionStore.getState().isSnapped) return
 
     raycaster.current.setFromCamera(mouse.current, camera)
 
