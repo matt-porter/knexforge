@@ -361,19 +361,21 @@ share on a public gallery — all hosted at $0/month on free tiers.
 
 **Why**: VLMs are weak at precise 3D math (absolute positions + quaternions), but strong at symbolic structure. This phase defines a topology-only representation and deterministic solver path so AI output can still become a valid 3D build.
 
-### [ ] Task 11.1: Define `topology-v1` Schema (No Positions/Rotations)
+### [~] Task 11.1: Define `topology-v1` Schema (No Positions/Rotations)
 - New schema doc: `docs/topology-format.md` and JSON schema in `schema/`.
 - Required fields: `parts[]`, `connections[]`, `format_version`, optional `metadata`.
 - Explicitly forbidden in this format: absolute `position`, `quaternion`, free-form transforms.
 - Define ID/port conventions, joint types (`fixed`, `revolute`), and validation constraints.
 - Add migration notes from/to existing `.knx` export format.
+- **Status (2026-03-03)**: Browser-first TypeScript contract implemented in `frontend/src/services/topologySolver.ts`; formal schema docs/JSON Schema still pending.
 
-### [ ] Task 11.2: Canonicalization Rules
+### [x] Task 11.2: Canonicalization Rules
 - Deterministic ordering for parts/connections so equivalent graphs serialize identically.
 - Deterministic instance ID strategy for generated builds (no random IDs in saved artifacts).
 - Add normalization helpers for stable diffs, dataset quality, and reproducible training targets.
+- **Implemented**: `canonicalizeTopology()` + deterministic component/root traversal in browser runtime.
 
-### [ ] Task 11.3: Topology Validator
+### [x] Task 11.3: Topology Validator
 - Implement validator in `src/core/` for:
   - Unknown part IDs/ports
   - Duplicate instance IDs
@@ -381,23 +383,27 @@ share on a public gallery — all hosted at $0/month on free tiers.
   - Self-connections and impossible joint declarations
 - Return structured, user-facing diagnostics (line/item references where possible).
 - Unit tests in `src/core/tests/` for valid + invalid graph cases.
+- **Implemented (browser-first)**: Structured validation in `frontend/src/services/topologySolver.ts` with `TopologyValidationError` issues and Vitest coverage.
 
-### [ ] Task 11.4: Topology-to-Geometry Solver (Importer)
+### [x] Task 11.4: Topology-to-Geometry Solver (Importer)
 - Implement deterministic placement traversal from a root part/component.
 - Place new parts by snapping ports using existing core snapping logic.
 - Support disconnected components with explicit anchoring strategy.
 - Add failure modes when graph cannot be embedded without violating constraints.
+- **Implemented (browser-first)**: Deterministic topology solve in `solveTopology()` with root anchoring and disconnected-component spacing.
 
-### [ ] Task 11.5: Closed-Loop Constraint Handling
+### [x] Task 11.5: Closed-Loop Constraint Handling
 - Track already-placed parts during traversal.
 - For loop-closing edges, verify residual port error is within tolerance (instead of re-placing).
 - Define tolerance thresholds and conflict policy (accept, warn, reject).
 - Add square/triangle/multi-loop regression tests.
+- **Implemented (browser-first)**: Loop residual checks + `TopologySolveError` on constraint violations; covered in `frontend/src/services/__tests__/topologySolver.test.ts`.
 
 ### [ ] Task 11.6: Round-Trip and Compatibility Tests
 - Round-trip: `.knx` → `topology-v1` → solved build → `.knx`.
 - Assert piece counts, connection graph equivalence, and acceptable transform drift.
 - Add fixtures for simple, branched, and loop-heavy builds.
+- **Status (2026-03-03)**: Initial conversion helper `buildStateToTopology()` implemented; full `.knx` compatibility and migration tests still pending.
 
 ---
 
