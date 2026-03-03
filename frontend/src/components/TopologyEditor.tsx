@@ -85,6 +85,8 @@ export function TopologyEditor() {
   const partDefsRef = useRef<Map<string, KnexPartDef> | null>(null)
   const hasUserEditedRef = useRef(false)
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
+  const resizeStartXRef = useRef(0)
+  const resizeStartWidthRef = useRef(380)
 
   const parts = useBuildStore((state) => state.parts)
   const connections = useBuildStore((state) => state.connections)
@@ -157,7 +159,8 @@ export function TopologyEditor() {
     if (!isResizing) return
 
     const onMouseMove = (event: MouseEvent) => {
-      const nextWidth = Math.min(760, Math.max(260, window.innerWidth - event.clientX))
+      const deltaX = event.clientX - resizeStartXRef.current
+      const nextWidth = Math.min(760, Math.max(260, resizeStartWidthRef.current - deltaX))
       setPanelWidth(nextWidth)
     }
 
@@ -258,6 +261,8 @@ export function TopologyEditor() {
         <div
           onMouseDown={(event) => {
             event.preventDefault()
+            resizeStartXRef.current = event.clientX
+            resizeStartWidthRef.current = panelWidth
             setIsResizing(true)
           }}
           style={{

@@ -1,7 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid, Environment } from '@react-three/drei'
 import { BuildScene } from './BuildScene'
-import { VisualModeToggle } from './VisualModeToggle'
 import { SnapVariantHUD } from './SnapVariantHUD'
 import { useBuildStore } from '../../stores/buildStore'
 import { useEffect, useRef } from 'react'
@@ -89,10 +88,8 @@ export function KnexViewer({ loadDemoWhenEmpty = true }: { loadDemoWhenEmpty?: b
         {/* HDR environment for reflections */}
         <Environment preset="city" />
       </Canvas>
-      <VisualModeToggle />
       <SnapVariantHUD />
       <ContextMenu />
     </div>
   )
 }
-
