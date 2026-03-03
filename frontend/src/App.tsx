@@ -4,6 +4,7 @@ import { PartPalette } from './components/PartPalette'
 import { ModelBrowser } from './components/ModelBrowser/ModelBrowser'
 import { MyModels } from './components/MyModels/MyModels'
 import { BuildMenu } from './components/BuildMenu'
+import { TopologyEditor } from './components/TopologyEditor'
 import { AuthModal } from './components/Auth/AuthModal'
 import { ContextMenu } from './components/Viewer/ContextMenu'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
@@ -364,6 +365,7 @@ export default function App() {
           <div style={{ flex: 1, position: 'relative' }}>
             <KnexViewer loadDemoWhenEmpty={true} />
           </div>
+          <TopologyEditor />
         </div>
 
         {/* My Models tab */}

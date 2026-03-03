@@ -422,11 +422,12 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - Add lints for common mistakes (missing ports, unsupported part aliases, disconnected fragments).
 - CLI utility for offline validation and CI (`python -m ...` style).
 
-### [ ] Task 12.3: Live Shorthand Editor + 3D Preview (Frontend)
+### [~] Task 12.3: Live Shorthand Editor + 3D Preview (Frontend)
 - Add editor panel with parse-on-change preview.
 - Show parser/validator errors inline with actionable hints.
 - Debounced solving for performance; preserve last valid state on parse failure.
 - Keep hybrid workflow: text edit + visual tweak in viewer.
+- **Status (2026-03-03)**: Browser-side live `topology-v1` JSON editor panel implemented (`frontend/src/components/TopologyEditor.tsx`) with debounced solve, inline validation, and live scene updates. Shorthand grammar/syntax-highlighting remains pending.
 
 ### [ ] Task 12.4: Import/Export and Cross-Format Sync
 - Add shorthand + `topology-v1` import/export in `BuildMenu` flows.
