@@ -26,7 +26,7 @@ function groupByCategory(
     .filter((g) => g.parts.length > 0)
 }
 
-export function PartPalette() {
+export function PartPalette({ onHide }: { onHide?: () => void } = {}) {
   const { defs, loading } = usePartDefs()
   const placingPartId = useInteractionStore((s) => s.placingPartId)
   const startPlacing = useInteractionStore((s) => s.startPlacing)
@@ -76,20 +76,46 @@ export function PartPalette() {
       }}
     >
       {/* Header */}
-      <h2
+      <div
         style={{
-          fontSize: 14,
-          fontWeight: 600,
-          color: '#8888cc',
-          textTransform: 'uppercase',
-          letterSpacing: '0.1em',
-          padding: '12px 16px',
+          padding: '10px 12px',
           borderBottom: '1px solid #2a2a4a',
-          margin: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
         }}
       >
-        Parts
-      </h2>
+        <h2
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: '#8888cc',
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            margin: 0,
+          }}
+        >
+          Parts
+        </h2>
+        {onHide ? (
+          <button
+            onClick={onHide}
+            style={{
+              border: '1px solid #334155',
+              background: '#111827',
+              color: '#93c5fd',
+              borderRadius: 4,
+              padding: '2px 8px',
+              cursor: 'pointer',
+              fontSize: 11,
+            }}
+            title="Hide parts panel"
+          >
+            Hide
+          </button>
+        ) : null}
+      </div>
 
       {/* Part categories */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>

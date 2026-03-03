@@ -323,6 +323,7 @@ function StabilityIndicator() {
 export default function App() {
   useKeyboardShortcuts()
   const [activeTab, setActiveTab] = useState<AppTab>('builder')
+  const [partsPanelOpen, setPartsPanelOpen] = useState(true)
   const setSidecarConnected = useBuildStore((s) => s.setSidecarConnected)
   const initializeUser = useUserStore((s) => s.initialize)
 
@@ -361,7 +362,37 @@ export default function App() {
             pointerEvents: activeTab === 'builder' ? 'auto' : 'none',
           }}
         >
-          <PartPalette />
+          {partsPanelOpen ? (
+            <PartPalette onHide={() => setPartsPanelOpen(false)} />
+          ) : (
+            <div
+              style={{
+                width: 42,
+                borderRight: '1px solid #2a2a4a',
+                background: '#0f0f23',
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'center',
+                paddingTop: 10,
+              }}
+            >
+              <button
+                onClick={() => setPartsPanelOpen(true)}
+                style={{
+                  border: '1px solid #334155',
+                  background: '#111827',
+                  color: '#93c5fd',
+                  borderRadius: 4,
+                  padding: '2px 6px',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                }}
+                title="Show parts panel"
+              >
+                PRT
+              </button>
+            </div>
+          )}
           <div style={{ flex: 1, position: 'relative' }}>
             <KnexViewer loadDemoWhenEmpty={true} />
           </div>

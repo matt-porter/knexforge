@@ -433,6 +433,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-03 update 2)**: UI refinement added: compact `<_o>` json mode switch, directional apply/import labels (`Model -> Text`, `Text -> Model`), and draggable editor width.
 - **Status (2026-03-03 update 3)**: Replaced placeholder text with an actual switch control and fixed resizable panel behavior in flex layout.
 - **Status (2026-03-03 update 4)**: Removed `Visual Mode` overlay from viewer UI and corrected resize direction using drag-delta width logic.
+- **Status (2026-03-03 update 5)**: Added explicit hide/show controls for the parts palette (`Hide` in palette, `PRT` reopen button in builder) so it remains discoverable when text editor is open.
 
 ### [ ] Task 12.4: Import/Export and Cross-Format Sync
 - Add shorthand + `topology-v1` import/export in `BuildMenu` flows.
