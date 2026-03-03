@@ -5,6 +5,7 @@ import { ModelBrowser } from './components/ModelBrowser/ModelBrowser'
 import { MyModels } from './components/MyModels/MyModels'
 import { BuildMenu } from './components/BuildMenu'
 import { AuthModal } from './components/Auth/AuthModal'
+import { ContextMenu } from './components/Viewer/ContextMenu'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useBuildStore } from './stores/buildStore'
 import { useUserStore } from './stores/userStore'
@@ -268,8 +269,16 @@ function CurrentModelInfo() {
 function StabilityIndicator() {
   const score = useBuildStore((s) => s.stabilityScore)
   const partCount = useBuildStore((s) => s.partCount)
+  const testStability = useBuildStore((s) => s.testStability)
+  const [isTesting, setIsTesting] = useState(false)
 
   if (partCount() === 0) return null
+
+  const handleTest = async () => {
+    setIsTesting(true)
+    await testStability()
+    setIsTesting(false)
+  }
 
   const color = score >= 70 ? '#44cc88' : score >= 40 ? '#ffaa33' : '#ff6655'
 
@@ -286,7 +295,22 @@ function StabilityIndicator() {
       }}
     >
       <span>Stability</span>
-      <span style={{ fontWeight: 700, color, fontFamily: 'monospace' }}>{score.toFixed(0)}%</span>
+      <span style={{ fontWeight: 700, color, fontFamily: 'monospace', marginRight: 8 }}>{score.toFixed(0)}%</span>
+      <button
+        onClick={handleTest}
+        disabled={isTesting}
+        style={{
+          padding: '2px 8px',
+          fontSize: 10,
+          background: isTesting ? '#1a1a3e' : '#2a2a4a',
+          border: `1px solid ${TAB_BAR_COLORS.border}`,
+          borderRadius: 4,
+          color: isTesting ? '#555' : '#aaa',
+          cursor: isTesting ? 'default' : 'pointer'
+        }}
+      >
+        {isTesting ? 'Testing...' : 'Test Physics'}
+      </button>
     </div>
   )
 }
@@ -368,6 +392,9 @@ export default function App() {
           <ModelBrowser />
         </div>
       </div>
+      
+      {/* Right-click context menu */}
+      <ContextMenu />
     </div>
   )
 }

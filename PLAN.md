@@ -319,14 +319,105 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Complete**: Added static ground collider at Y=0.
 - Switched parts to real colliders with collision groups to enable ground contact while ignoring inter-part collisions.
 
-### [ ] Task 10.3: Static Anchoring / "Pinned" Parts
-- **Goal**: Allow builds to be supported by something other than the ground.
-- **UI**: Add a "Pin to World" toggle in the part context menu.
-- **Simulation**: Set pinned parts to `fixed` rigid body type so they act as anchors for the rest of the structure.
+### ✅ Task 10.3: Static Anchoring / "Pinned" Parts
+- **Complete**: Added `is_pinned` property to `PartInstance`.
+- Implemented `togglePinPart` in `BuildStore` with undo/redo support.
+- Added **ContextMenu** (right-click) with "Pin to World" functionality.
+- Physics: Pinned parts are treated as `fixed` rigid bodies.
 
-### [ ] Task 10.4: Gravity-Aware Stability Score
-- **Goal**: Use gravity to detect structural weaknesses.
-- **Algorithm**: If a structure collapses under its own weight during simulation, reduce the stability score.
-- **Visualization**: Highlight parts that experience the most stress from gravitational load.
+### ✅ Task 10.4: Gravity-Aware Stability Score
+- **Complete**: Implemented `checkStability` in `RapierSimulator` (120-step displacement check).
+- **UI**: Added "Test Physics" button in the Top Bar (Stability Indicator).
+- Integrates with `stressData` to highlight parts that collapsed.
+
+---
+
+## Phase 10 UX Follow-ups: Ground Visuals & Shadows
+
+### Task 10.5: More Obvious Ground Plane
+- Enlarge ground plane to always be visible in viewport
+- Change ground color to light gray (or configurable in settings)
+- Add grid lines or checkerboard texture for visual reference/scale
+- Optionally add "thickness" (extruded slab or edge highlight) for depth separation
+
+### Task 10.6: Real-Time Shadows
+- Enable shadow casting/receiving for all part meshes and ground in R3F scene
+- Add `<ambientLight>` for basic fill, `<directionalLight castShadow={true}>` for primary sunlight effect
+- Make sure all part meshes have `castShadow={true}` and ground has `receiveShadow={true}`
+- Tune shadow map size/resolution for performance
+- Verify Three.js mesh transforms sync with Rapier physics so shadows remain accurate
+
+### Task 10.7: "Touching Ground" Feedback
+- Add highlight or "pulse" effect when parts land on the ground (optional, improves affordance)
+- Lift parts slightly above ground on spawn to avoid z-fighting/clipping
+- Consider context HUD/note for ground contact during stability check or "Test Physics"
+
+### Documentation:
+- List all new visual/UX tasks under a single "Phase 10 Visual Grounding/Feedback" section for the next PR
+
+---
+
+## Phase 11: Position agnostic format for AI generation
+
+Gemini suggested that VLM models are bad at maths. So we can't 
+really have explicit precise positioning in the format generated. We can still use it for the UI exports, but if we had 
+a format with no positions, only parts and connections, can we still create it in the UI by building up part by part as-if a user had built it. We must do these connection position calculations already as part of the user interaction.
+
+### Phase 11.1: Define the new format - no quaternions or positions
+
+This should be similar to the other formats, without the explicit rotations and coordinates.
+
+### Phase 11.2: Define build/import/rendering process for the new format importing.
+
+- Pick a starting point (the root node)
+- traverse connections from the root
+- Solve constraints 
+
+Handling Closed Loops (The Tricky Part)
+K'NEX models frequently loop back on themselves (e.g., building a square or a triangle). Your traversal code needs to keep track of parts it has already placed. If a connection links two parts that already have calculated global coordinates, your code should verify that the distance between their connecting ports is close to zero (a structural integrity check) rather than recalculating their positions.
+
+---
+
+## Phase 12 — K'NEX Shorthand Format & Live Text UI
+
+### 12.1: Implement Shorthand-to-Model Parser (Core)
+- Core implementation: Create parser (`src/core/shorthand_parser.py` or TS equivalent) that parses Graphviz-style text shorthand (e.g. `rc3_1.A -- gr_1.end1`).
+- Supports: Fixed (`--`), revolute (`~~`), semantic ports/IDs.
+- Outputs standard JSON parts/connections, no positions/quaternions.
+- Full unit tests: Parsing, syntax errors, ambiguous/wrong lines.
+
+### 12.2: Add Live Shorthand Editor & 3D Preview (Frontend)
+- New UI panel: Enter shorthand text and see live update in 3D scene ("What you write is what you see").
+- Parse on every keystroke, instant build/render/validate error feedback.
+- Syntax highlighting, error markers, template chooser.
+- Supports hybrid editing: build from text + tweak visually.
+
+### 12.3: Import/Export & Cross-Format Syncing
+- Add shorthand import/export to BuildMenu and relevant dialogs.
+- Standardize mapping: instance IDs, part types, ports.
+- Validates and provides error/hint feedback on import.
+
+### 12.4: User Docs & Tutorials
+- Update docs: "How to use Shorthand Format"—examples (rectangle, triangle, motor chain).
+- Explain port names, joints, instances for clarity.
+
+### 12.5: AI Pipeline & Workflow Integration
+- UI/API: Support fine-tuned VLM output shorthand code instead of JSON.
+- Future: Add endpoint (core/frontend) to accept shorthand and return parsed/instantiated model.
+
+---
+
+## Phase 4 — Scan-to-Build Computer Vision Pipeline (Update)
+
+### Amendments (Apple Silicon/MLX + Shorthand Target)
+
+- **Data prep**: All image/train.jsonl pairs now use the shorthand format for output.
+- **New task**: Write script (`tools/shorthand_dataset_builder.py`) that bundles images + shorthand into train.jsonl for MLX LoRA training. Full validation/error reporting.
+- **Model training**: VLM trained to generate correct, clean shorthand code given K'NEX sketches.
+- **Post-processing**: Use parser to convert VLM shorthand to JSON model for instant UI rendering/editing.
+
+### Updated Success Criteria
+- Given sketch images, VLM outputs correct/parseable shorthand ≥80% of the time.
+- Pipeline supports sketch → VLM → shorthand → 3D model round-trip.
 
 ---

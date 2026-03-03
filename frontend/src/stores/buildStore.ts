@@ -75,12 +75,16 @@ export interface BuildStore {
   clearBuild: () => void
   /** Update color of a specific part instance. */
   updatePartColor: (instanceId: string, color: string) => void
+  /** Toggle pinned status of a specific part instance. */
+  togglePinPart: (instanceId: string) => void
   /** Set stability score (from sidecar response). */
   setStabilityScore: (score: number) => void
   /** Set stress data. */
   setStressData: (data: Record<string, number>) => void
   /** Recalculate stability using the backend bridge. */
   recalculateStability: () => Promise<void>
+  /** Run a rapid physics-based stability check (gravity collapse). */
+  testStability: () => Promise<void>
   /** Set sidecar connection status. */
   setSidecarConnected: (connected: boolean) => void
   /** Update current model metadata */
@@ -355,6 +359,19 @@ export const useBuildStore = create<BuildStore>()(
       })
     },
 
+    togglePinPart: (instanceId: string) => {
+      set((state) => {
+        const part = state.parts[instanceId]
+        if (part) {
+          const before = createSnapshot(state)
+          part.is_pinned = !part.is_pinned
+          const after = createSnapshot(state)
+          state.undoStack.push({ type: 'add_part', before, after })
+          state.redoStack = []
+        }
+      })
+    },
+
     setStabilityScore: (score: number) => {
       set((state) => {
         state.stabilityScore = score
@@ -383,6 +400,29 @@ export const useBuildStore = create<BuildStore>()(
         }
       } catch (err) {
         console.error('Failed to recalculate stability', err)
+      }
+    },
+
+    testStability: async () => {
+      const state = get()
+      const partsList = Object.values(state.parts)
+      if (partsList.length === 0) return
+
+      const { RapierSimulator } = await import('../services/rapierSimulator')
+      const sim = new RapierSimulator()
+      
+      try {
+        await sim.init(state.parts, state.connections, 0)
+        const { score, unstableParts } = await sim.checkStability(120)
+        
+        state.setStabilityScore(score)
+        const stress: Record<string, number> = {}
+        for (const id of unstableParts) stress[id] = 1.0
+        state.setStressData(stress)
+      } catch (err) {
+        console.error('Stability test failed', err)
+      } finally {
+        sim.destroy()
       }
     },
 

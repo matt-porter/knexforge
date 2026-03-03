@@ -34,6 +34,7 @@ export interface PartInstance {
   position: [number, number, number]
   rotation: [number, number, number, number] // quaternion [x, y, z, w]
   color?: string // override default_color
+  is_pinned?: boolean // If true, the part is static/fixed in world space
 }
 
 /** A connection between two part instances. */

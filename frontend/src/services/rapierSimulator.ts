@@ -172,7 +172,8 @@ export class RapierSimulator {
       const isMotor = inst.part_id.includes('motor')
       if (isMotor) motorIds.push(inst.instance_id)
 
-      const bodyDesc = isMotor
+      // Motor parts AND pinned parts are fixed in world space.
+      const bodyDesc = (isMotor || inst.is_pinned)
         ? RAPIER.RigidBodyDesc.fixed()
         : RAPIER.RigidBodyDesc.dynamic()
             .setLinearDamping(0.5) // Increased for gravity stability
@@ -339,6 +340,49 @@ export class RapierSimulator {
       this.bodies.size,
       this.motorJoints.length,
     )
+  }
+
+  /**
+   * Run a rapid stability check by stepping the simulation forward.
+   * If parts move more than a threshold, they are considered unstable.
+   * Returns a stability score (0-100) and list of unstable part IDs.
+   */
+  async checkStability(steps: number = 120): Promise<{ score: number; unstableParts: string[] }> {
+    if (!this.world || !this._initialized) return { score: 100, unstableParts: [] }
+
+    // Record initial positions
+    const initialPos = new Map<string, { x: number; y: number; z: number }>()
+    for (const [id, body] of this.bodies) {
+      initialPos.set(id, { ...body.translation() })
+    }
+
+    // Step the simulation
+    for (let i = 0; i < steps; i++) {
+      this.world.step()
+    }
+
+    // Check displacement
+    const unstableParts: string[] = []
+    const threshold = 15.0 // 15mm movement is considered a collapse
+    
+    for (const [id, body] of this.bodies) {
+      const start = initialPos.get(id)
+      if (!start) continue
+      const end = body.translation()
+      
+      const dist = Math.sqrt(
+        (end.x - start.x) ** 2 +
+        (end.y - start.y) ** 2 +
+        (end.z - start.z) ** 2
+      )
+      
+      if (dist > threshold) {
+        unstableParts.push(id)
+      }
+    }
+
+    const score = Math.max(0, 100 - (unstableParts.length / this.bodies.size) * 100)
+    return { score, unstableParts }
   }
 
   /**

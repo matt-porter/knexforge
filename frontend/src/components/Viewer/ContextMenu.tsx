@@ -1,113 +1,112 @@
-import { useEffect } from 'react'
+import { useRef, useEffect } from 'react'
 import { useInteractionStore } from '../../stores/interactionStore'
 import { useBuildStore } from '../../stores/buildStore'
 
-export function ContextMenu() {
-  const contextMenu = useInteractionStore((s) => s.contextMenu)
-  const closeContextMenu = useInteractionStore((s) => s.closeContextMenu)
+const COLORS = {
+  bg: '#1a1a3e',
+  border: '#2a2a4a',
+  text: '#ddd',
+  hover: '#2a2a5e',
+  accent: '#4488ff',
+  danger: '#ff6655',
+}
 
-  // Close context menu on click outside
+export function ContextMenu() {
+  const { contextMenu, closeContextMenu } = useInteractionStore()
+  const { parts, removePart, togglePinPart, updatePartColor } = useBuildStore()
+  const menuRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
-    if (!contextMenu) return
-    const handleClick = () => closeContextMenu()
-    window.addEventListener('click', handleClick)
-    return () => window.removeEventListener('click', handleClick)
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        closeContextMenu()
+      }
+    }
+    if (contextMenu) {
+      window.addEventListener('mousedown', handleClickOutside)
+    }
+    return () => window.removeEventListener('mousedown', handleClickOutside)
   }, [contextMenu, closeContextMenu])
 
   if (!contextMenu) return null
 
-  const handleDuplicate = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    const { parts } = useBuildStore.getState()
-    const part = parts[contextMenu.partId]
-    if (part) {
-      useBuildStore.getState().selectPart(contextMenu.partId)
-      useInteractionStore.getState().startPlacing(part.part_id, contextMenu.partId)
-    }
+  const part = parts[contextMenu.partId]
+  if (!part) return null
+
+  const handleAction = (action: () => void) => {
+    action()
     closeContextMenu()
   }
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    useBuildStore.getState().removePart(contextMenu.partId)
-    closeContextMenu()
-  }
-
-  const handleFocus = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    useBuildStore.getState().selectPart(contextMenu.partId)
-    window.dispatchEvent(new CustomEvent('knexforge:focus-camera'))
-    closeContextMenu()
-  }
-
-  const handleChangeColor = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    // For now we'll just open a simple prompt or cycle to a random color, or set a specific color.
-    // Ideally we'd have a color picker, but let's prompt the user or cycle.
-    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff', '#000000', '#888888', '#ffa500']
-    const randomColor = colors[Math.floor(Math.random() * colors.length)]
-    
-    useBuildStore.getState().updatePartColor(contextMenu.partId, randomColor)
-    closeContextMenu()
-  }
+  const isPinned = part.is_pinned
 
   return (
     <div
+      ref={menuRef}
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top: contextMenu.y,
         left: contextMenu.x,
-        background: '#1a1a2e',
-        border: '1px solid #4488ff',
-        borderRadius: '6px',
-        padding: '4px 0',
-        zIndex: 1000,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-        minWidth: '150px',
+        zIndex: 2000,
+        background: COLORS.bg,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 8,
+        padding: '6px 0',
+        minWidth: 160,
+        boxShadow: '0 8px 16px rgba(0,0,0,0.5)',
+        display: 'flex',
+        flexDirection: 'column',
       }}
-      onContextMenu={(e) => {
-        e.preventDefault() // prevent native menu on the custom menu itself
-      }}
+      onContextMenu={(e) => e.preventDefault()}
     >
-      <ContextMenuItem label="Duplicate" shortcut="Ctrl+D" onClick={handleDuplicate} />
-      <ContextMenuItem label="Delete" shortcut="Del" onClick={handleDelete} />
-      <ContextMenuItem label="Focus Camera" shortcut="F" onClick={handleFocus} />
-      <ContextMenuItem label="Random Color" shortcut="" onClick={handleChangeColor} />
+      <div style={{ padding: '6px 14px', fontSize: 11, color: '#666', borderBottom: `1px solid ${COLORS.border}`, marginBottom: 4 }}>
+        Part: {part.instance_id.split('-')[0]}
+      </div>
+
+      <MenuButton onClick={() => handleAction(() => togglePinPart(part.instance_id))}>
+        {isPinned ? '📍 Unpin from World' : '📌 Pin to World'}
+      </MenuButton>
+
+      <MenuButton onClick={() => handleAction(() => {
+        const colors = ['#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff']
+        const nextColor = colors[(colors.indexOf(part.color ?? '#ffffff') + 1) % colors.length]
+        updatePartColor(part.instance_id, nextColor)
+      })}>
+        🎨 Cycle Color
+      </MenuButton>
+
+      <MenuButton
+        onClick={() => handleAction(() => removePart(part.instance_id))}
+        style={{ color: COLORS.danger }}
+      >
+        🗑️ Delete Part
+      </MenuButton>
     </div>
   )
 }
 
-function ContextMenuItem({
-  label,
-  shortcut,
-  onClick,
-}: {
-  label: string
-  shortcut: string
-  onClick: (e: React.MouseEvent) => void
-}) {
+function MenuButton({ children, onClick, style }: { children: React.ReactNode; onClick: () => void; style?: React.CSSProperties }) {
   return (
-    <div
+    <button
       onClick={onClick}
       style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        padding: '8px 16px',
-        color: '#ccc',
-        fontSize: '13px',
+        background: 'transparent',
+        border: 'none',
+        padding: '8px 14px',
+        color: COLORS.text,
+        fontSize: 13,
+        textAlign: 'left',
         cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        transition: 'background 0.1s',
+        ...style,
       }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = '#2a2a4a'
-        e.currentTarget.style.color = '#fff'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent'
-        e.currentTarget.style.color = '#ccc'
-      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = COLORS.hover)}
+      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
     >
-      <span>{label}</span>
-      {shortcut && <span style={{ color: '#888', fontSize: '11px' }}>{shortcut}</span>}
-    </div>
+      {children}
+    </button>
   )
 }
