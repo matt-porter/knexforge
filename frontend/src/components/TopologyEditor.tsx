@@ -10,6 +10,9 @@ import {
   TopologyValidationError,
   type TopologyModel,
 } from '../services/topologySolver'
+import { parseCompactTopology, stringifyCompactTopology } from '../services/topologyCompactFormat'
+
+type EditorFormat = 'json' | 'compact'
 
 function safeParseTopology(text: string): TopologyModel {
   const parsed = JSON.parse(text) as unknown
@@ -44,9 +47,29 @@ const DEFAULT_TEMPLATE = `{
   ]
 }`
 
+const DEFAULT_COMPACT_TEMPLATE = `part c1 connector-4way-green-v1
+part r1 rod-128-red-v1
+
+r1.end1 -- c1.A`
+
+function parseEditorText(rawText: string, format: EditorFormat): TopologyModel {
+  if (format === 'json') {
+    return safeParseTopology(rawText)
+  }
+  return parseCompactTopology(rawText)
+}
+
+function serializeEditorText(model: TopologyModel, format: EditorFormat): string {
+  if (format === 'json') {
+    return JSON.stringify(model, null, 2)
+  }
+  return stringifyCompactTopology(model)
+}
+
 export function TopologyEditor() {
   const [isExpanded, setIsExpanded] = useState(true)
   const [isAutoApply, setIsAutoApply] = useState(true)
+  const [format, setFormat] = useState<EditorFormat>('json')
   const [text, setText] = useState(DEFAULT_TEMPLATE)
   const [status, setStatus] = useState('Ready')
   const [errorLines, setErrorLines] = useState<string[]>([])
@@ -92,10 +115,12 @@ export function TopologyEditor() {
 
     setIsApplying(true)
     try {
-      const model = safeParseTopology(rawText)
+      const model = parseEditorText(rawText, format)
       const solved = solveTopology(model, defs)
       loadBuild(solved.parts, solved.connections)
-      setStatus(`Applied topology (${solved.parts.length} parts, ${solved.connections.length} connections)`)
+      setStatus(
+        `Applied ${format.toUpperCase()} topology (${solved.parts.length} parts, ${solved.connections.length} connections)`,
+      )
       setErrorLines([])
     } catch (error) {
       if (error instanceof TopologyValidationError || error instanceof TopologySolveError) {
@@ -108,7 +133,7 @@ export function TopologyEditor() {
     } finally {
       setIsApplying(false)
     }
-  }, [loadBuild])
+  }, [format, loadBuild])
 
   useEffect(() => {
     if (!isAutoApply || !partDefsReady || !hasUserEditedRef.current) return
@@ -120,9 +145,28 @@ export function TopologyEditor() {
     return () => window.clearTimeout(timer)
   }, [isAutoApply, text, partDefsReady, applyText])
 
+  const handleFormatChange = (nextFormat: EditorFormat) => {
+    if (nextFormat === format) return
+
+    try {
+      const model = parseEditorText(text, format)
+      setText(serializeEditorText(model, nextFormat))
+      setStatus(`Switched to ${nextFormat.toUpperCase()} mode`)
+      setErrorLines([])
+    } catch (error) {
+      const fallback = nextFormat === 'json' ? DEFAULT_TEMPLATE : DEFAULT_COMPACT_TEMPLATE
+      setText(fallback)
+      setStatus(`Switched to ${nextFormat.toUpperCase()} mode (could not convert previous text)`)
+      setErrorLines([error instanceof Error ? error.message : String(error)])
+    }
+
+    setFormat(nextFormat)
+    hasUserEditedRef.current = false
+  }
+
   const handleUseCurrentBuild = () => {
     const topology = buildStateToTopology(Object.values(parts), connections)
-    setText(JSON.stringify(topology, null, 2))
+    setText(serializeEditorText(topology, format))
     setStatus('Loaded current build into topology editor')
   }
 
@@ -178,6 +222,36 @@ export function TopologyEditor() {
         <>
           <div style={{ padding: 10, borderBottom: '1px solid #1e293b' }}>
             <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Current Build: {currentPieceSummary}</div>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+              <button
+                onClick={() => handleFormatChange('json')}
+                style={{
+                  border: '1px solid #334155',
+                  background: format === 'json' ? '#1d4ed8' : '#1e293b',
+                  color: '#dbeafe',
+                  borderRadius: 4,
+                  padding: '3px 7px',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                }}
+              >
+                JSON
+              </button>
+              <button
+                onClick={() => handleFormatChange('compact')}
+                style={{
+                  border: '1px solid #334155',
+                  background: format === 'compact' ? '#1d4ed8' : '#1e293b',
+                  color: '#dbeafe',
+                  borderRadius: 4,
+                  padding: '3px 7px',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                }}
+              >
+                Compact
+              </button>
+            </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <button
                 onClick={handleUseCurrentBuild}

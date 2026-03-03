@@ -411,11 +411,12 @@ share on a public gallery — all hosted at $0/month on free tiers.
 
 **Note on scope**: Keep this separate from Phase 11. Phase 11 is core format/solver correctness; Phase 12 is text UX + parser ergonomics + ML-facing workflow built on top of that foundation.
 
-### [ ] Task 12.1: Implement Shorthand Grammar + Parser (Core)
+### [~] Task 12.1: Implement Shorthand Grammar + Parser (Core)
 - Create parser in `src/core/shorthand_parser.py` (core-first, no frontend-only parser).
 - Grammar supports Graphviz-style edges (e.g., `rc3_1.A -- gr_1.end1`, `~~` for revolute).
 - Parser outputs `topology-v1` structure only (no transforms).
 - Include strict error reporting: invalid syntax, unknown symbols, ambiguous tokens, duplicate declarations.
+- **Status (2026-03-03)**: Frontend compact parser/formatter implemented in `frontend/src/services/topologyCompactFormat.ts` and wired into live editor. Core Python parser remains pending.
 
 ### [ ] Task 12.2: Shorthand Lint + Auto-Fix Utilities
 - Add optional canonical formatter for shorthand (stable whitespace/order).
