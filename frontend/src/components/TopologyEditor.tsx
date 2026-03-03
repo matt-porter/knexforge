@@ -194,6 +194,10 @@ export function TopologyEditor() {
     hasUserEditedRef.current = false
   }
 
+  const toggleFormat = () => {
+    handleFormatChange(format === 'compact' ? 'json' : 'compact')
+  }
+
   const handleUseCurrentBuild = () => {
     const topology = buildStateToTopology(Object.values(parts), connections)
     setText(serializeEditorText(topology, format))
@@ -244,6 +248,8 @@ export function TopologyEditor() {
         borderLeft: '1px solid #1e293b',
         display: 'flex',
         flexDirection: 'column',
+        flex: '0 0 auto',
+        flexShrink: 0,
         transition: isResizing ? 'none' : 'width 0.2s ease',
         position: 'relative',
       }}
@@ -256,13 +262,14 @@ export function TopologyEditor() {
           }}
           style={{
             position: 'absolute',
-            left: -4,
+            left: 0,
             top: 0,
             bottom: 0,
-            width: 8,
+            width: 10,
             cursor: 'col-resize',
             zIndex: 20,
-            background: isResizing ? 'rgba(59,130,246,0.35)' : 'transparent',
+            borderRight: '1px solid #334155',
+            background: isResizing ? 'rgba(59,130,246,0.35)' : 'rgba(15,23,42,0.95)',
           }}
           title="Drag to resize editor"
         />
@@ -331,7 +338,33 @@ export function TopologyEditor() {
               >
                 compact
               </button>
-              <span style={{ color: '#64748b', fontSize: 11 }}>{'<_o>'}</span>
+              <button
+                onClick={toggleFormat}
+                style={{
+                  position: 'relative',
+                  width: 30,
+                  height: 16,
+                  borderRadius: 999,
+                  border: '1px solid #334155',
+                  background: format === 'json' ? '#1d4ed8' : '#0f172a',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+                title="Toggle compact/json"
+              >
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 1,
+                    left: format === 'json' ? 15 : 1,
+                    width: 12,
+                    height: 12,
+                    borderRadius: '50%',
+                    background: '#dbeafe',
+                    transition: 'left 0.15s ease',
+                  }}
+                />
+              </button>
               <button
                 onClick={() => handleFormatChange('json')}
                 style={{
