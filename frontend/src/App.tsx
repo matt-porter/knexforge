@@ -345,6 +345,32 @@ export default function App() {
     return () => window.removeEventListener('knexforge:open-builder', handler)
   }, [])
 
+  // Keyboard shortcuts for toggling panels (P for parts, T for text editor)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle when in builder tab and not typing in input
+      if (activeTab !== 'builder') return
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+
+      // P: Toggle parts panel
+      if ((e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        setPartsPanelOpen((prev) => !prev)
+        return
+      }
+
+      // T: Toggle text editor (dispatches custom event for TopologyEditor to handle)
+      if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('knexforge:toggle-text-editor'))
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeTab])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh' }}>
       {/* Top tab bar */}
@@ -371,9 +397,9 @@ export default function App() {
                 borderRight: '1px solid #2a2a4a',
                 background: '#0f0f23',
                 display: 'flex',
-                alignItems: 'flex-start',
+                alignItems: 'center',
                 justifyContent: 'center',
-                paddingTop: 10,
+                flexShrink: 0,
               }}
             >
               <button
@@ -383,9 +409,11 @@ export default function App() {
                   background: '#111827',
                   color: '#93c5fd',
                   borderRadius: 4,
-                  padding: '2px 6px',
+                  padding: '6px 0',
                   cursor: 'pointer',
-                  fontSize: 11,
+                  fontSize: 10,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
                 }}
                 title="Show parts panel"
               >
@@ -396,7 +424,12 @@ export default function App() {
           <div style={{ flex: 1, position: 'relative' }}>
             <KnexViewer loadDemoWhenEmpty={true} />
           </div>
-          <TopologyEditor />
+          {/* Topology editor with toggle button when collapsed */}
+          {(() => {
+            // We need to access the internal isExpanded state from TopologyEditor
+            // For now, we'll always render it and let it manage its own visibility
+            return <TopologyEditor />;
+          })()}
         </div>
 
         {/* My Models tab */}

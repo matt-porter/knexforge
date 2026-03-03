@@ -93,6 +93,15 @@ export function TopologyEditor() {
 
   const loadBuild = useBuildStore((state) => state.loadBuild)
 
+  // Listen for global toggle event from App component (T key shortcut)
+  useEffect(() => {
+    const handleToggle = () => {
+      setIsExpanded((prev) => !prev)
+    }
+    window.addEventListener('knexforge:toggle-text-editor' as any, handleToggle)
+    return () => window.removeEventListener('knexforge:toggle-text-editor' as any, handleToggle)
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     void loadAllPartDefs()
@@ -257,28 +266,54 @@ export function TopologyEditor() {
         position: 'relative',
       }}
     >
-      {isExpanded ? (
-        <div
-          onMouseDown={(event) => {
+      {/* Always show resize/toggle handle on left edge */}
+      <div
+        onMouseDown={(event) => {
+          if (isExpanded) {
+            // Resize mode when expanded
             event.preventDefault()
             resizeStartXRef.current = event.clientX
             resizeStartWidthRef.current = panelWidth
             setIsResizing(true)
-          }}
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 10,
-            cursor: 'col-resize',
-            zIndex: 20,
-            borderRight: '1px solid #334155',
-            background: isResizing ? 'rgba(59,130,246,0.35)' : 'rgba(15,23,42,0.95)',
-          }}
-          title="Drag to resize editor"
-        />
-      ) : null}
+          } else {
+            // Toggle expand when collapsed
+            event.preventDefault()
+            setIsExpanded(true)
+          }
+        }}
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: isExpanded ? 10 : 42,
+          cursor: isExpanded ? 'col-resize' : 'pointer',
+          zIndex: 20,
+          borderRight: '1px solid #334155',
+          background: isResizing 
+            ? 'rgba(59,130,246,0.35)' 
+            : isExpanded 
+              ? 'rgba(15,23,42,0.95)' 
+              : 'linear-gradient(90deg, rgba(15,23,42,0.95) 0%, rgba(59,130,246,0.2) 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        title={isExpanded ? 'Drag to resize editor' : 'Click to expand editor'}
+      >
+        {!isExpanded && (
+          <span style={{ 
+            fontSize: 9, 
+            fontWeight: 700, 
+            color: '#4fc3f7',
+            writingMode: 'vertical-rl',
+            textOrientation: 'mixed',
+            letterSpacing: '2px'
+          }}>
+            TXT
+          </span>
+        )}
+      </div>
 
       <div
         style={{
@@ -296,7 +331,10 @@ export function TopologyEditor() {
       >
         {isExpanded ? <span>TOPOLOGY LIVE EDITOR</span> : null}
         <button
-          onClick={() => setIsExpanded((value) => !value)}
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsExpanded((value) => !value)}
+          }
           style={{
             border: '1px solid #334155',
             background: '#111827',

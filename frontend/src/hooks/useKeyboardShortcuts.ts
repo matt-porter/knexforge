@@ -7,6 +7,8 @@
  * - Delete / Backspace: Remove selected part
  * - Escape: Cancel placement
  * - R: Rotate ghost preview 90°
+ * - P: Toggle parts panel
+ * - T: Toggle text editor panel
  */
 
 import { useEffect } from 'react'
