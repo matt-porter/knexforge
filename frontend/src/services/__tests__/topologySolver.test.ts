@@ -204,11 +204,12 @@ describe('topologySolver', () => {
       connections: [],
     }
 
+    // Default ground offset is 50mm to lift builds above ground plane
     const solved = solveTopology(topology, defs, { componentSpacingMm: 300 })
     const byId = new Map(solved.parts.map((part) => [part.instance_id, part]))
 
-    expect(byId.get('a_connector')?.position).toEqual([0, 0, 0])
-    expect(byId.get('b_connector')?.position).toEqual([300, 0, 0])
+    expect(byId.get('a_connector')?.position).toEqual([0, 50, 0])
+    expect(byId.get('b_connector')?.position).toEqual([300, 50, 0])
   })
 
   it('fails with a closed-loop residual violation for inconsistent constraints', () => {

@@ -30,6 +30,9 @@ export function useDatasetLoader(): { loading: boolean; error: string | null } {
 // Conversion helpers
 // ---------------------------------------------------------------------------
 
+/** Ground offset to lift builds above the ground plane (50mm = ~2 rods height) */
+const GROUND_OFFSET_MM = 50
+
 /**
  * Convert a DatasetEntry's action stream into the PartInstance[] and
  * Connection[] arrays that the BuildStore expects.
@@ -56,10 +59,16 @@ export function datasetEntryToBuild(entry: DatasetEntry): {
   for (const action of entry.actions) {
     if (action.action === 'add_part') {
       const a = action as DatasetAddPartAction
+      // Lift build above ground plane so parts sit ON ground, not IN it
+      const liftedPosition: [number, number, number] = [
+        a.position[0],
+        a.position[1] + GROUND_OFFSET_MM,
+        a.position[2],
+      ]
       parts.push({
         instance_id: a.instance_id,
         part_id: a.part_id,
-        position: a.position,
+        position: liftedPosition,
         // Dataset stores quaternion as [x, y, z, w] — same order as PartInstance.rotation
         rotation: a.quaternion,
         color: a.color ?? undefined,

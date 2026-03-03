@@ -112,7 +112,8 @@ describe('datasetEntryToBuild — PartInstance conversion', () => {
   it('maps position correctly', () => {
     const { parts } = datasetEntryToBuild(FIXTURE)
     const rod = parts.find((p) => p.instance_id === 'ab4b13f4-cbb8-42b9-9e4d-1f28b6e0992e')
-    expect(rod?.position).toEqual([0, 0, 27])
+    // Ground offset of 50mm is added to lift builds above ground plane
+    expect(rod?.position).toEqual([0, 50, 27])
   })
 
   it('maps quaternion → rotation in [x,y,z,w] order', () => {

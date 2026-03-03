@@ -25,6 +25,8 @@ export interface SolveTopologyOptions {
   componentSpacingMm?: number
   positionToleranceMm?: number
   angleToleranceDeg?: number
+  /** Offset Y position to lift build above ground plane (default: 50mm) */
+  groundOffsetMm?: number
 }
 
 export interface SolvedTopologyBuild {
@@ -440,6 +442,8 @@ export function solveTopology(
   const componentSpacingMm = options.componentSpacingMm ?? 220
   const positionToleranceMm = options.positionToleranceMm ?? 0.5
   const angleToleranceDeg = options.angleToleranceDeg ?? 8.0
+  // Lift builds above ground plane so they sit ON the ground, not IN it
+  const groundOffsetMm = options.groundOffsetMm ?? 50
 
   const canonical = canonicalizeTopology(model)
   const { partsByInstance, connections } = validateAndResolveConnections(canonical, partDefsById)
@@ -485,7 +489,7 @@ export function solveTopology(
 
     const componentIndex = componentIdByInstance.get(root) ?? 0
     transforms.set(root, {
-      position: new Vector3(componentIndex * componentSpacingMm, 0, 0),
+      position: new Vector3(componentIndex * componentSpacingMm, groundOffsetMm, 0),
       rotation: new Quaternion(0, 0, 0, 1),
     })
 

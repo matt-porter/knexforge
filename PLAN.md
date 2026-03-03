@@ -363,10 +363,32 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `frontend/src/components/Viewer/GroundContactFeedback.tsx`
 - **Tests**: `frontend/src/components/Viewer/__tests__/GroundContactFeedback.test.tsx` (4 tests)
 
+### ✅ Task 10.8: Build Positioning & Centering (Follow-up to 10.5-10.7)
+**Problem identified**: With visible ground plane, default model (proc_0001) and text panel imports spawn below ground level.
+
+**Solutions implemented**:
+- **Ground offset in topology solver**: Added `groundOffsetMm` parameter (default 50mm) to `solveTopology()` - lifts all root components above ground
+- **Ground offset in dataset loading**: Added `GROUND_OFFSET_MM = 50` constant to `datasetEntryToBuild()` - shifts all Y positions up by 50mm when loading from dataset
+- **"Center Build" feature**: Added `centerBuild()` function to buildStore that:
+  - Calculates bounding box of all parts
+  - Centers horizontally (X, Z) around origin
+  - Lifts base to ground level + 50mm offset
+  - Supports undo/redo
+- **UI integration**: Added "🎯 Center Build" button in BuildMenu for user access
+
+**Files modified**:
+- `frontend/src/services/topologySolver.ts` - Added `groundOffsetMm` option (default 50)
+- `frontend/src/hooks/useDataset.ts` - Added ground offset when converting dataset entries
+- `frontend/src/stores/buildStore.ts` - Added `centerBuild()` action with undo/redo support
+- `frontend/src/components/BuildMenu.tsx` - Added "Center Build" button
+- Tests updated: `topologySolver.test.ts`, `useDataset.test.ts`
+
+**Tests**: All existing tests pass (187/190, 3 pre-existing failures in tabCycling.test.ts unrelated to these changes)
+
 ### Documentation:
 - ✅ Created comprehensive documentation in `docs/phase-10-visual-followups.md` with implementation details, test results, and success criteria
 
-**Phase 10 UX Follow-ups Status**: ✅ COMPLETE - All visual improvements implemented and tested
+**Phase 10 UX Follow-ups Status**: ✅ COMPLETE - All visual improvements implemented, tested, and build positioning fixed
 
 ---
 

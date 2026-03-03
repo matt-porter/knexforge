@@ -16,7 +16,7 @@ interface BuildMenuProps {
 }
 
 export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
-  const { parts, connections, currentModelId, currentModelTitle, stabilityScore, setCurrentModelMeta } = useBuildStore()
+  const { parts, connections, currentModelId, currentModelTitle, stabilityScore, setCurrentModelMeta, centerBuild } = useBuildStore()
   const { user } = useUserStore()
   const [isExporting, setIsExporting] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
@@ -169,6 +169,25 @@ export function BuildMenu({ onExportStart, onExportSuccess }: BuildMenuProps) {
           {isSavingCloud ? 'Saving...' : cloudSaveSuccess ? 'Saved!' : 'Cloud Save'}
         </button>
       )}
+
+      <button
+        onClick={() => centerBuild()}
+        disabled={partsList.length === 0}
+        style={{
+          ...buttonStyle,
+          opacity: partsList.length === 0 ? 0.5 : 1,
+          cursor: partsList.length === 0 ? 'default' : 'pointer',
+        }}
+        onMouseEnter={(e) => {
+          if (partsList.length > 0) e.currentTarget.style.background = '#2a2a5e'
+        }}
+        onMouseLeave={(e) => {
+          if (partsList.length > 0) e.currentTarget.style.background = '#1a1a3e'
+        }}
+      >
+        <span>🎯</span>
+        Center Build
+      </button>
 
       <button
         onClick={handleExport}

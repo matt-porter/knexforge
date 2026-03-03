@@ -17,7 +17,7 @@ import { sidecarBridge } from '../services/sidecarBridge'
 
 /** A recorded action for undo/redo. */
 export interface BuildAction {
-  type: 'add_part' | 'remove_part' | 'snap'
+  type: 'add_part' | 'remove_part' | 'snap' | 'center_build'
   /** Snapshot before the action was applied (for undo). */
   before: BuildSnapshot
   /** Snapshot after the action was applied (for redo). Optional for backward compatibility. */
@@ -77,6 +77,8 @@ export interface BuildStore {
   updatePartColor: (instanceId: string, color: string) => void
   /** Toggle pinned status of a specific part instance. */
   togglePinPart: (instanceId: string) => void
+  /** Center the entire build above ground plane and horizontally centered. */
+  centerBuild: () => void
   /** Set stability score (from sidecar response). */
   setStabilityScore: (score: number) => void
   /** Set stress data. */
@@ -369,6 +371,47 @@ export const useBuildStore = create<BuildStore>()(
           state.undoStack.push({ type: 'add_part', before, after })
           state.redoStack = []
         }
+      })
+    },
+
+    /** Center the entire build above ground plane and horizontally centered. */
+    centerBuild: () => {
+      set((state) => {
+        const partsList = Object.values(state.parts)
+        if (partsList.length === 0) return
+
+        // Calculate bounding box
+        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
+        let minY = Infinity
+
+        for (const part of partsList) {
+          const [x, y, z] = part.position
+          minX = Math.min(minX, x)
+          maxX = Math.max(maxX, x)
+          minZ = Math.min(minZ, z)
+          maxZ = Math.max(maxZ, z)
+          minY = Math.min(minY, y)
+        }
+
+        // Calculate offsets to center horizontally and lift base to ground level + offset
+        const centerX = -(minX + maxX) / 2
+        const centerZ = -(minZ + maxZ) / 2
+        const groundOffsetMM = 50 // Lift so base sits on ground, not in it
+        const offsetY = groundOffsetMM - minY
+
+        // Create snapshot for undo before modifying parts
+        const before = createSnapshot(state)
+
+        // Apply offsets to all parts
+        for (const part of partsList) {
+          part.position[0] += centerX
+          part.position[1] += offsetY
+          part.position[2] += centerZ
+        }
+
+        const after = createSnapshot(state)
+        state.undoStack.push({ type: 'center_build', before, after })
+        state.redoStack = []
       })
     },
 
