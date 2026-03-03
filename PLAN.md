@@ -357,67 +357,120 @@ share on a public gallery — all hosted at $0/month on free tiers.
 
 ---
 
-## Phase 11: Position agnostic format for AI generation
+## Phase 11 — Position-Agnostic Topology Format (Core Foundation)
 
-Gemini suggested that VLM models are bad at maths. So we can't 
-really have explicit precise positioning in the format generated. We can still use it for the UI exports, but if we had 
-a format with no positions, only parts and connections, can we still create it in the UI by building up part by part as-if a user had built it. We must do these connection position calculations already as part of the user interaction.
+**Why**: VLMs are weak at precise 3D math (absolute positions + quaternions), but strong at symbolic structure. This phase defines a topology-only representation and deterministic solver path so AI output can still become a valid 3D build.
 
-### Phase 11.1: Define the new format - no quaternions or positions
+### [ ] Task 11.1: Define `topology-v1` Schema (No Positions/Rotations)
+- New schema doc: `docs/topology-format.md` and JSON schema in `schema/`.
+- Required fields: `parts[]`, `connections[]`, `format_version`, optional `metadata`.
+- Explicitly forbidden in this format: absolute `position`, `quaternion`, free-form transforms.
+- Define ID/port conventions, joint types (`fixed`, `revolute`), and validation constraints.
+- Add migration notes from/to existing `.knx` export format.
 
-This should be similar to the other formats, without the explicit rotations and coordinates.
+### [ ] Task 11.2: Canonicalization Rules
+- Deterministic ordering for parts/connections so equivalent graphs serialize identically.
+- Deterministic instance ID strategy for generated builds (no random IDs in saved artifacts).
+- Add normalization helpers for stable diffs, dataset quality, and reproducible training targets.
 
-### Phase 11.2: Define build/import/rendering process for the new format importing.
+### [ ] Task 11.3: Topology Validator
+- Implement validator in `src/core/` for:
+  - Unknown part IDs/ports
+  - Duplicate instance IDs
+  - Invalid or duplicate connections
+  - Self-connections and impossible joint declarations
+- Return structured, user-facing diagnostics (line/item references where possible).
+- Unit tests in `src/core/tests/` for valid + invalid graph cases.
 
-- Pick a starting point (the root node)
-- traverse connections from the root
-- Solve constraints 
+### [ ] Task 11.4: Topology-to-Geometry Solver (Importer)
+- Implement deterministic placement traversal from a root part/component.
+- Place new parts by snapping ports using existing core snapping logic.
+- Support disconnected components with explicit anchoring strategy.
+- Add failure modes when graph cannot be embedded without violating constraints.
 
-Handling Closed Loops (The Tricky Part)
-K'NEX models frequently loop back on themselves (e.g., building a square or a triangle). Your traversal code needs to keep track of parts it has already placed. If a connection links two parts that already have calculated global coordinates, your code should verify that the distance between their connecting ports is close to zero (a structural integrity check) rather than recalculating their positions.
+### [ ] Task 11.5: Closed-Loop Constraint Handling
+- Track already-placed parts during traversal.
+- For loop-closing edges, verify residual port error is within tolerance (instead of re-placing).
+- Define tolerance thresholds and conflict policy (accept, warn, reject).
+- Add square/triangle/multi-loop regression tests.
 
----
-
-## Phase 12 — K'NEX Shorthand Format & Live Text UI
-
-### 12.1: Implement Shorthand-to-Model Parser (Core)
-- Core implementation: Create parser (`src/core/shorthand_parser.py` or TS equivalent) that parses Graphviz-style text shorthand (e.g. `rc3_1.A -- gr_1.end1`).
-- Supports: Fixed (`--`), revolute (`~~`), semantic ports/IDs.
-- Outputs standard JSON parts/connections, no positions/quaternions.
-- Full unit tests: Parsing, syntax errors, ambiguous/wrong lines.
-
-### 12.2: Add Live Shorthand Editor & 3D Preview (Frontend)
-- New UI panel: Enter shorthand text and see live update in 3D scene ("What you write is what you see").
-- Parse on every keystroke, instant build/render/validate error feedback.
-- Syntax highlighting, error markers, template chooser.
-- Supports hybrid editing: build from text + tweak visually.
-
-### 12.3: Import/Export & Cross-Format Syncing
-- Add shorthand import/export to BuildMenu and relevant dialogs.
-- Standardize mapping: instance IDs, part types, ports.
-- Validates and provides error/hint feedback on import.
-
-### 12.4: User Docs & Tutorials
-- Update docs: "How to use Shorthand Format"—examples (rectangle, triangle, motor chain).
-- Explain port names, joints, instances for clarity.
-
-### 12.5: AI Pipeline & Workflow Integration
-- UI/API: Support fine-tuned VLM output shorthand code instead of JSON.
-- Future: Add endpoint (core/frontend) to accept shorthand and return parsed/instantiated model.
+### [ ] Task 11.6: Round-Trip and Compatibility Tests
+- Round-trip: `.knx` → `topology-v1` → solved build → `.knx`.
+- Assert piece counts, connection graph equivalence, and acceptable transform drift.
+- Add fixtures for simple, branched, and loop-heavy builds.
 
 ---
 
-## Phase 4 — Scan-to-Build Computer Vision Pipeline (Update)
+## Phase 12 — Shorthand Authoring, UX, and AI Integration
 
-### Amendments (Apple Silicon/MLX + Shorthand Target)
+**Note on scope**: Keep this separate from Phase 11. Phase 11 is core format/solver correctness; Phase 12 is text UX + parser ergonomics + ML-facing workflow built on top of that foundation.
 
-- **Data prep**: All image/train.jsonl pairs now use the shorthand format for output.
-- **New task**: Write script (`tools/shorthand_dataset_builder.py`) that bundles images + shorthand into train.jsonl for MLX LoRA training. Full validation/error reporting.
-- **Model training**: VLM trained to generate correct, clean shorthand code given K'NEX sketches.
-- **Post-processing**: Use parser to convert VLM shorthand to JSON model for instant UI rendering/editing.
+### [ ] Task 12.1: Implement Shorthand Grammar + Parser (Core)
+- Create parser in `src/core/shorthand_parser.py` (core-first, no frontend-only parser).
+- Grammar supports Graphviz-style edges (e.g., `rc3_1.A -- gr_1.end1`, `~~` for revolute).
+- Parser outputs `topology-v1` structure only (no transforms).
+- Include strict error reporting: invalid syntax, unknown symbols, ambiguous tokens, duplicate declarations.
+
+### [ ] Task 12.2: Shorthand Lint + Auto-Fix Utilities
+- Add optional canonical formatter for shorthand (stable whitespace/order).
+- Add lints for common mistakes (missing ports, unsupported part aliases, disconnected fragments).
+- CLI utility for offline validation and CI (`python -m ...` style).
+
+### [ ] Task 12.3: Live Shorthand Editor + 3D Preview (Frontend)
+- Add editor panel with parse-on-change preview.
+- Show parser/validator errors inline with actionable hints.
+- Debounced solving for performance; preserve last valid state on parse failure.
+- Keep hybrid workflow: text edit + visual tweak in viewer.
+
+### [ ] Task 12.4: Import/Export and Cross-Format Sync
+- Add shorthand + `topology-v1` import/export in `BuildMenu` flows.
+- Ensure stable mapping for part aliases, instance IDs, and ports.
+- Add explicit conversion paths:
+  - `.knx` → `topology-v1`
+  - shorthand ↔ `topology-v1`
+  - shorthand/topology → solved scene
+
+### [ ] Task 12.5: AI Endpoint Contract
+- Define single inference contract: prompt + image(s) → shorthand text.
+- Add post-processing chain: shorthand parse → topology validate → solve/render.
+- Add fallback behavior for invalid model output (show diagnostics, keep editor editable).
+
+### [ ] Task 12.6: User Docs and Examples
+- Add docs for shorthand syntax, joint operators, naming conventions, and troubleshooting.
+- Provide example library: rectangle, triangle, motor chain, and closed-loop examples.
+
+---
+
+## Phase 4 — Scan-to-Build Computer Vision Pipeline (ML Update)
+
+### Amendments (Apple Silicon/MLX + Topology/Shorthand Target)
+
+### [ ] Task 4.7: Dataset Builder for MLX LoRA
+- Implement `tools/shorthand_dataset_builder.py` to bundle image + shorthand pairs into `train.jsonl`/`val.jsonl`.
+- Validate file existence, parseability, and canonical formatting before writing dataset rows.
+- Emit dataset QA report (invalid rows, class coverage, loop/non-loop ratios).
+
+### [ ] Task 4.8: Training Recipe and Reproducibility
+- Document MLX LoRA baseline config in `ai/scan-to-build/README.md` (model, batch size, iters, prompt template).
+- Save run configs + metrics for reproducibility (seed, adapter path, eval snapshot).
+- Establish minimum dataset split policy (train/val/test) and leakage checks.
+
+### [ ] Task 4.9: Evaluation Harness
+- Add automated eval script for held-out sketches:
+  - Parse success rate
+  - Topology validity rate
+  - Connection precision/recall (or graph edit distance)
+  - End-to-end solve success rate
+- Track baseline vs fine-tuned checkpoints.
+
+### [ ] Task 4.10: Inference Post-Processing and Safety Rails
+- Always run parser + validator + solver checks before rendering AI output.
+- If output is invalid, return actionable errors and partial recovery suggestions.
+- Add regression tests for malformed/near-valid shorthand generations.
 
 ### Updated Success Criteria
-- Given sketch images, VLM outputs correct/parseable shorthand ≥80% of the time.
-- Pipeline supports sketch → VLM → shorthand → 3D model round-trip.
+- Given sketch images, VLM outputs parseable shorthand/topology in ≥80% of held-out cases.
+- End-to-end pipeline (sketch → VLM → shorthand → topology → solved 3D model) succeeds in ≥70% of held-out cases.
+- All accepted predictions pass parser + topology validator with zero hard errors.
 
 ---
