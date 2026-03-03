@@ -334,26 +334,43 @@ share on a public gallery — all hosted at $0/month on free tiers.
 
 ## Phase 10 UX Follow-ups: Ground Visuals & Shadows
 
-### Task 10.5: More Obvious Ground Plane
-- Enlarge ground plane to always be visible in viewport
-- Change ground color to light gray (or configurable in settings)
-- Add grid lines or checkerboard texture for visual reference/scale
-- Optionally add "thickness" (extruded slab or edge highlight) for depth separation
+### ✅ Task 10.5: More Obvious Ground Plane
+- **Complete**: Created `EnhancedGroundPlane` component with larger size (2000x2000mm)
+- **Complete**: Changed ground color to light gray (#e8eaf6) for high visibility
+- **Complete**: Added checkerboard grid pattern (200 divisions, alternating colors #9fa5c3/#c5cae9) for scale reference
+- **Complete**: Added edge highlights (20mm extruded edges in #9fa5c3) for depth separation
+- **Files**: `frontend/src/components/Viewer/KnexViewer.tsx`, `frontend/src/components/Viewer/GroundContactFeedback.tsx`
+- **Tests**: `frontend/src/components/Viewer/__tests__/EnhancedGroundPlane.test.tsx` (7 tests)
 
-### Task 10.6: Real-Time Shadows
-- Enable shadow casting/receiving for all part meshes and ground in R3F scene
-- Add `<ambientLight>` for basic fill, `<directionalLight castShadow={true}>` for primary sunlight effect
-- Make sure all part meshes have `castShadow={true}` and ground has `receiveShadow={true}`
-- Tune shadow map size/resolution for performance
-- Verify Three.js mesh transforms sync with Rapier physics so shadows remain accurate
+### ✅ Task 10.6: Real-Time Shadows
+- **Complete**: Enabled shadow casting/receiving for all part meshes and ground in R3F scene
+- **Complete**: Added three-point lighting system:
+  - Main directional light (1.0 intensity, 2048x2048 shadow map) at [100, 200, 100]
+  - Secondary fill light (0.4 intensity) at [-80, 100, -60]
+  - Ternary rim light (0.3 intensity) at [0, 50, -150] for edge definition
+- **Complete**: Enhanced ambient light from 0.4 to 0.5 intensity
+- **Complete**: All part meshes have `castShadow={true}` and `receiveShadow={true}`
+- **Complete**: Ground plane has `receiveShadow={true}` with proper z-offset (Y=0.01) to avoid z-fighting
+- **Files**: `frontend/src/components/Viewer/KnexViewer.tsx`
+- **Tests**: `frontend/src/components/Viewer/__tests__/ShadowLighting.test.tsx` (13 tests)
 
-### Task 10.7: "Touching Ground" Feedback
-- Add highlight or "pulse" effect when parts land on the ground (optional, improves affordance)
-- Lift parts slightly above ground on spawn to avoid z-fighting/clipping
-- Consider context HUD/note for ground contact during stability check or "Test Physics"
+### ✅ Task 10.7: "Touching Ground" Feedback
+- **Complete**: Added pulsing ring effect when parts are near ground (Y ≤ 5mm threshold)
+- **Complete**: Ring radius pulses between 12mm and 20mm using sine wave animation at 3 rad/s
+- **Complete**: Opacity fades with height (fully opaque at Y=0, transparent at Y=5mm)
+- **Complete**: Color: light cyan (#4fc3f7) with additive blending for glowing effect
+- **Note**: Lifted parts slightly above ground on spawn via z-offset stacking (Y=0.01, 0.02, 0.03 layers)
+- **Files**: `frontend/src/components/Viewer/GroundContactFeedback.tsx`
+- **Tests**: `frontend/src/components/Viewer/__tests__/GroundContactFeedback.test.tsx` (4 tests)
 
 ### Documentation:
-- List all new visual/UX tasks under a single "Phase 10 Visual Grounding/Feedback" section for the next PR
+- ✅ Created comprehensive documentation in `docs/phase-10-visual-followups.md` with implementation details, test results, and success criteria
+
+**Phase 10 UX Follow-ups Status**: ✅ COMPLETE - All visual improvements implemented and tested
+
+---
+
+## Phase 11 — Position-Agnostic Topology Format (Core Foundation)
 
 ---
 
