@@ -11,6 +11,10 @@ import {
   type TopologyModel,
 } from '../services/topologySolver'
 import { parseCompactTopology, stringifyCompactTopology } from '../services/topologyCompactFormat'
+import {
+  getCompactAutocomplete,
+  type CompactAutocompleteResult,
+} from '../services/topologyCompactAutocomplete'
 
 type EditorFormat = 'json' | 'compact'
 
@@ -75,8 +79,10 @@ export function TopologyEditor() {
   const [errorLines, setErrorLines] = useState<string[]>([])
   const [isApplying, setIsApplying] = useState(false)
   const [partDefsReady, setPartDefsReady] = useState(false)
+  const [autocomplete, setAutocomplete] = useState<CompactAutocompleteResult | null>(null)
   const partDefsRef = useRef<Map<string, KnexPartDef> | null>(null)
   const hasUserEditedRef = useRef(false)
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const parts = useBuildStore((state) => state.parts)
   const connections = useBuildStore((state) => state.connections)
@@ -161,6 +167,7 @@ export function TopologyEditor() {
     }
 
     setFormat(nextFormat)
+    setAutocomplete(null)
     hasUserEditedRef.current = false
   }
 
@@ -172,6 +179,37 @@ export function TopologyEditor() {
 
   const handleManualApply = () => {
     applyText(text)
+  }
+
+  const refreshAutocomplete = (rawText: string, cursor: number) => {
+    const defs = partDefsRef.current
+    if (format !== 'compact' || !defs) {
+      setAutocomplete(null)
+      return
+    }
+
+    const result = getCompactAutocomplete(rawText, cursor, defs)
+    setAutocomplete(result)
+  }
+
+  const applyAutocompleteSuggestion = (insertText: string) => {
+    if (!autocomplete) return
+
+    const nextText =
+      text.slice(0, autocomplete.replaceStart) + insertText + text.slice(autocomplete.replaceEnd)
+    const nextCursor = autocomplete.replaceStart + insertText.length
+    hasUserEditedRef.current = true
+    setText(nextText)
+    setAutocomplete(null)
+
+    window.requestAnimationFrame(() => {
+      const input = textAreaRef.current
+      if (!input) return
+      input.focus()
+      input.selectionStart = nextCursor
+      input.selectionEnd = nextCursor
+      refreshAutocomplete(nextText, nextCursor)
+    })
   }
 
   return (
@@ -295,10 +333,22 @@ export function TopologyEditor() {
           </div>
 
           <textarea
+            ref={textAreaRef}
             value={text}
             onChange={(event) => {
               hasUserEditedRef.current = true
-              setText(event.target.value)
+              const nextText = event.target.value
+              setText(nextText)
+              refreshAutocomplete(nextText, event.target.selectionStart ?? nextText.length)
+            }}
+            onClick={(event) => {
+              refreshAutocomplete(text, (event.target as HTMLTextAreaElement).selectionStart ?? text.length)
+            }}
+            onKeyUp={(event) => {
+              refreshAutocomplete(text, (event.target as HTMLTextAreaElement).selectionStart ?? text.length)
+            }}
+            onBlur={() => {
+              window.setTimeout(() => setAutocomplete(null), 150)
             }}
             spellCheck={false}
             style={{
@@ -315,6 +365,46 @@ export function TopologyEditor() {
               padding: 12,
             }}
           />
+
+          {format === 'compact' && autocomplete && autocomplete.suggestions.length > 0 ? (
+            <div
+              style={{
+                borderTop: '1px solid #1e293b',
+                borderBottom: '1px solid #1e293b',
+                background: '#0b1220',
+                maxHeight: 150,
+                overflowY: 'auto',
+              }}
+            >
+              {autocomplete.suggestions.map((suggestion) => (
+                <button
+                  key={`${suggestion.insertText}-${suggestion.detail ?? ''}`}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    applyAutocompleteSuggestion(suggestion.insertText)
+                  }}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#dbeafe',
+                    padding: '6px 10px',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ fontFamily: 'Consolas, Monaco, "Courier New", monospace' }}>
+                    {suggestion.label}
+                  </span>
+                  <span style={{ color: '#93c5fd' }}>{suggestion.detail ?? ''}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <div style={{ borderTop: '1px solid #1e293b', padding: 10, maxHeight: 145, overflow: 'auto' }}>
             <div style={{ fontSize: 11, color: errorLines.length === 0 ? '#86efac' : '#fda4af', marginBottom: 6 }}>

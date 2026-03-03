@@ -35,6 +35,20 @@ const ALIAS_TO_PART_ID: Record<string, string> = {
   motor: 'motor-v1',
 }
 
+export function tryInferPartFromInstance(instanceId: string): string | null {
+  const direct = ALIAS_TO_PART_ID[instanceId.toLowerCase()]
+  if (direct) return direct
+
+  const underscoreIdx = instanceId.lastIndexOf('_')
+  if (underscoreIdx > 0) {
+    const prefix = instanceId.slice(0, underscoreIdx).toLowerCase()
+    const inferred = ALIAS_TO_PART_ID[prefix]
+    if (inferred) return inferred
+  }
+
+  return null
+}
+
 function parseEndpoint(value: string): { instance_id: string; port_id: string } {
   const firstDot = value.indexOf('.')
   if (firstDot <= 0 || firstDot === value.length - 1) {
@@ -48,15 +62,8 @@ function parseEndpoint(value: string): { instance_id: string; port_id: string } 
 }
 
 function inferPartFromInstance(instanceId: string): string {
-  const direct = ALIAS_TO_PART_ID[instanceId.toLowerCase()]
-  if (direct) return direct
-
-  const underscoreIdx = instanceId.lastIndexOf('_')
-  if (underscoreIdx > 0) {
-    const prefix = instanceId.slice(0, underscoreIdx).toLowerCase()
-    const inferred = ALIAS_TO_PART_ID[prefix]
-    if (inferred) return inferred
-  }
+  const inferred = tryInferPartFromInstance(instanceId)
+  if (inferred) return inferred
 
   throw new Error(
     `Cannot infer part_id for instance '${instanceId}'. Add an explicit part declaration line: 'part ${instanceId} <part_id>'`,

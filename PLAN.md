@@ -429,6 +429,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - Debounced solving for performance; preserve last valid state on parse failure.
 - Keep hybrid workflow: text edit + visual tweak in viewer.
 - **Status (2026-03-03)**: Browser-side live `topology-v1` JSON editor panel implemented (`frontend/src/components/TopologyEditor.tsx`) with debounced solve, inline validation, and live scene updates. Shorthand grammar/syntax-highlighting remains pending.
+- **Status (2026-03-03 update)**: Compact-mode autocomplete added for part IDs, known instances, operators, and valid ports based on part definitions.
 
 ### [ ] Task 12.4: Import/Export and Cross-Format Sync
 - Add shorthand + `topology-v1` import/export in `BuildMenu` flows.
