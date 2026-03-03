@@ -72,6 +72,7 @@ function serializeEditorText(model: TopologyModel, format: EditorFormat): string
 
 export function TopologyEditor() {
   const [isExpanded, setIsExpanded] = useState(true)
+  const [panelWidth, setPanelWidth] = useState(380)
   const [isAutoApply, setIsAutoApply] = useState(true)
   const [format, setFormat] = useState<EditorFormat>('json')
   const [text, setText] = useState(DEFAULT_TEMPLATE)
@@ -80,6 +81,7 @@ export function TopologyEditor() {
   const [isApplying, setIsApplying] = useState(false)
   const [partDefsReady, setPartDefsReady] = useState(false)
   const [autocomplete, setAutocomplete] = useState<CompactAutocompleteResult | null>(null)
+  const [isResizing, setIsResizing] = useState(false)
   const partDefsRef = useRef<Map<string, KnexPartDef> | null>(null)
   const hasUserEditedRef = useRef(false)
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
@@ -151,6 +153,27 @@ export function TopologyEditor() {
     return () => window.clearTimeout(timer)
   }, [isAutoApply, text, partDefsReady, applyText])
 
+  useEffect(() => {
+    if (!isResizing) return
+
+    const onMouseMove = (event: MouseEvent) => {
+      const nextWidth = Math.min(760, Math.max(260, window.innerWidth - event.clientX))
+      setPanelWidth(nextWidth)
+    }
+
+    const onMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [isResizing])
+
   const handleFormatChange = (nextFormat: EditorFormat) => {
     if (nextFormat === format) return
 
@@ -215,15 +238,36 @@ export function TopologyEditor() {
   return (
     <div
       style={{
-        width: isExpanded ? 380 : 42,
+        width: isExpanded ? panelWidth : 42,
         height: '100%',
         background: '#0f172a',
         borderLeft: '1px solid #1e293b',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'width 0.2s ease',
+        transition: isResizing ? 'none' : 'width 0.2s ease',
+        position: 'relative',
       }}
     >
+      {isExpanded ? (
+        <div
+          onMouseDown={(event) => {
+            event.preventDefault()
+            setIsResizing(true)
+          }}
+          style={{
+            position: 'absolute',
+            left: -4,
+            top: 0,
+            bottom: 0,
+            width: 8,
+            cursor: 'col-resize',
+            zIndex: 20,
+            background: isResizing ? 'rgba(59,130,246,0.35)' : 'transparent',
+          }}
+          title="Drag to resize editor"
+        />
+      ) : null}
+
       <div
         style={{
           height: 42,
@@ -260,34 +304,48 @@ export function TopologyEditor() {
         <>
           <div style={{ padding: 10, borderBottom: '1px solid #1e293b' }}>
             <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Current Build: {currentPieceSummary}</div>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <button
-                onClick={() => handleFormatChange('json')}
-                style={{
-                  border: '1px solid #334155',
-                  background: format === 'json' ? '#1d4ed8' : '#1e293b',
-                  color: '#dbeafe',
-                  borderRadius: 4,
-                  padding: '3px 7px',
-                  fontSize: 11,
-                  cursor: 'pointer',
-                }}
-              >
-                JSON
-              </button>
+            <div
+              style={{
+                display: 'inline-flex',
+                gap: 6,
+                marginBottom: 8,
+                alignItems: 'center',
+                border: '1px solid #334155',
+                borderRadius: 999,
+                padding: '2px 6px',
+                background: '#0b1220',
+              }}
+            >
               <button
                 onClick={() => handleFormatChange('compact')}
                 style={{
-                  border: '1px solid #334155',
-                  background: format === 'compact' ? '#1d4ed8' : '#1e293b',
-                  color: '#dbeafe',
-                  borderRadius: 4,
-                  padding: '3px 7px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: format === 'compact' ? '#93c5fd' : '#94a3b8',
+                  fontWeight: format === 'compact' ? 700 : 500,
+                  borderRadius: 999,
+                  padding: '2px 6px',
                   fontSize: 11,
                   cursor: 'pointer',
                 }}
               >
-                Compact
+                compact
+              </button>
+              <span style={{ color: '#64748b', fontSize: 11 }}>{'<_o>'}</span>
+              <button
+                onClick={() => handleFormatChange('json')}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: format === 'json' ? '#93c5fd' : '#94a3b8',
+                  fontWeight: format === 'json' ? 700 : 500,
+                  borderRadius: 999,
+                  padding: '2px 6px',
+                  fontSize: 11,
+                  cursor: 'pointer',
+                }}
+              >
+                json
               </button>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -303,7 +361,7 @@ export function TopologyEditor() {
                   cursor: 'pointer',
                 }}
               >
-                Use Current Build
+                {'Model -> Text'}
               </button>
               <button
                 onClick={handleManualApply}
@@ -319,7 +377,7 @@ export function TopologyEditor() {
                   opacity: isApplying || !partDefsReady ? 0.6 : 1,
                 }}
               >
-                {isApplying ? 'Applying...' : 'Apply Now'}
+                {isApplying ? 'Applying...' : 'Text -> Model'}
               </button>
               <label style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#bfdbfe', fontSize: 11 }}>
                 <input
