@@ -87,10 +87,10 @@ def test_part_loader_returns_correct_3way_red_connector(clean_part_library):
     assert center.accepts == ["rod_end"]
 
 def test_part_loader_rod_port_geometry(clean_part_library):
-    """Rods have end ports, center axial ports, and a center tangent (side-clip) port."""
+    """Rods expose end/axial ports plus 4 explicit side ports for side clipping."""
     rod = clean_part_library.get("rod-128-red-v1")
     assert rod.category == "rod"
-    assert len(rod.ports) == 5  # end1, end2, center_axial_1, center_axial_2, center_tangent
+    assert len(rod.ports) == 9
 
     end1 = next(p for p in rod.ports if p.id == "end1")
     end2 = next(p for p in rod.ports if p.id == "end2")
@@ -104,6 +104,20 @@ def test_part_loader_rod_port_geometry(clean_part_library):
     assert tangent.mate_type == "rod_side"
     assert set(tangent.accepts) == {"rod_hole", "clip", "rotational_hole", "slider_hole"}
     assert tangent.position[0] == 64.0  # midpoint of rod
+
+    side_ports = {
+        p.id: p for p in rod.ports if p.id.startswith("center_tangent_") and p.id != "center_tangent"
+    }
+    assert set(side_ports.keys()) == {
+        "center_tangent_y_pos",
+        "center_tangent_y_neg",
+        "center_tangent_z_pos",
+        "center_tangent_z_neg",
+    }
+    assert side_ports["center_tangent_y_pos"].direction == (0.0, 1.0, 0.0)
+    assert side_ports["center_tangent_y_neg"].direction == (0.0, -1.0, 0.0)
+    assert side_ports["center_tangent_z_pos"].direction == (0.0, 0.0, 1.0)
+    assert side_ports["center_tangent_z_neg"].direction == (0.0, 0.0, -1.0)
 
 
 def test_part_loader_get_mesh_path_returns_correct_path(clean_part_library):

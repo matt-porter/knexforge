@@ -14,6 +14,7 @@ describe('interactionStore', () => {
       isSnapped: false,
       activePortIndex: 0,
       activeAngleIndex: 0,
+      activeSideIndex: 0,
       snapVariantInfo: null,
       hoveredPartId: null,
     })
@@ -162,6 +163,19 @@ describe('interactionStore', () => {
       expect(state.isSnapped).toBe(false)
       expect(state.snapTargetInstanceId).toBeNull()
       expect(state.snapPlacingPortId).toBeNull()
+    })
+  })
+
+  describe('cycleSide', () => {
+    it('increments side index and resets angle index', () => {
+      useInteractionStore.getState().cycleAngle()
+      useInteractionStore.getState().cycleAngle()
+      expect(useInteractionStore.getState().activeAngleIndex).toBe(2)
+
+      useInteractionStore.getState().cycleSide()
+      const state = useInteractionStore.getState()
+      expect(state.activeSideIndex).toBe(1)
+      expect(state.activeAngleIndex).toBe(0)
     })
   })
 

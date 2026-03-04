@@ -7,6 +7,7 @@
  * - Delete / Backspace: Remove selected part
  * - Escape: Cancel placement
  * - R: Rotate ghost preview 90°
+ * - X: Cycle rod-side snap variant in targeted mode
  * - P: Toggle parts panel
  * - T: Toggle text editor panel
  */
@@ -84,6 +85,16 @@ export function useKeyboardShortcuts(): void {
           } else {
             useInteractionStore.getState().rotateGhost()
           }
+          return
+        }
+      }
+
+      // X: cycle rod-side variant in targeted/snapped mode
+      if (e.key === 'x' || e.key === 'X') {
+        const { mode, isSnapped, matchTargetId } = useInteractionStore.getState()
+        if (mode === 'place' && (matchTargetId || isSnapped)) {
+          e.preventDefault()
+          useInteractionStore.getState().cycleSide()
           return
         }
       }

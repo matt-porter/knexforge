@@ -20,6 +20,10 @@ export interface SnapVariantInfo {
   portIndex: number
   totalPorts: number
   allPortLabels: string[]
+  sideLabel: string
+  sideIndex: number
+  totalSides: number
+  allSideLabels: string[]
   angleDeg: number
   angleIndex: number
   totalAngles: number
@@ -48,6 +52,8 @@ export interface InteractionStore {
   activePortIndex: number
   /** Index of the active rotation within the current port group (R cycles this). */
   activeAngleIndex: number
+  /** Index of the active rod-side choice within the current port group (X cycles this). */
+  activeSideIndex: number
   /** Metadata for the snap variant HUD (written by PortIndicators). */
   snapVariantInfo: SnapVariantInfo | null
   /** Hovered part instance ID. */
@@ -81,6 +87,8 @@ export interface InteractionStore {
   cyclePort: () => void
   /** Cycle to the next rotation angle within the current port group (R key when snapped). */
   cycleAngle: () => void
+  /** Cycle to the next rod-side option within the current port group (X key when snapped). */
+  cycleSide: () => void
   /** Set snap variant HUD metadata (called by PortIndicators). */
   setSnapVariantInfo: (info: SnapVariantInfo | null) => void
   
@@ -138,6 +146,7 @@ export const useInteractionStore = create<InteractionStore>()(
     isSnapped: false,
     activePortIndex: 0,
     activeAngleIndex: 0,
+    activeSideIndex: 0,
     snapVariantInfo: null,
     hoveredPartId: null,
     isSimulating: false,
@@ -158,6 +167,8 @@ export const useInteractionStore = create<InteractionStore>()(
         state.isSnapped = false
         state.activePortIndex = 0
         state.activeAngleIndex = 0
+        state.activeSideIndex = 0
+        ;(state as any)._lastCycleTime = 0
         state.snapVariantInfo = null
       })
     },
@@ -175,6 +186,8 @@ export const useInteractionStore = create<InteractionStore>()(
         state.isSnapped = false
         state.activePortIndex = 0
         state.activeAngleIndex = 0
+        state.activeSideIndex = 0
+        ;(state as any)._lastCycleTime = 0
         state.snapVariantInfo = null
       })
     },
@@ -197,6 +210,7 @@ export const useInteractionStore = create<InteractionStore>()(
         if (state.snapTargetInstanceId !== instanceId) {
           state.activePortIndex = 0
           state.activeAngleIndex = 0
+          state.activeSideIndex = 0
           state.snapVariantInfo = null
         }
         state.snapTargetInstanceId = instanceId
@@ -231,8 +245,16 @@ export const useInteractionStore = create<InteractionStore>()(
 
       set((state) => {
         state.activePortIndex += 1
+        state.activeSideIndex = 0
         state.activeAngleIndex = 0
         ;(state as any)._lastCycleTime = now
+      })
+    },
+
+    cycleSide: () => {
+      set((state) => {
+        state.activeSideIndex += 1
+        state.activeAngleIndex = 0
       })
     },
 

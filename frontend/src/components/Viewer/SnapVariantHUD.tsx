@@ -102,6 +102,30 @@ export function SnapVariantHUD() {
 
         <div style={HUD_STYLES.divider} />
 
+        {/* Rod side section with dots */}
+        <div style={HUD_STYLES.section}>
+          <span style={HUD_STYLES.label}>Rod Side</span>
+          <span style={HUD_STYLES.value}>{snapVariantInfo.sideLabel}</span>
+          <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+            {snapVariantInfo.allSideLabels.map((label, i) => (
+              <div
+                key={label}
+                title={label}
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: i === snapVariantInfo.sideIndex ? '#9d7bff' : '#333',
+                  border: i === snapVariantInfo.sideIndex ? '1px solid #c4b5fd' : '1px solid #555',
+                  transition: 'background 0.1s, border-color 0.1s',
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div style={HUD_STYLES.divider} />
+
         {/* Rotation section with dots */}
         <div style={HUD_STYLES.section}>
           <span style={HUD_STYLES.label}>Rotation</span>
@@ -132,6 +156,9 @@ export function SnapVariantHUD() {
         <div style={{ ...HUD_STYLES.section, gap: 4 }}>
           <span style={HUD_STYLES.hint}>
             <span style={HUD_STYLES.kbd}>Tab</span> port
+          </span>
+          <span style={HUD_STYLES.hint}>
+            <span style={HUD_STYLES.kbd}>X</span> side
           </span>
           <span style={HUD_STYLES.hint}>
             <span style={HUD_STYLES.kbd}>R</span> rotate
