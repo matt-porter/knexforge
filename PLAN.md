@@ -302,6 +302,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **PortIndicators**: Restructured variants into port groups (grouped by `placingPortId`) with per-group angle sorting
 - **Tests**: Updated `tabCycling.test.ts` with 6 tests covering port cycling, angle cycling, index resets
 - **Update (2026-03-04)**: Added a third snap-selection axis for rod side locking. Side clips now support explicit rod-side ports (`center_tangent_y_pos/y_neg/z_pos/z_neg`) with `X` key cycling, HUD side indicators, and persisted side semantics via connection port IDs.
+- **Update (2026-03-04 regression)**: Added Rapier orientation regression coverage for all four explicit rod-side ports to guard against future side-clip rotation regressions (`frontend/src/services/__tests__/rapierSimulator.test.ts`).
 
 ### ✅ Task 9.2: PortIndicator Spheres Inside Connector Meshes
 - **Root cause**: Part mesh `handlePointerOver` called `e.stopPropagation()`, blocking
