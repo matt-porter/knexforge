@@ -272,6 +272,7 @@ function StabilityIndicator() {
   const partCount = useBuildStore((s) => s.partCount)
   const testStability = useBuildStore((s) => s.testStability)
   const [isTesting, setIsTesting] = useState(false)
+  const safeScore = Number.isFinite(score) ? score : 0
 
   if (partCount() === 0) return null
 
@@ -281,7 +282,7 @@ function StabilityIndicator() {
     setIsTesting(false)
   }
 
-  const color = score >= 70 ? '#44cc88' : score >= 40 ? '#ffaa33' : '#ff6655'
+  const color = safeScore >= 70 ? '#44cc88' : safeScore >= 40 ? '#ffaa33' : '#ff6655'
 
   return (
     <div
@@ -296,7 +297,7 @@ function StabilityIndicator() {
       }}
     >
       <span>Stability</span>
-      <span style={{ fontWeight: 700, color, fontFamily: 'monospace', marginRight: 8 }}>{score.toFixed(0)}%</span>
+      <span style={{ fontWeight: 700, color, fontFamily: 'monospace', marginRight: 8 }}>{safeScore.toFixed(0)}%</span>
       <button
         onClick={handleTest}
         disabled={isTesting}

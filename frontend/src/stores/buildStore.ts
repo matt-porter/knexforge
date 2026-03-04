@@ -135,6 +135,11 @@ function applySnapshot(
   draft.stabilityScore = snapshot.stabilityScore
 }
 
+function normalizeStabilityScore(score: number): number | null {
+  if (!Number.isFinite(score)) return null
+  return Math.max(0, Math.min(100, score))
+}
+
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
@@ -417,7 +422,9 @@ export const useBuildStore = create<BuildStore>()(
 
     setStabilityScore: (score: number) => {
       set((state) => {
-        state.stabilityScore = score
+        const normalized = normalizeStabilityScore(score)
+        if (normalized === null) return
+        state.stabilityScore = normalized
       })
     },
 

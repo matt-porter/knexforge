@@ -476,6 +476,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-03 update 5)**: Added explicit hide/show controls for the parts palette (`Hide` in palette, `PRT` reopen button in builder) so it remains discoverable when text editor is open.
 - **Status (2026-03-04 update 6)**: Fixed panel half-open/half-closed behavior by removing width-transition wrapper logic and enforcing fixed non-shrinking widths for parts panel states.
 - **Status (2026-03-04 update 7)**: Fixed right editor drift/clipping by allowing center viewer flex item to shrink (`minWidth: 0`) in builder layout.
+- **Status (2026-03-04 update 8)**: Hardened stability API/UI path for topology edits adding `gc2` connectors: frontend now normalizes/clamps stability responses and guards indicator rendering against invalid scores; backend `/stability` now falls back to graph scoring when PyBullet runtime errors occur for specific parts.
 
 ### [ ] Task 12.4: Import/Export and Cross-Format Sync
 - Add shorthand + `topology-v1` import/export in `BuildMenu` flows.

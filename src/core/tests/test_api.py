@@ -3,9 +3,9 @@ Tests for FastAPI sidecar (src/core/api.py)
 """
 import pytest
 from fastapi.testclient import TestClient
-from src.core.api import app
+import src.core.api as core_api
 
-client = TestClient(app)
+client = TestClient(core_api.app)
 
 def test_build_endpoint():
     resp = client.post("/build", json={"parts": [], "connections": []})
@@ -32,6 +32,25 @@ def test_stability_endpoint():
     data = resp.json()
     assert data["stability"] == 100.0
     assert "details" in data
+
+def test_stability_endpoint_falls_back_when_pybullet_runtime_fails(monkeypatch):
+    pybullet_module = pytest.importorskip("src.core.physics.pybullet")
+
+    def _raise_runtime_error(_build):
+        raise RuntimeError("gc2 mesh load failed")
+
+    monkeypatch.setattr(pybullet_module, "simulate_collapse", _raise_runtime_error)
+    monkeypatch.setattr(core_api, "compute_stability", lambda _build: 73.0)
+
+    build_resp = client.post("/build", json={"parts": [], "connections": []})
+    build_id = build_resp.json()["build_id"]
+    resp = client.post("/stability", json={"build_id": build_id})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["stability"] == 73.0
+    assert data["details"]["fallback"] == "graph"
+    assert "gc2 mesh load failed" in data["details"]["reason"]
 
 def test_export_endpoint():
     resp = client.post("/export", json={"parts": [], "connections": []})

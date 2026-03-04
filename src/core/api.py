@@ -165,6 +165,14 @@ def stability(req: StabilityRequest):
         # Fallback to graph
         stability_score = compute_stability(build)
         return StabilityResponse(stability=stability_score, details={}, stress_data={})
+    except Exception as e:
+        logger.warning("PyBullet stability failed, falling back to graph: %s", e)
+        stability_score = compute_stability(build)
+        return StabilityResponse(
+            stability=stability_score,
+            details={"fallback": "graph", "reason": str(e)},
+            stress_data={},
+        )
 
 @app.post("/export", response_model=ExportResponse)
 def export(req: ExportRequest):

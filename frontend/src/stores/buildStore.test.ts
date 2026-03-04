@@ -535,6 +535,20 @@ describe('buildStore', () => {
       useBuildStore.getState().setStabilityScore(75.5)
       expect(useBuildStore.getState().stabilityScore).toBe(75.5)
     })
+
+    it('clamps scores to the valid 0-100 range', () => {
+      useBuildStore.getState().setStabilityScore(135)
+      expect(useBuildStore.getState().stabilityScore).toBe(100)
+
+      useBuildStore.getState().setStabilityScore(-10)
+      expect(useBuildStore.getState().stabilityScore).toBe(0)
+    })
+
+    it('ignores non-finite scores', () => {
+      useBuildStore.getState().setStabilityScore(55)
+      useBuildStore.getState().setStabilityScore(Number.NaN)
+      expect(useBuildStore.getState().stabilityScore).toBe(55)
+    })
   })
 
   describe('setSidecarConnected', () => {

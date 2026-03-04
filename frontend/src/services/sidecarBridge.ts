@@ -32,6 +32,30 @@ export interface StabilityResponse {
   stress_data?: Record<string, number>
 }
 
+function clampStability(score: number): number {
+  return Math.max(0, Math.min(100, score))
+}
+
+function normalizeStabilityResponse(payload: unknown): StabilityResponse {
+  if (!payload || typeof payload !== 'object') {
+    return { stability: 100, details: {} }
+  }
+
+  const data = payload as Record<string, unknown>
+  const rawScore = data.stability ?? data.stability_score
+  const score = typeof rawScore === 'number' && Number.isFinite(rawScore) ? clampStability(rawScore) : 100
+  const details = data.details && typeof data.details === 'object' ? (data.details as Record<string, unknown>) : {}
+  const stressData = data.stress_data && typeof data.stress_data === 'object'
+    ? (data.stress_data as Record<string, number>)
+    : undefined
+
+  return {
+    stability: score,
+    details,
+    stress_data: stressData,
+  }
+}
+
 export interface BuildExport {
   parts: PartInstance[]
   connections: Connection[]
@@ -167,7 +191,8 @@ export class SidecarBridge {
 
     try {
       if (isTauriAvailable()) {
-        return await tauriInvoke<StabilityResponse>('request_stability', { parts, connections })
+        const tauriResponse = await tauriInvoke<unknown>('request_stability', { parts, connections })
+        return normalizeStabilityResponse(tauriResponse)
       }
 
       const resp = await fetch(`${this._baseUrl}/stability`, {
@@ -175,8 +200,19 @@ export class SidecarBridge {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ parts, connections }),
       })
-      return (await resp.json()) as StabilityResponse
-    } catch {
+
+      const data = (await resp.json()) as unknown
+      if (!resp.ok) {
+        const detail =
+          data && typeof data === 'object' && 'detail' in data
+            ? String((data as Record<string, unknown>).detail)
+            : `HTTP ${resp.status}`
+        throw new Error(detail)
+      }
+
+      return normalizeStabilityResponse(data)
+    } catch (err) {
+      console.warn('[SidecarBridge] Stability request failed:', err)
       return { stability: 100, details: {} }
     }
   }
