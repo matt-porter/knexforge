@@ -473,6 +473,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-03 update 3)**: Replaced placeholder text with an actual switch control and fixed resizable panel behavior in flex layout.
 - **Status (2026-03-03 update 4)**: Removed `Visual Mode` overlay from viewer UI and corrected resize direction using drag-delta width logic.
 - **Status (2026-03-03 update 5)**: Added explicit hide/show controls for the parts palette (`Hide` in palette, `PRT` reopen button in builder) so it remains discoverable when text editor is open.
+- **Status (2026-03-04 update 6)**: Fixed panel half-open/half-closed behavior by removing width-transition wrapper logic and enforcing fixed non-shrinking widths for parts panel states.
 
 ### [ ] Task 12.4: Import/Export and Cross-Format Sync
 - Add shorthand + `topology-v1` import/export in `BuildMenu` flows.

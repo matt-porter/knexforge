@@ -324,7 +324,6 @@ export default function App() {
   useKeyboardShortcuts()
   const [activeTab, setActiveTab] = useState<AppTab>('builder')
   const [partsPanelOpen, setPartsPanelOpen] = useState(true)
-  const partsPanelTransitioningRef = useRef(false)
   const textEditorTransitioningRef = useRef(false)
   const setSidecarConnected = useBuildStore((s) => s.setSidecarConnected)
   const initializeUser = useUserStore((s) => s.initialize)
@@ -354,20 +353,10 @@ export default function App() {
       if (activeTab !== 'builder') return
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
 
-      // P: Toggle parts panel (with transition protection)
+      // P: Toggle parts panel
       if ((e.key === 'p' || e.key === 'P') && !e.ctrlKey && !e.metaKey) {
         e.preventDefault()
-        if (!partsPanelTransitioningRef.current) {
-          partsPanelTransitioningRef.current = true
-          setPartsPanelOpen((prev) => {
-            const newValue = !prev
-            // Reset transition flag after 200ms (slightly longer than CSS transition)
-            setTimeout(() => {
-              partsPanelTransitioningRef.current = false
-            }, 200)
-            return newValue
-          })
-        }
+        setPartsPanelOpen((prev) => !prev)
         return
       }
 
@@ -406,59 +395,42 @@ export default function App() {
             pointerEvents: activeTab === 'builder' ? 'auto' : 'none',
           }}
         >
-          {/* Parts panel with smooth transition - always render but control width */}
-<div
-  style={{
-    width: partsPanelOpen ? 260 : 42,
-    flexShrink: 0,
-    transition: 'width 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
-    overflow: 'hidden',
-  }}
->
-  {partsPanelOpen && <PartPalette onHide={() => setPartsPanelOpen(false)} />}
-  
-  {/* Always show toggle button when collapsed */}
-  {!partsPanelOpen && (
-    <div
-      style={{
-        width: 42,
-        height: '100%',
-        borderRight: '1px solid #2a2a4a',
-        background: '#0f0f23',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}
-    >
-      <button
-        onClick={() => {
-          if (!partsPanelTransitioningRef.current) {
-            partsPanelTransitioningRef.current = true
-            setPartsPanelOpen(true)
-            setTimeout(() => {
-              partsPanelTransitioningRef.current = false
-            }, 200)
-          }
-        }}
-        style={{
-          border: '1px solid #334155',
-          background: '#111827',
-          color: '#93c5fd',
-          borderRadius: 4,
-          padding: '6px 0',
-          cursor: 'pointer',
-          fontSize: 10,
-          fontWeight: 600,
-          whiteSpace: 'nowrap',
-        }}
-        title="Show parts panel"
-      >
-        PRT
-      </button>
-    </div>
-  )}
-</div>
+          {partsPanelOpen ? (
+            <PartPalette onHide={() => setPartsPanelOpen(false)} />
+          ) : (
+            <div
+              style={{
+                width: 42,
+                minWidth: 42,
+                maxWidth: 42,
+                flex: '0 0 42px',
+                flexShrink: 0,
+                borderRight: '1px solid #2a2a4a',
+                background: '#0f0f23',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <button
+                onClick={() => setPartsPanelOpen(true)}
+                style={{
+                  border: '1px solid #334155',
+                  background: '#111827',
+                  color: '#93c5fd',
+                  borderRadius: 4,
+                  padding: '6px 0',
+                  cursor: 'pointer',
+                  fontSize: 10,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                }}
+                title="Show parts panel"
+              >
+                PRT
+              </button>
+            </div>
+          )}
           <div style={{ flex: 1, position: 'relative' }}>
             <KnexViewer loadDemoWhenEmpty={true} />
           </div>

@@ -67,6 +67,10 @@ export function PartPalette({ onHide }: { onHide?: () => void } = {}) {
     <div
       style={{
         width: 260,
+        minWidth: 260,
+        maxWidth: 260,
+        flex: '0 0 260px',
+        flexShrink: 0,
         height: '100%',
         background: '#0f0f23',
         borderRight: '1px solid #2a2a4a',
