@@ -230,6 +230,7 @@ describe('topologySolver', () => {
       ],
     }
 
+    // This geometry is genuinely overconstrained and should fail even with relaxed tolerances
     expect(() => solveTopology(topology, defs)).toThrowError(TopologySolveError)
   })
 

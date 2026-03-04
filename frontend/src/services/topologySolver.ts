@@ -440,8 +440,14 @@ export function solveTopology(
   options: SolveTopologyOptions = {},
 ): SolvedTopologyBuild {
   const componentSpacingMm = options.componentSpacingMm ?? 220
-  const positionToleranceMm = options.positionToleranceMm ?? 0.5
-  const angleToleranceDeg = options.angleToleranceDeg ?? 8.0
+  // Increased from 0.5mm to 2.0mm to account for cumulative geometric errors in closed loops.
+  // Real K'Nex parts have manufacturing tolerances ~0.2mm per port, and complex loops
+  // (e.g., triangles) can accumulate position errors across 4-6 parts. 2.0mm is reasonable for
+  // geometry-based solver without iterative refinement. See #4.
+  const positionToleranceMm = options.positionToleranceMm ?? 2.0
+  // Increased from 8.0° to 15.0° for similar reasons: port angle measurements and computation
+  // accumulate across multi-part constraints.
+  const angleToleranceDeg = options.angleToleranceDeg ?? 15.0
   // Lift builds above ground plane so they sit ON the ground, not IN it
   const groundOffsetMm = options.groundOffsetMm ?? 50
 
@@ -531,6 +537,12 @@ export function solveTopology(
                   item: edge.key,
                 },
               ],
+            )
+          }
+          // Log near-tolerance residuals for debugging
+          if (residual.distance > positionToleranceMm * 0.8 || residual.angleDeg > angleToleranceDeg * 0.8) {
+            console.debug(
+              `[TopologySolver] Loop-closing edge ${edge.key} near tolerance: distance=${residual.distance.toFixed(3)}mm (limit ${positionToleranceMm}), angle=${residual.angleDeg.toFixed(2)}° (limit ${angleToleranceDeg})`,
             )
           }
           continue

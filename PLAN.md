@@ -437,6 +437,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - Define tolerance thresholds and conflict policy (accept, warn, reject).
 - Add square/triangle/multi-loop regression tests.
 - **Implemented (browser-first)**: Loop residual checks + `TopologySolveError` on constraint violations; covered in `frontend/src/services/__tests__/topologySolver.test.ts`.
+- **Fixed (2026-03-04)**: Issue #4 — Relaxed default tolerances from (0.5mm, 8°) to (2.0mm, 15°) to account for cumulative geometric errors in closed loops. Greedy tree-building + discrete rod lengths/connector angles naturally accumulate position errors beyond 0.5mm over 4-6 parts. New defaults align with manufacturing tolerances of real plastic parts. See `docs/ISSUE-4-TRIANGLE-LOOP-CLOSURE.md` for full analysis. Added debug logging for near-tolerance edges.
 
 ### [ ] Task 11.6: Round-Trip and Compatibility Tests
 - Round-trip: `.knx` → `topology-v1` → solved build → `.knx`.
