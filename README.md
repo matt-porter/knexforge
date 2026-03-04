@@ -30,6 +30,10 @@ Credit to https://www.printables.com/model/143840-knex-parts-customizable/files 
 
 `wrangler deploy` - to deploy cloudflare worker
 
+Auto-build is disabled on cloudflare-git integration, as the model mesh files
+aren't committed, so they weren't present for build. If we add all the files needed
+for build then we could re-enable that build on push functionality.
+
 ## 🏗️ Architecture Overview
 ┌─────────────────────┐    ┌─────────────────────┐
 │   Frontend (Tauri)  │◄──►│   Python Core       │

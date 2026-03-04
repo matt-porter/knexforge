@@ -1,0 +1,38 @@
+  {
+  "format_version": "1.1",
+  "id": "connector-2way-grey-v1",
+  "name": "Grey 2-Way Connector (45°)",
+  "category": "connector",
+  "mesh_file": "meshes/connector-2way-grey.glb",
+  "default_color": "#909090",
+  "mass_grams": 1.4,
+  "ports": [
+    {
+      "id": "A",
+      "position": [12.7, 0.0, 0.0],
+      "direction": [1.0, 0.0, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "B",
+      "position": [8.98, 8.98, 0.0],
+      "direction": [0.707, 0.707, 0.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end", "rod_side"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "center",
+      "position": [0.0, 0.0, 0.0],
+      "direction": [0.0, 0.0, 1.0],
+      "mate_type": "rod_hole",
+      "accepts": ["rod_end"],
+      "allowed_angles_deg": [0, 90, 180, 270],
+      "tolerance_mm": 0.2
+    }
+  ]
+}

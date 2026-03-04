@@ -97,6 +97,7 @@ export function useKeyboardShortcuts(): void {
         '5': 'rod-128-red-v1',
         '6': 'rod-190-grey-v1',
         'q': 'connector-1way-grey-v1',
+        'a': 'connector-2way-grey-v1',
         'w': 'connector-2way-orange-v1',
         'e': 'connector-3way-red-v1',
         't': 'connector-4way-green-v1',
