@@ -18,7 +18,7 @@ const JOINT_TYPE_TO_OPERATOR: Record<string, string> = {
 }
 
 const ALIAS_TO_PART_ID: Record<string, string> = {
-  rc1: 'connector-1way-grey-v1',
+  gc1: 'connector-1way-grey-v1',
   oc2: 'connector-2way-orange-v1',
   rc3: 'connector-3way-red-v1',
   gc4: 'connector-4way-green-v1',
