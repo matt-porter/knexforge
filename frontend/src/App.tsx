@@ -431,7 +431,7 @@ export default function App() {
               </button>
             </div>
           )}
-          <div style={{ flex: 1, position: 'relative' }}>
+          <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
             <KnexViewer loadDemoWhenEmpty={true} />
           </div>
           {/* Topology editor with toggle button when collapsed */}
