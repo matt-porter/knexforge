@@ -88,13 +88,12 @@ python build_dataset.py
 Kick off the training process using MLX. This will download the base Qwen2-VL model and train the adapter layers using your Mac's GPU.
 
 ```bash
-python -m mlx_vlm.lora \
-    --model "qwen/Qwen2-VL-7B-Instruct" \
-    --train \
-    --data "data/" \
-    --batch-size 2 \
-    --lora-layers 8 \
-    --iters 600
+.venv/bin/python -m mlx_vlm.lora \
+    --model-path "qwen/Qwen2-VL-7B-Instruct" # or: Qwen/Qwen3.5-9B \
+    --dataset "data/" \
+    --batch-size 1 \
+    --epochs 5 \
+    --learning-rate 2e-5
 
 ```
 
@@ -105,10 +104,11 @@ python -m mlx_vlm.lora \
 Pass a brand-new sketch through your fine-tuned model to generate the topological shorthand.
 
 ```bash
-python -m mlx_vlm.generate \
-    --model "qwen/Qwen2-VL-7B-Instruct" \
-    --adapter-path "adapters" \
-    --image "path/to/new_test_sketch.jpg" \
+.venv/bin/python -m mlx_vlm.generate \
+    --model "qwen/Qwen2-VL-7B-Instruct" # or: Qwen/Qwen3.5-9B \ 
+    --adapter-path . \
+    --image "raw_data/splice1.png" \
+    --system "You are a raw K'NEX topology parser. Output ONLY the shorthand. No markdown, no explanations." \
     --prompt "Extract K'NEX topology." \
     --max-tokens 500
 
