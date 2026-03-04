@@ -87,20 +87,31 @@ export function TopologyEditor() {
   const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
   const resizeStartXRef = useRef(0)
   const resizeStartWidthRef = useRef(380)
+  const expandingRef = useRef(false)
 
   const parts = useBuildStore((state) => state.parts)
   const connections = useBuildStore((state) => state.connections)
 
   const loadBuild = useBuildStore((state) => state.loadBuild)
 
+  // Helper to safely toggle with transition protection
+  const safeToggleExpanded = useCallback(() => {
+    if (expandingRef.current) return
+    expandingRef.current = true
+    setIsExpanded((prev) => !prev)
+    setTimeout(() => {
+      expandingRef.current = false
+    }, 200)
+  }, [])
+
   // Listen for global toggle event from App component (T key shortcut)
   useEffect(() => {
     const handleToggle = () => {
-      setIsExpanded((prev) => !prev)
+      safeToggleExpanded()
     }
     window.addEventListener('knexforge:toggle-text-editor' as any, handleToggle)
     return () => window.removeEventListener('knexforge:toggle-text-editor' as any, handleToggle)
-  }, [])
+  }, [safeToggleExpanded])
 
   useEffect(() => {
     let cancelled = false
@@ -262,8 +273,9 @@ export function TopologyEditor() {
         flexDirection: 'column',
         flex: '0 0 auto',
         flexShrink: 0,
-        transition: isResizing ? 'none' : 'width 0.2s ease',
+        transition: isResizing ? 'none' : 'width 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
+        overflow: 'hidden',
       }}
     >
       {/* Always show resize/toggle handle on left edge */}
@@ -278,7 +290,7 @@ export function TopologyEditor() {
           } else {
             // Toggle expand when collapsed
             event.preventDefault()
-            setIsExpanded(true)
+            safeToggleExpanded()
           }
         }}
         style={{
@@ -327,13 +339,22 @@ export function TopologyEditor() {
           fontSize: 12,
           fontWeight: 600,
           letterSpacing: '0.04em',
+          transition: 'padding 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        {isExpanded ? <span>TOPOLOGY LIVE EDITOR</span> : null}
+        <span style={{ 
+          opacity: isExpanded ? 1 : 0,
+          width: isExpanded ? 'auto' : 0,
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+          transition: 'opacity 0.15s ease, width 0.15s ease',
+        }}>
+          TOPOLOGY LIVE EDITOR
+        </span>
         <button
           onClick={(e) => {
             e.stopPropagation()
-            setIsExpanded((value) => !value)}
+            safeToggleExpanded()}
           }
           style={{
             border: '1px solid #334155',
@@ -350,7 +371,15 @@ export function TopologyEditor() {
         </button>
       </div>
 
-      {isExpanded ? (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        flex: 1,
+        overflow: 'hidden',
+        opacity: isExpanded ? 1 : 0,
+        visibility: isExpanded ? 'visible' : 'hidden',
+        transition: 'opacity 0.15s ease, visibility 0.15s linear',
+      }}>
         <>
           <div style={{ padding: 10, borderBottom: '1px solid #1e293b' }}>
             <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Current Build: {currentPieceSummary}</div>
@@ -559,7 +588,7 @@ export function TopologyEditor() {
             ) : null}
           </div>
         </>
-      ) : null}
+      </div>
     </div>
   )
 }
