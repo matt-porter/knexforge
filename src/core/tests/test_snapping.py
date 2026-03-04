@@ -163,6 +163,45 @@ def test_side_clip_connector_onto_rod_succeeds(library):
     assert result.to_port == "center_tangent"
 
 
+@pytest.mark.parametrize(
+    "rod_side_port_id",
+    [
+        "center_tangent_y_pos",
+        "center_tangent_y_neg",
+        "center_tangent_z_pos",
+        "center_tangent_z_neg",
+    ],
+)
+def test_side_clip_connector_onto_explicit_rod_sides_succeeds(library, rod_side_port_id):
+    """Connector edge ports can snap to all explicit rod-side ports."""
+    rod_part = library.get("rod-128-red-v1")
+    conn_part = library.get("connector-4way-green-v1")
+
+    rod_inst = PartInstance(instance_id="r1", part=rod_part, position=(0.0, 0.0, 0.0))
+
+    from core.snapping import align_part_to_port
+
+    conn_temp = PartInstance(instance_id="c1", part=conn_part)
+    new_pos, new_quat = align_part_to_port(
+        conn_temp,
+        "A",
+        rod_inst,
+        rod_side_port_id,
+        twist_deg=0.0,
+    )
+    conn_inst = PartInstance(
+        instance_id="c1",
+        part=conn_part,
+        position=new_pos,
+        quaternion=new_quat,
+    )
+
+    result = snap_ports(conn_inst, "A", rod_inst, rod_side_port_id, tolerance_mm=0.2)
+    assert isinstance(result, Connection)
+    assert result.from_port == "A"
+    assert result.to_port == rod_side_port_id
+
+
 def test_side_clip_rod_side_compat_with_connector_hole(library):
     """rod_side mate type is compatible with rod_hole accepts list."""
     rod_part = library.get("rod-54-blue-v1")
