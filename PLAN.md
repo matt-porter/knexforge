@@ -320,6 +320,20 @@ share on a public gallery — all hosted at $0/month on free tiers.
   - Removed brittle assumptions about `center_tangent` being the only side port.
 - **Files**: `frontend/src/helpers/portGrouping.test.ts`, `frontend/src/helpers/portIndicatorSim.test.ts`.
 
+### ✅ Task 9.5: API Boundary Legacy Port Normalization
+- **Goal**: Harden legacy `center_tangent` → `center_tangent_y_pos` normalization at all service boundaries to prevent bypass via raw payloads.
+- **Problem**: Frontend store/topology and core import paths normalized legacy ports, but API request handlers (`/stability`, `/export`, diagnostics) could accept raw legacy IDs and bypass canonicalization.
+- **Fix**: 
+  - Added `_normalize_legacy_port_id()` and `_normalize_connection_ports()` helpers in `src/core/api.py`.
+  - Applied normalization in all endpoints that reconstruct connections from payloads: `/stability`, `/export`, `/diagnostics/sim-orientation`, WebSocket `/ws/simulate`.
+  - Normalization happens before `Connection(**...)` construction, ensuring canonical IDs persist.
+- **Tests**: Added 4 regression tests in `src/core/tests/test_api.py`:
+  - `test_stability_endpoint_normalizes_legacy_center_tangent_port`
+  - `test_export_endpoint_normalizes_legacy_center_tangent_port` (verifies exported data has canonical IDs)
+  - `test_diagnostics_endpoint_normalizes_legacy_center_tangent_port`
+  - `test_stability_endpoint_accepts_explicit_side_ports` (explicit IDs pass through unchanged)
+- **Files**: `src/core/api.py`, `src/core/tests/test_api.py`.
+
 ### ✅ Task 9.2: PortIndicator Spheres Inside Connector Meshes
 - **Root cause**: Part mesh `handlePointerOver` called `e.stopPropagation()`, blocking
   PortIndicator spheres at connector centers (slot ports, center ports at `[0,0,0]`) from
