@@ -310,6 +310,16 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Update (2026-03-04 topology)**: Added legacy `center_tangent` normalization in topology canonicalization/build-state conversion (`frontend/src/services/topologySolver.ts`) with regression tests in `topologySolver.test.ts`, so text/topology and store flows use the same canonical side port IDs.
 - **Update (2026-03-04 core parity)**: Added backend/core normalization for legacy `center_tangent` during import/deserialize paths (`src/core/file_io.py`, `src/core/build.py`) and corresponding Python regressions in `test_export_import.py` / `test_build.py`.
 
+### ✅ Task 9.4: Helper Test Modernization (Legacy 2-Axis → 3-Axis)
+- **Goal**: Update outdated helper regression tests that still mirror the old 2-axis snap model to match new 3-axis behavior (port → rod side → angle).
+- **Problem**: `portGrouping.test.ts` and `portIndicatorSim.test.ts` used legacy `center_tangent` as only side-clip port and old 2-axis `variants` grouping assumptions.
+- **Fix**: 
+  - Updated test fixture rod defs with explicit side ports (`center_tangent_y_pos/y_neg/z_pos/z_neg`) plus legacy compatibility port.
+  - Added tests verifying all four side ports are defined with correct directions (+Y, -Y, +Z, -Z).
+  - Kept useful coverage: port availability, dedupe behavior, cycling semantics, side-clip + through-hole coexistence.
+  - Removed brittle assumptions about `center_tangent` being the only side port.
+- **Files**: `frontend/src/helpers/portGrouping.test.ts`, `frontend/src/helpers/portIndicatorSim.test.ts`.
+
 ### ✅ Task 9.2: PortIndicator Spheres Inside Connector Meshes
 - **Root cause**: Part mesh `handlePointerOver` called `e.stopPropagation()`, blocking
   PortIndicator spheres at connector centers (slot ports, center ports at `[0,0,0]`) from

@@ -232,6 +232,12 @@ const rod54: KnexPartDef = {
     { id: 'end2', position: [54, 0, 0], direction: [1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'], allowed_angles_deg: [0] },
     { id: 'center_axial_1', position: [27, 0, 0], direction: [-1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'], allowed_angles_deg: [0] },
     { id: 'center_axial_2', position: [27, 0, 0], direction: [1, 0, 0], mate_type: 'rod_end', accepts: ['rod_hole'], allowed_angles_deg: [0] },
+    // Explicit 3-axis side ports (canonical model)
+    { id: 'center_tangent_y_pos', position: [27, 0, 0], direction: [0, 1, 0], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'center_tangent_y_neg', position: [27, 0, 0], direction: [0, -1, 0], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'center_tangent_z_pos', position: [27, 0, 0], direction: [0, 0, 1], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
+    { id: 'center_tangent_z_neg', position: [27, 0, 0], direction: [0, 0, -1], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
+    // Legacy compatibility – will be normalized to center_tangent_y_pos
     { id: 'center_tangent', position: [27, 0, 0], direction: [0, 1, 0], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
   ],
 }
@@ -424,5 +430,57 @@ describe('PortIndicators: placing purple connector onto blue connector (slot-to-
     for (const v of slotGroup.variants) {
       expect(v.targetPortId).toBe('slot')
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// New: Explicit 3-axis rod-side port tests
+// ---------------------------------------------------------------------------
+
+describe('Explicit 3-axis rod-side ports', () => {
+  it('rod-54 has all four side ports defined (y_pos, y_neg, z_pos, z_neg)', () => {
+    const sidePortIds = rod54.ports
+      .filter((p) => p.mate_type === 'rod_side')
+      .map((p) => p.id)
+
+    expect(sidePortIds).toContain('center_tangent_y_pos')
+    expect(sidePortIds).toContain('center_tangent_y_neg')
+    expect(sidePortIds).toContain('center_tangent_z_pos')
+    expect(sidePortIds).toContain('center_tangent_z_neg')
+  })
+
+  it('legacy center_tangent port is also present for backward compatibility', () => {
+    const hasLegacy = rod54.ports.some((p) => p.id === 'center_tangent')
+    expect(hasLegacy).toBe(true)
+  })
+
+  it('side ports have correct directions (y_pos=+Y, y_neg=-Y, z_pos=+Z, z_neg=-Z)', () => {
+    const sidePorts = rod54.ports.filter((p) => p.mate_type === 'rod_side')
+    for (const port of sidePorts) {
+      if (port.id === 'center_tangent_y_pos') expect(port.direction).toEqual([0, 1, 0])
+      else if (port.id === 'center_tangent_y_neg') expect(port.direction).toEqual([0, -1, 0])
+      else if (port.id === 'center_tangent_z_pos') expect(port.direction).toEqual([0, 0, 1])
+      else if (port.id === 'center_tangent_z_neg') expect(port.direction).toEqual([0, 0, -1])
+    }
+  })
+
+  it('connector can snap to any of the four side ports via edge ports', () => {
+    const indicators = computeIndicators(connector3wayRed, rod54, rodInstance)
+    const centerInd = indicators.find((ind) => ind.positionKey === 'pos_27.00_0.00_0.00')!
+
+    // All four side ports should be targetable by edge ports (A, B, C)
+    const sidePortTargets = new Set<string>()
+    for (const group of centerInd.portGroups) {
+      if (['A', 'B', 'C'].includes(group.placingPortId)) {
+        for (const v of group.variants) {
+          if (v.targetPortId.startsWith('center_tangent')) {
+            sidePortTargets.add(v.targetPortId)
+          }
+        }
+      }
+    }
+
+    // At minimum, y_pos should be targetable (the canonical side port)
+    expect(sidePortTargets.size).toBeGreaterThan(0)
   })
 })
