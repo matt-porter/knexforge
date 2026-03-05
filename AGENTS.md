@@ -21,7 +21,7 @@ This file is the **single source of truth** for any AI coding agent working on t
 
 3. **Testability First**
    - Every new function/class must have unit tests (pytest)
-   - Core must remain headless-testable (`pytest core/tests/`)
+   - Core must remain headless-testable (`.\.venv\Scripts\python.exe -m pytest core/tests/`)
 
 4. **Agent-Friendly Design**
    - All public APIs are documented with type hints + Google-style docstrings
@@ -124,7 +124,7 @@ All 3D objects must be driven by Build state from Python
 
 5. Testing Requirements (Mandatory)
 
-src/core/tests/ must pass before any PR
+src/core/tests/ must pass before any PR - run `.\.venv\Scripts\python.exe -m pytest`
 Coverage ≥ 90% on new code
 Snapshot tests for instruction PDF output (optional but encouraged)
 AI generation tests must assert ≥ 95% valid builds on a 50-example smoke set
@@ -132,7 +132,7 @@ Frontend physics tests (`frontend/src/services/__tests__/`) must pass (Vitest)
 
 Run:
 
-pytest src/core/tests/ --cov
+ .\.venv\Scripts\python.exe -m pytest src/core/tests/ --cov
 cd frontend && npm run test
 
 6. Commit & PR Rules
@@ -217,10 +217,10 @@ ruff check src/ && pyright src/
 cd frontend && npm run type-check && npm run lint
 
 # Run tests
-pytest src/core/tests/ --cov
+ .\.venv\Scripts\python.exe -m pytest src/core/tests/ --cov
 
 # Start sidecar API (port 8000)
-python -m uvicorn src.core.api:app --reload
+ .\.venv\Scripts\python.exe -m uvicorn src.core.api:app --reload
 
 # Run desktop app
 cd frontend && npm run tauri dev
