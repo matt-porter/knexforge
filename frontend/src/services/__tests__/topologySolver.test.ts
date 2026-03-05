@@ -77,6 +77,26 @@ describe('topologySolver', () => {
     })
   })
 
+  it('canonicalizeTopology normalizes legacy center_tangent port refs', () => {
+    const model: TopologyModel = {
+      format_version: 'topology-v1',
+      parts: [
+        { instance_id: 'r1', part_id: 'rod-128-red-v1' },
+        { instance_id: 'c1', part_id: 'connector-4way-green-v1' },
+      ],
+      connections: [{ from: 'r1.center_tangent', to: 'c1.A' }],
+    }
+
+    const canonical = canonicalizeTopology(model)
+    expect(canonical.connections).toEqual([
+      {
+        from: 'c1.A',
+        to: 'r1.center_tangent_y_pos',
+        joint_type: undefined,
+      },
+    ])
+  })
+
   it('rejects unknown parts and malformed refs with structured validation errors', () => {
     const defs = loadPartDefs()
     const model: TopologyModel = {
@@ -267,5 +287,40 @@ describe('topologySolver', () => {
       to: 'r1.end1',
       joint_type: 'fixed',
     })
+  })
+
+  it('buildStateToTopology normalizes legacy center_tangent connection ports', () => {
+    const topology = buildStateToTopology(
+      [
+        {
+          instance_id: 'r1',
+          part_id: 'rod-128-red-v1',
+          position: [0, 0, 0],
+          rotation: [0, 0, 0, 1],
+        },
+        {
+          instance_id: 'c1',
+          part_id: 'connector-4way-green-v1',
+          position: [10, 0, 0],
+          rotation: [0, 0, 0, 1],
+        },
+      ],
+      [
+        {
+          from_instance: 'r1',
+          from_port: 'center_tangent',
+          to_instance: 'c1',
+          to_port: 'A',
+        },
+      ],
+    )
+
+    expect(topology.connections).toEqual([
+      {
+        from: 'c1.A',
+        to: 'r1.center_tangent_y_pos',
+        joint_type: undefined,
+      },
+    ])
   })
 })

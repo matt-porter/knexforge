@@ -307,6 +307,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Update (2026-03-04 regression 3)**: Added core-side snapping/orientation coverage for explicit rod-side ports in Python tests (`src/core/tests/test_snapping.py`, `src/core/tests/test_connector_orientation.py`) so frontend/core behavior stays aligned.
 - **Update (2026-03-04 migration)**: Added legacy port normalization in frontend build state so imported/older connections using `center_tangent` are canonicalized to `center_tangent_y_pos` on add/load, preventing mixed legacy/explicit side IDs.
 - **Update (2026-03-04 regression 4)**: Added candidate-grouping regression test using real part JSONs (`frontend/src/helpers/rodSideGrouping.test.ts`) to verify side buckets and deterministic side order under center-clip indicator generation.
+- **Update (2026-03-04 topology)**: Added legacy `center_tangent` normalization in topology canonicalization/build-state conversion (`frontend/src/services/topologySolver.ts`) with regression tests in `topologySolver.test.ts`, so text/topology and store flows use the same canonical side port IDs.
 
 ### ✅ Task 9.2: PortIndicator Spheres Inside Connector Meshes
 - **Root cause**: Part mesh `handlePointerOver` called `e.stopPropagation()`, blocking

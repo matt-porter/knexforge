@@ -81,12 +81,16 @@ interface Transform {
   rotation: Quaternion
 }
 
+function normalizeLegacyRodSidePortId(portId: string): string {
+  return portId === 'center_tangent' ? 'center_tangent_y_pos' : portId
+}
+
 function parseEndpointRef(value: string): ConnectionEndpoints | null {
   const first = value.indexOf('.')
   if (first <= 0 || first === value.length - 1) return null
   return {
     fromInstance: value.slice(0, first),
-    fromPort: value.slice(first + 1),
+    fromPort: normalizeLegacyRodSidePortId(value.slice(first + 1)),
     toInstance: '',
     toPort: '',
   }
@@ -382,14 +386,20 @@ export function canonicalizeTopology(model: TopologyModel): TopologyModel {
       const parsed = parseConnectionEndpoints(connection)
       if (!parsed) return connection
 
+      const normalized = {
+        from: endpointRef(parsed.fromInstance, parsed.fromPort),
+        to: endpointRef(parsed.toInstance, parsed.toPort),
+        joint_type: connection.joint_type,
+      }
+
       const left = endpointRef(parsed.fromInstance, parsed.fromPort)
       const right = endpointRef(parsed.toInstance, parsed.toPort)
-      if (left <= right) return connection
+      if (left <= right) return normalized
 
       return {
-        from: connection.to,
-        to: connection.from,
-        joint_type: connection.joint_type,
+        from: normalized.to,
+        to: normalized.from,
+        joint_type: normalized.joint_type,
       }
     })
     .sort((a, b) => {
@@ -421,8 +431,8 @@ export function buildStateToTopology(
 
   const topologyConnections: TopologyConnection[] = connections
     .map((connection) => ({
-      from: endpointRef(connection.from_instance, connection.from_port),
-      to: endpointRef(connection.to_instance, connection.to_port),
+      from: endpointRef(connection.from_instance, normalizeLegacyRodSidePortId(connection.from_port)),
+      to: endpointRef(connection.to_instance, normalizeLegacyRodSidePortId(connection.to_port)),
       joint_type: connection.joint_type,
     }))
 
