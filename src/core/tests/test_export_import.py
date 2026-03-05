@@ -392,6 +392,46 @@ def test_connection_preservation(complex_build):
     assert len(imported_build.connections) == len(complex_build.connections)
 
 
+def test_import_normalizes_legacy_center_tangent_ports():
+    """Legacy center_tangent ports are canonicalized during import."""
+    from core.file_io import import_build
+
+    data = {
+        "manifest": {
+            "format_version": "1.0",
+            "piece_count": 2,
+        },
+        "model": {
+            "parts": [
+                {
+                    "instance_id": "r1",
+                    "part_id": "rod-54-blue-v1",
+                    "position": [0, 0, 0],
+                    "quaternion": [0, 0, 0, 1],
+                },
+                {
+                    "instance_id": "c1",
+                    "part_id": "connector-2way-orange-v1",
+                    "position": [0, 0, 50],
+                    "quaternion": [0, 0, 0, 1],
+                },
+            ],
+            "connections": [
+                {
+                    "from": "r1.center_tangent",
+                    "to": "c1.A",
+                    "joint_type": "fixed",
+                },
+            ],
+        },
+    }
+
+    build, _ = import_build(data)
+    assert len(build.connections) == 1
+    conn = next(iter(build.connections))
+    assert conn.from_port == "center_tangent_y_pos"
+
+
 # ============================================================================
 # Version Migration Tests (Task 5.8)
 # ============================================================================

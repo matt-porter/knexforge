@@ -14,6 +14,11 @@ from .action_history import (
 )
 from .parts.models import Connection, PartInstance
 
+
+def _normalize_legacy_port_id(port_id: str) -> str:
+    """Canonicalize legacy rod-side port IDs to explicit side IDs."""
+    return "center_tangent_y_pos" if port_id == "center_tangent" else port_id
+
 if TYPE_CHECKING:
     from .parts.loader import PartLoader
 
@@ -159,6 +164,8 @@ class Build:
         """Remove a connection by dotted port refs without recording."""
         from_inst, from_p = from_port.rsplit(".", 1)
         to_inst, to_p = to_port.rsplit(".", 1)
+        from_p = _normalize_legacy_port_id(from_p)
+        to_p = _normalize_legacy_port_id(to_p)
         self.connections = {
             c for c in self.connections
             if not (c.from_instance == from_inst and c.from_port == from_p
@@ -220,6 +227,8 @@ class Build:
         """Re-apply a SnapAction during redo."""
         from_inst, from_p = action.from_port.rsplit(".", 1)
         to_inst, to_p = action.to_port.rsplit(".", 1)
+        from_p = _normalize_legacy_port_id(from_p)
+        to_p = _normalize_legacy_port_id(to_p)
         
         # Recalculate joint type during replay
         from .snapping import infer_joint_type
@@ -281,6 +290,11 @@ class Build:
             build.add_part(instance, record=False)
 
         for c_dict in data.get("connections", []):
+            c_dict = {
+                **c_dict,
+                "from_port": _normalize_legacy_port_id(c_dict["from_port"]),
+                "to_port": _normalize_legacy_port_id(c_dict["to_port"]),
+            }
             conn = Connection(**c_dict)
             build.connections.add(conn)
             build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)

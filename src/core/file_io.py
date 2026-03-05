@@ -16,6 +16,11 @@ from .parts.loader import PARTS_DIR, PartLoader
 from .parts.models import Connection, PartInstance, PartLibrary
 
 
+def _normalize_legacy_port_id(port_id: str) -> str:
+    """Canonicalize legacy rod-side port IDs to explicit side IDs."""
+    return "center_tangent_y_pos" if port_id == "center_tangent" else port_id
+
+
 class Manifest(BaseModel):
     """Metadata stored in manifest.json inside a .knx file."""
 
@@ -348,9 +353,11 @@ def _build_to_model_json(build: Build, library: PartLibrary) -> dict:
 
     connections = []
     for conn in build.connections:
+        from_port = _normalize_legacy_port_id(conn.from_port)
+        to_port = _normalize_legacy_port_id(conn.to_port)
         connections.append({
-            "from": f"{conn.from_instance}.{conn.from_port}",
-            "to": f"{conn.to_instance}.{conn.to_port}",
+            "from": f"{conn.from_instance}.{from_port}",
+            "to": f"{conn.to_instance}.{to_port}",
             "joint_type": getattr(conn, 'joint_type', 'fixed'),
         })
 
@@ -397,9 +404,9 @@ def _model_json_to_build(data: dict, library: PartLibrary) -> Build:
         to_instance, to_port = c_dict["to"].rsplit(".", 1)
         conn = Connection(
             from_instance=from_instance,
-            from_port=from_port,
+            from_port=_normalize_legacy_port_id(from_port),
             to_instance=to_instance,
-            to_port=to_port,
+            to_port=_normalize_legacy_port_id(to_port),
             joint_type=c_dict.get("joint_type", "fixed"),
         )
         build.connections.add(conn)
