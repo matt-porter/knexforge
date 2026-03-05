@@ -140,6 +140,18 @@ function normalizeStabilityScore(score: number): number | null {
   return Math.max(0, Math.min(100, score))
 }
 
+function normalizeLegacyRodSidePortId(portId: string): string {
+  return portId === 'center_tangent' ? 'center_tangent_y_pos' : portId
+}
+
+function normalizeConnectionPorts(connection: Connection): Connection {
+  return {
+    ...connection,
+    from_port: normalizeLegacyRodSidePortId(connection.from_port),
+    to_port: normalizeLegacyRodSidePortId(connection.to_port),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
@@ -195,21 +207,23 @@ export const useBuildStore = create<BuildStore>()(
 
     addConnection: (connection: Connection) => {
       set((state) => {
+        const normalizedConnection = normalizeConnectionPorts(connection)
+
         // Check both parts exist
-        if (!state.parts[connection.from_instance] || !state.parts[connection.to_instance]) return
+        if (!state.parts[normalizedConnection.from_instance] || !state.parts[normalizedConnection.to_instance]) return
 
         // Don't add duplicate connections
         const exists = state.connections.some(
           (c) =>
-            c.from_instance === connection.from_instance &&
-            c.from_port === connection.from_port &&
-            c.to_instance === connection.to_instance &&
-            c.to_port === connection.to_port,
+            c.from_instance === normalizedConnection.from_instance &&
+            c.from_port === normalizedConnection.from_port &&
+            c.to_instance === normalizedConnection.to_instance &&
+            c.to_port === normalizedConnection.to_port,
         )
         if (exists) return
 
         const before = createSnapshot(state)
-        state.connections.push(connection)
+        state.connections.push(normalizedConnection)
         const after = createSnapshot(state)
         state.undoStack.push({ type: 'snap', before, after })
         state.redoStack = []
@@ -281,7 +295,7 @@ export const useBuildStore = create<BuildStore>()(
         for (const p of parts) {
           state.parts[p.instance_id] = p
         }
-        state.connections = connections
+        state.connections = connections.map(normalizeConnectionPorts)
         state.stabilityScore = stabilityScore
         state.stressData = {}
         state.selectedPartId = null
@@ -316,14 +330,15 @@ export const useBuildStore = create<BuildStore>()(
         
         // Add connections with remapped IDs
         for (const c of connections) {
+          const normalizedConnection = normalizeConnectionPorts(c)
           const newFrom = idMap[c.from_instance]
           const newTo = idMap[c.to_instance]
-          
+
           // Only add if both sides of the connection were part of the appended set
           // OR if they already existed in the store (idMap handles the mapping)
           if (newFrom && newTo) {
             state.connections.push({
-              ...c,
+              ...normalizedConnection,
               from_instance: newFrom,
               to_instance: newTo
             })

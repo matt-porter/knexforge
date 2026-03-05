@@ -199,6 +199,24 @@ describe('buildStore', () => {
 
       expect(useBuildStore.getState().connections).toHaveLength(1)
     })
+
+    it('normalizes legacy center_tangent ports on add', () => {
+      const store = useBuildStore.getState()
+
+      store.addPart(makePart('rod-1'))
+      store.addPart(makePart('conn-1', 'connector-8way-white-v1'))
+
+      useBuildStore.getState().addConnection({
+        from_instance: 'rod-1',
+        from_port: 'center_tangent',
+        to_instance: 'conn-1',
+        to_port: 'A',
+      })
+
+      const state = useBuildStore.getState()
+      expect(state.connections).toHaveLength(1)
+      expect(state.connections[0].from_port).toBe('center_tangent_y_pos')
+    })
   })
 
   // -------------------------------------------------------------------------
@@ -440,6 +458,27 @@ describe('buildStore', () => {
       useBuildStore.getState().loadBuild([], [])
 
       expect(useBuildStore.getState().selectedPartId).toBeNull()
+    })
+
+    it('normalizes legacy center_tangent ports when loading', () => {
+      const parts: PartInstance[] = [
+        makePart('rod-1'),
+        makePart('conn-1', 'connector-8way-white-v1'),
+      ]
+      const connections: Connection[] = [
+        {
+          from_instance: 'rod-1',
+          from_port: 'center_tangent',
+          to_instance: 'conn-1',
+          to_port: 'A',
+        },
+      ]
+
+      useBuildStore.getState().loadBuild(parts, connections)
+
+      const state = useBuildStore.getState()
+      expect(state.connections).toHaveLength(1)
+      expect(state.connections[0].from_port).toBe('center_tangent_y_pos')
     })
   })
 

@@ -305,6 +305,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Update (2026-03-04 regression)**: Added Rapier orientation regression coverage for all four explicit rod-side ports to guard against future side-clip rotation regressions (`frontend/src/services/__tests__/rapierSimulator.test.ts`).
 - **Update (2026-03-04 regression 2)**: Added deterministic rod-side ordering/mapping regressions for UI cycling semantics (`frontend/src/helpers/rodSideOrdering.test.ts`) to lock `+Y → -Y → +Z → -Z` order and legacy `center_tangent` normalization.
 - **Update (2026-03-04 regression 3)**: Added core-side snapping/orientation coverage for explicit rod-side ports in Python tests (`src/core/tests/test_snapping.py`, `src/core/tests/test_connector_orientation.py`) so frontend/core behavior stays aligned.
+- **Update (2026-03-04 migration)**: Added legacy port normalization in frontend build state so imported/older connections using `center_tangent` are canonicalized to `center_tangent_y_pos` on add/load, preventing mixed legacy/explicit side IDs.
 
 ### ✅ Task 9.2: PortIndicator Spheres Inside Connector Meshes
 - **Root cause**: Part mesh `handlePointerOver` called `e.stopPropagation()`, blocking
