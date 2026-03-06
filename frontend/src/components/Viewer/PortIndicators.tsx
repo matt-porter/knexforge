@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { type ThreeEvent } from '@react-three/fiber'
-import { Quaternion, Vector3, MathUtils } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
 import { getPortWorldPose, inferJointType, computeGhostTransform } from '../../helpers/snapHelper'

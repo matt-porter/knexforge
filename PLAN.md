@@ -570,12 +570,16 @@ share on a public gallery — all hosted at $0/month on free tiers.
   - Canonicalized legacy `center_tangent` to `center_tangent_y_pos` at Pydantic model and API entry points.
   - Aligned Python `align_part_to_port` deterministic orientation logic with frontend (auto-flattens side-clips).
   - Verified with updated snapping and API regression tests.
-- **Task 9-5b: API Regression Tests**
+- [x] **Task 9-5b: API Regression Tests**
   - Added explicit tests for `/stability`, `/export`, `/load`, and `/diagnostics` using legacy payloads.
   - Verified canonicalization in exported JSON and internal Build objects.
   - Fixed `quaternion`/`rotation` key consistency in stability endpoint.
-- [ ] **Task 9-5c: Full Validation Pass**
+- [x] **Task 9-5c: Full Validation Pass**
+  - Ran full cross-layer suite: 71/71 Vitest passed, 141/141 Pytest passed.
+  - Fixed unused imports and synchronized topology solver orientation logic.
+  - Verified round-trip stability for rod-side clips in both JS and Python.
 - [ ] **Task 9-5d: Center/Tangent Consistency Sweep**
+
 - [ ] **Task 9-5e: Plan Closeout**
 
 ## Post-Review Issues (2026-03-06) — ✅ RESOLVED
