@@ -429,7 +429,7 @@ def align_part_to_port(
         (is_target_rod and target_port.mate_type == "rod_side")
     )
 
-    if is_rod_connector_side and not fixed_roll:
+    if is_rod_connector_side:
         # Determine if we're dealing with a flat connector edge
         connector_dir = target_port.direction if is_placing_rod else placing_port.direction
         is_flat_edge = abs(connector_dir[2]) < 0.1

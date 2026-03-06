@@ -69,4 +69,29 @@ connector-5way-yellow-v1-1-mmewspir.D -- rod-128-red-v1-mmewoqc7.end1
     const dot = Math.abs(connNormal.dot(rodAxis))
     expect(dot).toBeLessThan(0.01) // Should be flat!
   })
+
+  it('correctly enforces vertical orientation when requested with @ 90!', () => {
+    const text = `
+part c1 connector-3way-red-v1
+part r1 rod-128-red-v1
+c1.A -- r1.center_tangent_y_neg @ 90!
+`.trim()
+
+    const model = parseCompactTopology(text)
+    const solved = solveTopology(model, partDefsById)
+
+    const c1 = solved.parts.find(p => p.instance_id === 'c1')!
+    const r1 = solved.parts.find(p => p.instance_id === 'r1')!
+
+    const connQuat = new Quaternion(...c1.rotation)
+    const rodQuat = new Quaternion(...r1.rotation)
+    
+    const connNormal = new Vector3(0, 0, 1).applyQuaternion(connQuat)
+    const rodAxis = new Vector3(1, 0, 0).applyQuaternion(rodQuat)
+    
+    // For @ 90! on a flat connector, it should be VERTICAL.
+    // Connector normal (Z) should be ALIGNED with Rod axis (X).
+    const dot = Math.abs(connNormal.dot(rodAxis))
+    expect(dot).toBeGreaterThan(0.99) // Should be vertical!
+  })
 })

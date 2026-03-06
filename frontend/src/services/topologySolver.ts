@@ -194,7 +194,7 @@ function buildPlacementCandidate(
     baseRotation = new Quaternion().setFromAxisAngle(rotAxis, rotAngle)
   }
 
-  // Step 2: Deterministic Side-Clip Orientation (skip if fixedRoll is requested)
+  // Step 2: Deterministic Side-Clip Orientation
   const isPlacingRod = placingDef.category === 'rod'
   const isAnchorRod = anchorDef.category === 'rod'
   const isRodConnectorSide = (
@@ -202,7 +202,7 @@ function buildPlacementCandidate(
     (isAnchorRod && anchorPort.mate_type === 'rod_side')
   )
 
-  if (isRodConnectorSide && !fixedRoll) {
+  if (isRodConnectorSide) {
     // Determine if we're dealing with a flat connector edge
     const connectorPort = isPlacingRod ? anchorPort : placingPort
     const isFlatEdge = Math.abs(connectorPort.direction[2]) < 0.1
