@@ -404,12 +404,13 @@ describe('computeGhostTransform', () => {
     expect(dir.y).toBeCloseTo(0)
     expect(dir.z).toBeCloseTo(0)
 
-    // 2. Check deterministic orientation: connector plane (local XY) 
-    // must be perpendicular to rod main axis (world Y).
-    // This means connector local Z [0,0,1] must align with rod world Y [0,1,0].
-    const localZ = new Vector3(0, 0, 1).applyQuaternion(rotation)
-    expect(localZ.x).toBeCloseTo(0)
-    expect(localZ.y).toBeCloseTo(1)
-    expect(localZ.z).toBeCloseTo(0)
+    // 2. Check deterministic orientation: connector must be FLAT in rod plane.
+    // Rod main axis is world Y [0,1,0].
+    // Flat orientation means connector local Y [0,1,0] aligns with rod world Y [0,1,0].
+    const localY = new Vector3(0, 1, 0).applyQuaternion(rotation)
+    expect(localY.x).toBeCloseTo(0)
+    expect(localY.y).toBeCloseTo(1)
+    expect(localY.z).toBeCloseTo(0)
+
   })
 })
