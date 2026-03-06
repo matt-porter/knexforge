@@ -565,26 +565,15 @@ share on a public gallery — all hosted at $0/month on free tiers.
 
 ## Phase 9 — Dataset & API Polish
 
-### ✅ Task 9.5: Rod-Side Rollout & API Normalization
-- **Task 9-5a: API Boundary Normalization**
-  - Canonicalized legacy `center_tangent` to `center_tangent_y_pos` at Pydantic model and API entry points.
-  - Aligned Python `align_part_to_port` deterministic orientation logic with frontend (auto-flattens side-clips).
-  - Verified with updated snapping and API regression tests.
-- [x] **Task 9-5b: API Regression Tests**
-  - Added explicit tests for `/stability`, `/export`, `/load`, and `/diagnostics` using legacy payloads.
-  - Verified canonicalization in exported JSON and internal Build objects.
-  - Fixed `quaternion`/`rotation` key consistency in stability endpoint.
-- [x] **Task 9-5c: Full Validation Pass**
-  - Ran full cross-layer suite: 71/71 Vitest passed, 141/141 Pytest passed.
-  - Fixed unused imports and synchronized topology solver orientation logic.
-  - Verified round-trip stability for rod-side clips in both JS and Python.
-- [x] **Task 9-5d: Center/Tangent Consistency Sweep**
-  - Removed legacy `center_tangent` from all `parts/rod-*.json` definitions.
-  - Canonicalized all connection strings in `dataset.jsonl` and `test_output.jsonl`.
-  - Updated synthetic generator, `test_parts.py`, `test_snapping.py`, and frontend helper tests.
-  - Verified clean 209/209 Vitest and 141/141 Pytest passes.
-- [ ] **Task 9-5e: Plan Closeout**
-
+### ✅ Task 9.5: Rod-Side Rollout & API Normalization (2026-03-06) — ✅ RESOLVED
+- **Outcome**: Migrated all rod-side connections to the canonical 4-axis port system (`center_tangent_y_pos` etc.).
+- **API Boundary**: All build-ingesting endpoints (`/load`, `/stability`, `/export`, `/diagnostics`) automatically normalize legacy `center_tangent`.
+- **Snapping & Physics**: Unified deterministic orientation logic across Frontend (Three.js), Topology Solver, and Core (Python). Side-clipped rods now "auto-flatten" into the connector plane by default.
+- **Validation**: 
+  - Frontend: 209/209 Vitest passes (including round-trip and realistic topology solves).
+  - Core: 141/141 Pytest passes (including API regression and physics stability).
+- **Library**: Cleaned up `parts/rod-*.json` to remove legacy port definitions.
+- **Residual Risks**: None. Legacy `center_tangent` is fully supported as an input but is canonicalized upon ingestion.
 ## Post-Review Issues (2026-03-06) — ✅ RESOLVED
 
 ### ✅ Fixed: Coordinate System Inconsistency
