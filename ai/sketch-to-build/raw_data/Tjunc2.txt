@@ -1,0 +1,3 @@
+rc3_1.B -- br_1.end1
+rc3_2.B -- br_1.end2
+rc3_3.B -- br_1.center_tangent

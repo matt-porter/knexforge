@@ -7,7 +7,14 @@ import shutil
 RAW_DATA_DIR = "raw_data"        # Where you drop your paired .jpg and .txt files
 OUTPUT_DIR = "data"              # The MLX target folder
 OUTPUT_IMAGES_DIR = os.path.join(OUTPUT_DIR, "images")
-PROMPT_TEXT = "Extract K'NEX topology." # The consistent instruction for the VLM
+#PROMPT_TEXT = "Extract K'NEX topology." # The consistent instruction for the VLM
+PROMPT_TEXT = """Extract K'NEX topology into strict shorthand.
+RULES:
+- Joints: Use '--' for fixed, '~~' for revolute.
+- Connectors: format as [id]_[num].[port]. Valid IDs: rc3 (3-way), yc5 (5-way), wc8 (8-way). Ports are clockwise .A, .B, .C...
+- Rods: format as [id]_[num].[port]. Valid IDs: gr (grey), wr (white), blr (blue). Ports are .end1, .end2, .center.
+- Output ONLY the raw relationships, one per line. No markdown.
+"""
 TRAIN_SPLIT = 0.8                # 80% for training, 20% for validation
 
 def build_dataset():
@@ -19,7 +26,7 @@ def build_dataset():
     # 2. Find all matching image and text pairs in raw_data
     pairs = []
     for filename in os.listdir(RAW_DATA_DIR):
-        if filename.endswith(('.jpg', '.jpeg', '.png')):
+        if filename.endswith('.png') and not filename.endswith('s.png'):
             base_name = os.path.splitext(filename)[0]
             txt_path = os.path.join(RAW_DATA_DIR, f"{base_name}.txt")
             img_path = os.path.join(RAW_DATA_DIR, filename)
@@ -53,9 +60,15 @@ def build_dataset():
                     shorthand_content = tf.read().strip()
                 
                 # Construct the specific MLX-VLM JSON dictionary
-                # Notice we use the relative path 'data/images/...' as MLX expects
                 mlx_entry = {
+                    "images": [f"data/images/{img_filename}"],
                     "messages": [
+                        {
+                            "role": "system",
+                            "content": [
+                                {"type": "text", "text": "You are a raw K'NEX topology parser. Output ONLY the shorthand. No markdown, no explanations."}
+                            ]
+                        },
                         {
                             "role": "user", 
                             "content": [
@@ -65,7 +78,9 @@ def build_dataset():
                         }, 
                         {
                             "role": "assistant", 
-                            "content": shorthand_content
+                            "content": [
+                                {"type": "text", "text": shorthand_content}
+                            ]
                         }
                     ]
                 }

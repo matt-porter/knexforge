@@ -1,0 +1,3 @@
+gc1_1.A -- rr_1.end1
+gc1_2.A -- rr_1.end2
+gc1_3.A -- rr_1.center_tangent

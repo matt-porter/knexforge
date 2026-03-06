@@ -1,0 +1,2 @@
+rc3_1.B -- rr_1.end1
+wc8_2.W -- rr_1.end2
