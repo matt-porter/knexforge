@@ -278,8 +278,6 @@ const rod54: KnexPartDef = {
     { id: 'center_tangent_y_neg', position: [27, 0, 0], direction: [0, -1, 0], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] } as Port,
     { id: 'center_tangent_z_pos', position: [27, 0, 0], direction: [0, 0, 1], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] } as Port,
     { id: 'center_tangent_z_neg', position: [27, 0, 0], direction: [0, 0, -1], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] } as Port,
-    // Legacy compatibility – will be normalized to center_tangent_y_pos
-    { id: 'center_tangent', position: [27, 0, 0], direction: [0, 1, 0], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] } as Port,
   ],
 }
 
@@ -485,11 +483,6 @@ describe('Port B must appear in port groups for 3-way red connector on rod', () 
       expect(sidePortIds).toContain('center_tangent_y_neg')
       expect(sidePortIds).toContain('center_tangent_z_pos')
       expect(sidePortIds).toContain('center_tangent_z_neg')
-    })
-
-    it('legacy center_tangent port is also present for backward compatibility', () => {
-      const hasLegacy = rod54.ports.some((p) => p.id === 'center_tangent')
-      expect(hasLegacy).toBe(true)
     })
 
     it('side ports have correct directions (y_pos=+Y, y_neg=-Y, z_pos=+Z, z_neg=-Z)', () => {

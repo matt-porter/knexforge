@@ -206,12 +206,12 @@ def generate_motorized_spinner(library: PartLibrary) -> Build:
     
     r_id = str(uuid.uuid4())
     temp_r = PartInstance(instance_id=r_id, part=rod_def)
-    pos, rot = align_part_to_port(temp_r, "center_tangent", m_inst, "drive_axle", twist_deg=0)
+    pos, rot = align_part_to_port(temp_r, "center_tangent_y_pos", m_inst, "drive_axle", twist_deg=0)
     
     rod_inst = PartInstance(instance_id=r_id, part=rod_def, position=pos, quaternion=rot)
     build.add_part(rod_inst)
     
-    conn = build.attempt_snap(m_id, "drive_axle", r_id, "center_tangent")
+    conn = build.attempt_snap(m_id, "drive_axle", r_id, "center_tangent_y_pos")
     if not conn:
         return build
         

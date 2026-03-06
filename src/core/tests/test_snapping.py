@@ -207,7 +207,7 @@ def test_side_clip_rod_side_compat_with_connector_hole(library):
     rod_part = library.get("rod-54-blue-v1")
     conn_part = library.get("connector-8way-white-v1")
 
-    tangent = next(p for p in rod_part.ports if p.id == "center_tangent")
+    tangent = next(p for p in rod_part.ports if p.id == "center_tangent_y_pos")
     port_n = next(p for p in conn_part.ports if p.id == "N")
 
     # rod_side ∈ rod_hole.accepts

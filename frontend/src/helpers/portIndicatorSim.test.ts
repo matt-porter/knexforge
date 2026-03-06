@@ -237,8 +237,6 @@ const rod54: KnexPartDef = {
     { id: 'center_tangent_y_neg', position: [27, 0, 0], direction: [0, -1, 0], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
     { id: 'center_tangent_z_pos', position: [27, 0, 0], direction: [0, 0, 1], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
     { id: 'center_tangent_z_neg', position: [27, 0, 0], direction: [0, 0, -1], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
-    // Legacy compatibility – will be normalized to center_tangent_y_pos
-    { id: 'center_tangent', position: [27, 0, 0], direction: [0, 1, 0], mate_type: 'rod_side', accepts: ['rod_hole', 'clip'], allowed_angles_deg: [0, 90, 180, 270] },
   ],
 }
 
@@ -449,12 +447,8 @@ describe('Explicit 3-axis rod-side ports', () => {
     expect(sidePortIds).toContain('center_tangent_z_neg')
   })
 
-  it('legacy center_tangent port is also present for backward compatibility', () => {
-    const hasLegacy = rod54.ports.some((p) => p.id === 'center_tangent')
-    expect(hasLegacy).toBe(true)
-  })
-
   it('side ports have correct directions (y_pos=+Y, y_neg=-Y, z_pos=+Z, z_neg=-Z)', () => {
+
     const sidePorts = rod54.ports.filter((p) => p.mate_type === 'rod_side')
     for (const port of sidePorts) {
       if (port.id === 'center_tangent_y_pos') expect(port.direction).toEqual([0, 1, 0])

@@ -578,8 +578,11 @@ share on a public gallery — all hosted at $0/month on free tiers.
   - Ran full cross-layer suite: 71/71 Vitest passed, 141/141 Pytest passed.
   - Fixed unused imports and synchronized topology solver orientation logic.
   - Verified round-trip stability for rod-side clips in both JS and Python.
-- [ ] **Task 9-5d: Center/Tangent Consistency Sweep**
-
+- [x] **Task 9-5d: Center/Tangent Consistency Sweep**
+  - Removed legacy `center_tangent` from all `parts/rod-*.json` definitions.
+  - Canonicalized all connection strings in `dataset.jsonl` and `test_output.jsonl`.
+  - Updated synthetic generator, `test_parts.py`, `test_snapping.py`, and frontend helper tests.
+  - Verified clean 209/209 Vitest and 141/141 Pytest passes.
 - [ ] **Task 9-5e: Plan Closeout**
 
 ## Post-Review Issues (2026-03-06) — ✅ RESOLVED
