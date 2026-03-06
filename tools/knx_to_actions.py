@@ -45,12 +45,15 @@ def main():
             
             # If both parts involved in the connection have been added and this connection wasn't added yet
             if from_inst in added_instances and to_inst in added_instances and conn_key not in added_conns:
-                actions.append({
+                snap_action = {
                     'step': step,
                     'action': 'snap',
                     'from_port': conn['from'],
                     'to_port': conn['to']
-                })
+                }
+                if 'twist_deg' in conn:
+                    snap_action['twist_deg'] = conn['twist_deg']
+                actions.append(snap_action)
                 step += 1
                 added_conns.add(conn_key)
 

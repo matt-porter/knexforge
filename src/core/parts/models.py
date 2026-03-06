@@ -90,6 +90,7 @@ class Connection(BaseModel):
     to_instance: str
     to_port: str
     joint_type: Literal["fixed", "revolute", "prismatic"] = Field(default="fixed")
+    twist_deg: float = Field(default=0.0)
 
     model_config = ConfigDict(frozen=True)
 

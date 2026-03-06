@@ -12,6 +12,7 @@ export interface TopologyConnection {
   from: string
   to: string
   joint_type?: 'fixed' | 'revolute' | 'prismatic'
+  twist_deg?: number
 }
 
 export interface TopologyModel {
@@ -73,6 +74,7 @@ interface ResolvedConnection {
   to_instance: string
   to_port: string
   joint_type: 'fixed' | 'revolute' | 'prismatic'
+  twist_deg: number
   key: string
 }
 
@@ -436,6 +438,7 @@ function validateAndResolveConnections(
       to_instance: endpoints.toInstance,
       to_port: endpoints.toPort,
       joint_type: inferred,
+      twist_deg: connection.twist_deg ?? 0,
       key: duplicateKey,
     })
   }
@@ -467,6 +470,7 @@ export function canonicalizeTopology(model: TopologyModel): TopologyModel {
         from: endpointRef(parsed.fromInstance, parsed.fromPort),
         to: endpointRef(parsed.toInstance, parsed.toPort),
         joint_type: connection.joint_type,
+        twist_deg: connection.twist_deg,
       }
 
       const left = endpointRef(parsed.fromInstance, parsed.fromPort)
@@ -477,6 +481,7 @@ export function canonicalizeTopology(model: TopologyModel): TopologyModel {
         from: normalized.to,
         to: normalized.from,
         joint_type: normalized.joint_type,
+        twist_deg: normalized.twist_deg,
       }
     })
     .sort((a, b) => {
@@ -511,6 +516,7 @@ export function buildStateToTopology(
       from: endpointRef(connection.from_instance, normalizeLegacyRodSidePortId(connection.from_port)),
       to: endpointRef(connection.to_instance, normalizeLegacyRodSidePortId(connection.to_port)),
       joint_type: connection.joint_type,
+      twist_deg: connection.twist_deg,
     }))
 
   return canonicalizeTopology({
@@ -644,18 +650,19 @@ export function solveTopology(
           return transforms.has(other)
         })
 
-        const angles = candidateAngles(neighborPort)
+        const angles = edge.twist_deg !== 0 ? [edge.twist_deg] : candidateAngles(neighborPort)
         let bestTransform: Transform | null = null
         let bestScore = Number.POSITIVE_INFINITY
 
         for (const angle of angles) {
           const candidate = buildPlacementCandidate(
-            currentTransform,
+            transforms.get(current)!,
             currentPort,
             neighborPort,
             angle,
             currentPartDef,
-            neighborPartDef
+            neighborPartDef,
+            neighbor === edge.to_instance ? transforms.get(edge.from_instance) : transforms.get(edge.to_instance)
           )
 
           const tempTransforms = new Map(transforms)
@@ -728,6 +735,7 @@ export function solveTopology(
     to_instance: connection.to_instance,
     to_port: connection.to_port,
     joint_type: connection.joint_type,
+    twist_deg: connection.twist_deg,
   }))
 
   return { parts, connections: solvedConnections }

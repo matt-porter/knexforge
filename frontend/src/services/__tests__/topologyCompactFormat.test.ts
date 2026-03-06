@@ -63,4 +63,17 @@ wr_1.end2 -- rc3_2.C
       /Cannot infer part_id for instance 'mystery_1'/,
     )
   })
+
+  it('handles connections with twist modifiers', () => {
+    const text = `
+part r1 rod-128-red-v1
+part c1 connector-4way-green-v1
+r1.center_tangent_y_pos -- c1.A @ 90
+`.trim()
+    const model = parseCompactTopology(text)
+    expect(model.connections[0].twist_deg).toBe(90)
+
+    const stringified = stringifyCompactTopology(model)
+    expect(stringified).toContain('c1.A -- r1.center_tangent_y_pos @ 90')
+  })
 })

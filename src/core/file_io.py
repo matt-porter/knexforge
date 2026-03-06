@@ -355,11 +355,14 @@ def _build_to_model_json(build: Build, library: PartLibrary) -> dict:
     for conn in build.connections:
         from_port = _normalize_legacy_port_id(conn.from_port)
         to_port = _normalize_legacy_port_id(conn.to_port)
-        connections.append({
+        c_dict = {
             "from": f"{conn.from_instance}.{from_port}",
             "to": f"{conn.to_instance}.{to_port}",
             "joint_type": getattr(conn, 'joint_type', 'fixed'),
-        })
+        }
+        if hasattr(conn, 'twist_deg') and conn.twist_deg != 0:
+            c_dict["twist_deg"] = conn.twist_deg
+        connections.append(c_dict)
 
     return {"parts": parts, "connections": connections}
 
@@ -408,6 +411,7 @@ def _model_json_to_build(data: dict, library: PartLibrary) -> Build:
             to_instance=to_instance,
             to_port=_normalize_legacy_port_id(to_port),
             joint_type=c_dict.get("joint_type", "fixed"),
+            twist_deg=c_dict.get("twist_deg", 0.0),
         )
         build.connections.add(conn)
         build._graph.add_edge(from_instance, to_instance, joint_type=conn.joint_type)
