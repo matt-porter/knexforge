@@ -88,12 +88,12 @@ def validate_physical_constraints(
     # 1. Side-on clipping (rod_side)
     if rod_mate_type == "rod_side":
         if is_flat_connector_edge:
-            # Must be vertical (orthogonal to connector plane)
-            if abs(np.dot(rod_world_main_axis, connector_world_z)) < 0.99:
+            # Must be horizontal (in connector plane, i.e., rod X is perpendicular to connector Z)
+            if abs(np.dot(rod_world_main_axis, connector_world_z)) > 0.1:
                 return False
         elif is_3d_connector_edge:
-            # Must be horizontal (in connector plane)
-            if abs(np.dot(rod_world_main_axis, connector_world_z)) > 0.1:
+            # Must be vertical (orthogonal to connector plane, i.e., rod X is parallel to connector Z)
+            if abs(np.dot(rod_world_main_axis, connector_world_z)) < 0.99:
                 return False
 
     # 2. Axial sliding (center_axial) — only through center holes
@@ -358,6 +358,12 @@ def align_part_to_port(
     Returns:
         (position, quaternion) for the placing part's new world transform.
     """
+    # Normalize legacy port IDs
+    if placing_port_id == "center_tangent":
+        placing_port_id = "center_tangent_y_pos"
+    if target_port_id == "center_tangent":
+        target_port_id = "center_tangent_y_pos"
+
     placing_port = placing_instance.get_port(placing_port_id)
     target_port = target_instance.get_port(target_port_id)
 
@@ -395,66 +401,69 @@ def align_part_to_port(
     )
 
     if is_rod_connector_side:
-        # Rods always have main axis along local X
+        # Determine if we're dealing with a flat connector edge
+        connector_dir = target_port.direction if is_placing_rod else placing_port.direction
+        is_flat_edge = abs(connector_dir[2]) < 0.1
+
+        # Rods always have main axis along local X; Connector normal is local Z
         if not is_placing_rod:
             # Connector being placed onto Rod
             rod_world_x = R.from_quat(target_instance.quaternion).apply([1.0, 0.0, 0.0])
             connector_z = base_rot.apply([0.0, 0.0, 1.0])
+            connector_y = base_rot.apply([0.0, 1.0, 0.0])
             
-            # Project both onto plane perpendicular to desired_dir
+            # We want to align either connector_z or connector_y with rod_world_x
+            # depending on whether it's a flat edge or 3D edge.
+            # For flat edge: rod must be in connector plane (rod_x perp to conn_z)
+            #   -> align conn_y with rod_x
+            # For 3D edge: rod must be vertical (rod_x parallel to conn_z)
+            #   -> align conn_z with rod_x
+            source_vec = connector_y if is_flat_edge else connector_z
+
             def project_on_plane(v, n):
                 v = np.array(v)
                 n = np.array(n)
-                # Avoid division by zero
                 n_norm_sq = np.dot(n, n)
-                if n_norm_sq < 1e-12:
-                    return v
+                if n_norm_sq < 1e-12: return v
                 return v - n * np.dot(v, n) / n_norm_sq
-            
-            proj_z = project_on_plane(connector_z, desired_dir)
+
+            proj_src = project_on_plane(source_vec, desired_dir)
             proj_rod_x = project_on_plane(rod_world_x, desired_dir)
-            
-            if np.linalg.norm(proj_z) > 1e-6 and np.linalg.norm(proj_rod_x) > 1e-6:
-                proj_z /= np.linalg.norm(proj_z)
+
+            if np.linalg.norm(proj_src) > 1e-6 and np.linalg.norm(proj_rod_x) > 1e-6:
+                proj_src /= np.linalg.norm(proj_src)
                 proj_rod_x /= np.linalg.norm(proj_rod_x)
-                
-                # Correction rotation around desired_dir
-                dot_p = np.clip(np.dot(proj_z, proj_rod_x), -1.0, 1.0)
+                dot_p = np.clip(np.dot(proj_src, proj_rod_x), -1.0, 1.0)
                 angle_p = np.arccos(dot_p)
-                cross_p = np.cross(proj_z, proj_rod_x)
-                
-                if np.dot(cross_p, desired_dir) < 0:
-                    angle_p = -angle_p
-                
+                cross_p = np.cross(proj_src, proj_rod_x)
+                if np.dot(cross_p, desired_dir) < 0: angle_p = -angle_p
                 correction_rot = R.from_rotvec(angle_p * desired_dir)
                 base_rot = correction_rot * base_rot
         else:
             # Rod being placed onto Connector
             connector_world_z = R.from_quat(target_instance.quaternion).apply([0.0, 0.0, 1.0])
+            connector_world_y = R.from_quat(target_instance.quaternion).apply([0.0, 1.0, 0.0])
             rod_x = base_rot.apply([1.0, 0.0, 0.0])
+
+            target_vec = connector_world_y if is_flat_edge else connector_world_z
 
             def project_on_plane(v, n):
                 v = np.array(v)
                 n = np.array(n)
                 n_norm_sq = np.dot(n, n)
-                if n_norm_sq < 1e-12:
-                    return v
+                if n_norm_sq < 1e-12: return v
                 return v - n * np.dot(v, n) / n_norm_sq
 
             proj_rod_x = project_on_plane(rod_x, desired_dir)
-            proj_conn_z = project_on_plane(connector_world_z, desired_dir)
+            proj_target = project_on_plane(target_vec, desired_dir)
 
-            if np.linalg.norm(proj_rod_x) > 1e-6 and np.linalg.norm(proj_conn_z) > 1e-6:
+            if np.linalg.norm(proj_rod_x) > 1e-6 and np.linalg.norm(proj_target) > 1e-6:
                 proj_rod_x /= np.linalg.norm(proj_rod_x)
-                proj_conn_z /= np.linalg.norm(proj_conn_z)
-
-                dot_p = np.clip(np.dot(proj_rod_x, proj_conn_z), -1.0, 1.0)
+                proj_target /= np.linalg.norm(proj_target)
+                dot_p = np.clip(np.dot(proj_rod_x, proj_target), -1.0, 1.0)
                 angle_p = np.arccos(dot_p)
-                cross_p = np.cross(proj_rod_x, proj_conn_z)
-
-                if np.dot(cross_p, desired_dir) < 0:
-                    angle_p = -angle_p
-
+                cross_p = np.cross(proj_rod_x, proj_target)
+                if np.dot(cross_p, desired_dir) < 0: angle_p = -angle_p
                 correction_rot = R.from_rotvec(angle_p * desired_dir)
                 base_rot = correction_rot * base_rot
 

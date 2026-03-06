@@ -12,8 +12,8 @@ from core.parts.models import KnexPart, Port
 def test_part_loader_loads_all_active_parts(clean_part_library):
     """Verify all active parts (non-underscore-prefixed) are loaded correctly."""
     library = clean_part_library
-    assert len(library.parts) == 16
-    assert len(library.get_by_category("connector")) == 8
+    assert len(library.parts) == 17
+    assert len(library.get_by_category("connector")) == 9
     assert len(library.get_by_category("rod")) == 6
     assert len(library.get_by_category("wheel")) == 1
     assert len(library.get_by_category("special")) == 1

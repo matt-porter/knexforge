@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Literal, List, Optional
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+from typing import Literal, List, Optional, Any
 
 
 MateType = Literal["rod_hole", "rod_end", "tab", "clip", "rod_side", "slide_hole", "connector_slot", "rotational_hole", "slider_hole"]
@@ -92,3 +92,11 @@ class Connection(BaseModel):
     joint_type: Literal["fixed", "revolute", "prismatic"] = Field(default="fixed")
 
     model_config = ConfigDict(frozen=True)
+
+    @field_validator("from_port", "to_port")
+    @classmethod
+    def normalize_port_id(cls, v: str) -> str:
+        """Normalize legacy rod-side port IDs."""
+        if v == "center_tangent":
+            return "center_tangent_y_pos"
+        return v

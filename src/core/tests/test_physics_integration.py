@@ -117,16 +117,26 @@ class TestPhysicsIntegration:
                 
                 # Infer joint type (revolute for motor)
                 joint_type = "fixed"
-                if 'drive_axle' in action['from_port'] or 'drive_axle' in action['to_port']:
+                from_port = action['from_port'][from_dot+1:]
+                to_port = action['to_port'][to_dot+1:]
+
+                # Motor-v1 uses 'drive_axle' instead of 'center'
+                if from_port == "center" and "motor" in action['from_port']:
+                    from_port = "drive_axle"
+                if to_port == "center" and "motor" in action['to_port']:
+                    to_port = "drive_axle"
+
+                if 'drive_axle' in from_port or 'drive_axle' in to_port:
                     joint_type = "revolute"
-                
+
                 conn = Connection(
                     from_instance=action['from_port'][:from_dot],
-                    from_port=action['from_port'][from_dot+1:],
+                    from_port=from_port,
                     to_instance=action['to_port'][:to_dot],
-                    to_port=action['to_port'][to_dot+1:],
+                    to_port=to_port,
                     joint_type=joint_type
                 )
+
                 build.connections.add(conn)
                 build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=joint_type)
         
