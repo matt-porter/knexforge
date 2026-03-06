@@ -59,23 +59,44 @@ def test_export_endpoint():
     assert "data" in data
     assert data["success"] is True
 
-def test_load_endpoint():
-    # 'file_bytes' is base64 for a valid v1.0 build JSON
-    import base64
-    import json
-    # Minimal valid build data
+def test_load_endpoint_normalizes_legacy_center_tangent_port():
+    """Legacy center_tangent should be canonicalized to center_tangent_y_pos during load."""
+    # Build data with legacy port
     data = {
-        "manifest": {"format_version": "1.0", "piece_count": 0},
-        "model": {"parts": [], "connections": []}
+        "manifest": {"format_version": "1.0", "piece_count": 2},
+        "model": {
+            "parts": [
+                {
+                    "instance_id": "rod-1",
+                    "part_id": "rod-54-blue-v1",
+                    "position": [0.0, 0.0, 0.0],
+                    "quaternion": [0.0, 0.0, 0.0, 1.0],
+                },
+                {
+                    "instance_id": "conn-1",
+                    "part_id": "connector-3way-red-v1",
+                    "position": [27.0, 0.0, 0.0],
+                    "quaternion": [0.0, 0.0, 0.0, 1.0],
+                },
+            ],
+            "connections": [
+                {
+                    "from": "rod-1.center_tangent",
+                    "to": "conn-1.A",
+                    "joint_type": "fixed",
+                }
+            ]
+        }
     }
-    json_str = json.dumps(data)
-    b64_str = base64.b64encode(json_str.encode("utf-8")).decode("utf-8")
     
     resp = client.post("/load", json={"data": data})
     assert resp.status_code == 200
-    data = resp.json()
-    assert "build_id" in data
-    assert "manifest" in data
+    build_id = resp.json()["build_id"]
+    
+    # Verify build in store is normalized
+    build = core_api.build_store[build_id]
+    conn = list(build.connections)[0]
+    assert conn.from_port == "center_tangent_y_pos"
 
 
 # -----------------------------------------------------------------------------
@@ -99,13 +120,13 @@ def test_stability_endpoint_normalizes_legacy_center_tangent_port():
                     "instance_id": "rod-1",
                     "part_id": rod.id,
                     "position": [0.0, 0.0, 0.0],
-                    "rotation": [0.0, 0.0, 0.0, 1.0],
+                    "quaternion": [0.0, 0.0, 0.0, 1.0],
                 },
                 {
                     "instance_id": "conn-1",
                     "part_id": conn_3way.id,
                     "position": [27.0, 0.0, 0.0],
-                    "rotation": [0.0, 0.0, 0.0, 1.0],
+                    "quaternion": [0.0, 0.0, 0.0, 1.0],
                 },
             ],
             "connections": [
@@ -142,13 +163,13 @@ def test_export_endpoint_normalizes_legacy_center_tangent_port():
                     "instance_id": "rod-1",
                     "part_id": rod.id,
                     "position": [0.0, 0.0, 0.0],
-                    "rotation": [0.0, 0.0, 0.0, 1.0],
+                    "quaternion": [0.0, 0.0, 0.0, 1.0],
                 },
                 {
                     "instance_id": "conn-1",
                     "part_id": conn_3way.id,
                     "position": [27.0, 0.0, 0.0],
-                    "rotation": [0.0, 0.0, 0.0, 1.0],
+                    "quaternion": [0.0, 0.0, 0.0, 1.0],
                 },
             ],
             "connections": [
@@ -169,10 +190,11 @@ def test_export_endpoint_normalizes_legacy_center_tangent_port():
     # Verify exported data contains canonical port ID
     exported_conns = data["data"]["model"]["connections"]
     for conn in exported_conns:
-        from_port = conn.get("from_port", "")
-        to_port = conn.get("to_port", "")
-        assert from_port != "center_tangent", "Legacy center_tangent should be normalized"
-        assert to_port != "center_tangent", "Legacy center_tangent should be normalized"
+        # Export format uses dotted strings "inst.port"
+        from_ref = conn.get("from", "")
+        to_ref = conn.get("to", "")
+        assert "center_tangent" not in from_ref or "center_tangent_y_pos" in from_ref
+        assert "center_tangent" not in to_ref or "center_tangent_y_pos" in to_ref
 
 
 def test_diagnostics_endpoint_normalizes_legacy_center_tangent_port():
@@ -192,13 +214,13 @@ def test_diagnostics_endpoint_normalizes_legacy_center_tangent_port():
                     "instance_id": "rod-1",
                     "part_id": rod.id,
                     "position": [0.0, 0.0, 0.0],
-                    "rotation": [0.0, 0.0, 0.0, 1.0],
+                    "quaternion": [0.0, 0.0, 0.0, 1.0],
                 },
                 {
                     "instance_id": "conn-1",
                     "part_id": conn_3way.id,
                     "position": [27.0, 0.0, 0.0],
-                    "rotation": [0.0, 0.0, 0.0, 1.0],
+                    "quaternion": [0.0, 0.0, 0.0, 1.0],
                 },
             ],
             "connections": [
@@ -236,13 +258,13 @@ def test_stability_endpoint_accepts_explicit_side_ports():
                     "instance_id": "rod-1",
                     "part_id": rod.id,
                     "position": [0.0, 0.0, 0.0],
-                    "rotation": [0.0, 0.0, 0.0, 1.0],
+                    "quaternion": [0.0, 0.0, 0.0, 1.0],
                 },
                 {
                     "instance_id": "conn-1",
                     "part_id": conn_3way.id,
                     "position": [27.0, 0.0, 0.0],
-                    "rotation": [0.0, 0.0, 0.0, 1.0],
+                    "quaternion": [0.0, 0.0, 0.0, 1.0],
                 },
             ],
             "connections": [

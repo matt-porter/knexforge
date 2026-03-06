@@ -563,6 +563,21 @@ share on a public gallery — all hosted at $0/month on free tiers.
 
 ---
 
+## Phase 9 — Dataset & API Polish
+
+### ✅ Task 9.5: Rod-Side Rollout & API Normalization
+- **Task 9-5a: API Boundary Normalization**
+  - Canonicalized legacy `center_tangent` to `center_tangent_y_pos` at Pydantic model and API entry points.
+  - Aligned Python `align_part_to_port` deterministic orientation logic with frontend (auto-flattens side-clips).
+  - Verified with updated snapping and API regression tests.
+- **Task 9-5b: API Regression Tests**
+  - Added explicit tests for `/stability`, `/export`, `/load`, and `/diagnostics` using legacy payloads.
+  - Verified canonicalization in exported JSON and internal Build objects.
+  - Fixed `quaternion`/`rotation` key consistency in stability endpoint.
+- [ ] **Task 9-5c: Full Validation Pass**
+- [ ] **Task 9-5d: Center/Tangent Consistency Sweep**
+- [ ] **Task 9-5e: Plan Closeout**
+
 ## Post-Review Issues (2026-03-06) — ✅ RESOLVED
 
 ### ✅ Fixed: Coordinate System Inconsistency

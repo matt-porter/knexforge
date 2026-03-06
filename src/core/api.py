@@ -155,7 +155,7 @@ def stability(req: StabilityRequest):
                     instance_id=p["instance_id"],
                     part=part_def,
                     position=tuple(p["position"]),
-                    quaternion=tuple(p["rotation"]),
+                    quaternion=tuple(p.get("quaternion", p.get("rotation", [0, 0, 0, 1]))),
                     color=p.get("color")
                 )
                 build.add_part(inst, record=False)
