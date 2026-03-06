@@ -208,8 +208,13 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
 
                         if (rodMateType === 'rod_side') {
                             const dot = Math.abs(rodWorldMainAxis.dot(connectorWorldZ))
-                            // Side-clipping always makes the rod axial to the connector plane (perpendicular to radial slots)
-                            if (dot < 0.99) isValid = false
+                            if (isFlatConnectorEdge) {
+                                // Allow both Flat (dot ~ 0) and Vertical (dot ~ 1)
+                                if (dot > 0.1 && dot < 0.9) isValid = false
+                            } else if (is3DConnectorEdge) {
+                                // 3D connectors usually require vertical alignment for side-clips
+                                if (dot < 0.9) isValid = false
+                            }
                         }
 
                         if (rodPortId.startsWith('center_axial') || rodPortId === 'center_tangent') {

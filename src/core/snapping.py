@@ -87,10 +87,15 @@ def validate_physical_constraints(
 
     # 1. Side-on clipping (rod_side)
     if rod_mate_type == "rod_side":
-        # Any orientation is physically possible for a side-clip (rotational symmetry)
-        # but we usually prefer either 'flat' in connector plane or 'orthogonal' to it.
-        # Strict validation here often causes solver to reject the intended user roll.
-        return True
+        dot = abs(np.dot(rod_world_main_axis, connector_world_z))
+        if is_flat_connector_edge:
+            # Enforce either flat (dot ~ 0) or vertical (dot ~ 1)
+            if dot > 0.1 and dot < 0.9:
+                return False
+        elif is_3d_connector_edge:
+            # 3D connectors usually require vertical alignment for side-clips
+            if dot < 0.9:
+                return False
 
     # 2. Axial sliding (center_axial) — only through center holes
     if rod_port_id.startswith("center_axial"):

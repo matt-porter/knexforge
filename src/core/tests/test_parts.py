@@ -104,6 +104,7 @@ def test_rod_ports(clean_part_library):
     assert tangent.mate_type == "rod_side"
     assert set(tangent.accepts) == {"rod_hole", "clip", "rotational_hole", "slider_hole"}
     assert tangent.position[0] == 64.0  # midpoint of rod
+    assert sorted(tangent.allowed_angles_deg) == [0, 90, 180, 270]
 
     side_ports = {
         p.id: p for p in rod.ports if p.id.startswith("center_tangent_")
