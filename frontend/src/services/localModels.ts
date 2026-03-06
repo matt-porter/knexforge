@@ -83,6 +83,10 @@ export function deleteLocalModel(id: string) {
   window.dispatchEvent(new CustomEvent('knexforge:local-models-updated'))
 }
 
+function normalizeLegacyRodSidePortId(portId: string): string {
+  return portId === 'center_tangent' ? 'center_tangent_y_pos' : portId
+}
+
 export function parseExportedBuildData(data: ExportedBuildData): {
   parts: PartInstance[]
   connections: Connection[]
@@ -100,9 +104,9 @@ export function parseExportedBuildData(data: ExportedBuildData): {
     const toLastDot = c.to.lastIndexOf('.')
     return {
       from_instance: c.from.substring(0, fromLastDot),
-      from_port: c.from.substring(fromLastDot + 1),
+      from_port: normalizeLegacyRodSidePortId(c.from.substring(fromLastDot + 1)),
       to_instance: c.to.substring(0, toLastDot),
-      to_port: c.to.substring(toLastDot + 1),
+      to_port: normalizeLegacyRodSidePortId(c.to.substring(toLastDot + 1)),
       joint_type: (c.joint_type as 'fixed' | 'revolute' | 'prismatic') || 'fixed',
     }
   })

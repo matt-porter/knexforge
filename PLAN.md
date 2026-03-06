@@ -562,3 +562,26 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - All accepted predictions pass parser + topology validator with zero hard errors.
 
 ---
+
+## Post-Review Issues (2026-03-06) — ✅ RESOLVED
+
+### ✅ Fixed: Coordinate System Inconsistency
+- **Problem**: `src/core/physics/pybullet.py` used **Z-up** gravity.
+- **Fix**: Updated `PyBulletSimulator` to use `p.setGravity(0, -9.81, 0)` (Y-up) to align with Three.js and Rapier.js.
+
+### ✅ Fixed: Normalization Gaps
+- **Problem**: Missing legacy `center_tangent` normalization in `localModels.ts` and `useDataset.ts`.
+- **Fix**: Implemented `normalizeLegacyRodSidePortId` in both parsing entry points.
+
+### ✅ Fixed: Physical Realism in Datasets
+- **Problem**: `proc_0001` (Motorized Spinner) lacked a base mounting.
+- **Fix**: Updated `dataset.jsonl` with an orange 2-way connector as a base mount and switched to canonical `center_tangent_y_pos` port.
+
+### ✅ Fixed: Deterministic Side-Clip Orientation (User Bug)
+- **Problem**: Connectors rotated 90°/45° incorrectly during round-trips due to orientation ambiguity on rod-side clips.
+- **Fix**: Implemented deterministic basis alignment (Connector Z → Rod X) in `computeGhostTransform` (frontend), `buildPlacementCandidate` (topology solver), and `align_part_to_port` (python core).
+
+### 🔵 Minor: UI State Sync
+- **Note**: `isExpanded` state sync is still pending as a low-priority task.
+
+---

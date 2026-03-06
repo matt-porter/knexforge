@@ -3,7 +3,7 @@ import { type ThreeEvent } from '@react-three/fiber'
 import { Quaternion, Vector3, MathUtils } from 'three'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
-import { getPortWorldPose, inferJointType } from '../../helpers/snapHelper'
+import { getPortWorldPose, inferJointType, computeGhostTransform } from '../../helpers/snapHelper'
 import type { KnexPartDef, Port } from '../../types/parts'
 
 interface PortIndicatorsProps {
@@ -19,33 +19,6 @@ function arePortsCompatible(placingPort: Port, targetPort: Port): boolean {
         targetPort.accepts.includes(placingPort.mate_type) &&
         placingPort.accepts.includes(targetPort.mate_type)
     )
-}
-
-function computeGhostTransform(
-    placingPort: Port,
-    targetWorldPos: Vector3,
-    targetWorldDir: Vector3,
-    angleDeg: number = 0
-): { position: Vector3; rotation: Quaternion } {
-    const desiredDir = targetWorldDir.clone().normalize().negate()
-    const placingLocalDir = new Vector3(
-        placingPort.direction[0],
-        placingPort.direction[1],
-        placingPort.direction[2],
-    ).normalize()
-    const baseQuat = new Quaternion().setFromUnitVectors(placingLocalDir, desiredDir)
-    const twistQuat = new Quaternion().setFromAxisAngle(targetWorldDir.clone().normalize(), MathUtils.degToRad(angleDeg))
-    const ghostQuat = twistQuat.clone().multiply(baseQuat)
-
-    const placingLocalPos = new Vector3(
-        placingPort.position[0],
-        placingPort.position[1],
-        placingPort.position[2],
-    )
-    const rotatedLocalPos = placingLocalPos.clone().applyQuaternion(ghostQuat)
-    const ghostPos = targetWorldPos.clone().sub(rotatedLocalPos)
-
-    return { position: ghostPos, rotation: ghostQuat }
 }
 
 /** Format a port ID into a human-readable label. */
@@ -195,11 +168,17 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                 const angles = placingAngles.length > targetAngles.length ? placingAngles : targetAngles
 
                 for (const angle of angles) {
+                    const isPlacingRod = placingDef.category === 'rod'
                     const { position: ghostPos, rotation: ghostQuat } = computeGhostTransform(
                         placingPort,
+                        targetPort,
                         targetWorldPos,
                         targetWorldDir,
-                        angle
+                        angle,
+                        targetInstance,
+                        placingDef,
+                        targetDef,
+                        isPlacingRod
                     )
 
                     // --- Physical Constraints ---
@@ -211,12 +190,12 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                         const isPlacingRod = placingDef.category === 'rod'
 
                         const rodWorldMainAxis = isPlacingRod
-                            ? new Vector3(1, 0, 0).applyQuaternion(ghostQuat)
-                            : new Vector3(1, 0, 0).applyQuaternion(new Quaternion(...targetInstance.rotation))
+                            ? new Vector3(1, 0, 0).applyQuaternion(ghostQuat).normalize()
+                            : new Vector3(1, 0, 0).applyQuaternion(new Quaternion(...targetInstance.rotation)).normalize()
 
                         const connectorWorldZ = isPlacingRod
-                            ? new Vector3(0, 0, 1).applyQuaternion(new Quaternion(...targetInstance.rotation))
-                            : new Vector3(0, 0, 1).applyQuaternion(ghostQuat)
+                            ? new Vector3(0, 0, 1).applyQuaternion(new Quaternion(...targetInstance.rotation)).normalize()
+                            : new Vector3(0, 0, 1).applyQuaternion(ghostQuat).normalize()
 
                         const connectorDir = isPlacingRod ? targetPort.direction : placingPort.direction
                         const rodMateType = isPlacingRod ? placingPort.mate_type : targetPort.mate_type

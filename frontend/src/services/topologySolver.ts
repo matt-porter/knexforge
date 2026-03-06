@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from 'three'
+import { Euler, Quaternion, Vector3 } from 'three'
 
 import type { Connection, KnexPartDef, PartInstance, Port } from '../types/parts'
 
@@ -159,6 +159,8 @@ function buildPlacementCandidate(
   anchorPort: Port,
   placingPort: Port,
   twistDeg: number,
+  anchorDef: KnexPartDef,
+  placingDef: KnexPartDef
 ): Transform {
   const anchorPose = getWorldPortPose(anchor, anchorPort)
   const desiredDirection = anchorPose.direction.clone().negate()
@@ -169,13 +171,82 @@ function buildPlacementCandidate(
     placingPort.direction[2],
   ).normalize()
 
-  const align = new Quaternion().setFromUnitVectors(localPlacingDirection, desiredDirection)
-  const twist = new Quaternion().setFromAxisAngle(
-    desiredDirection,
+  // Step 1: Base Alignment
+  const rotAxis = new Vector3().crossVectors(localPlacingDirection, desiredDirection)
+  const rotAngle = Math.acos(Math.max(-1, Math.min(1, localPlacingDirection.dot(desiredDirection))))
+
+  let baseRotation: Quaternion
+  if (rotAngle < 0.001) {
+    baseRotation = new Quaternion(0, 0, 0, 1)
+  } else if (rotAngle > Math.PI - 0.001) {
+    const perpAxis = new Vector3(0, 1, 0)
+    if (Math.abs(localPlacingDirection.dot(perpAxis)) > 0.9) {
+      perpAxis.set(1, 0, 0)
+    }
+    baseRotation = new Quaternion().setFromAxisAngle(perpAxis, Math.PI)
+  } else {
+    rotAxis.normalize()
+    baseRotation = new Quaternion().setFromAxisAngle(rotAxis, rotAngle)
+  }
+
+  // Step 2: Deterministic Side-Clip Orientation
+  const isPlacingRod = placingDef.category === 'rod'
+  const isAnchorRod = anchorDef.category === 'rod'
+  const isRodConnectorSide = (
+    (isPlacingRod && placingPort.mate_type === 'rod_side') ||
+    (isAnchorRod && anchorPort.mate_type === 'rod_side')
+  )
+
+  if (isRodConnectorSide) {
+    if (!isPlacingRod) {
+      // Connector being placed onto Rod.
+      // Connector's local Z (normal to plane) should align with Rod's world X.
+      const rodWorldX = new Vector3(1, 0, 0).applyQuaternion(anchor.rotation).normalize()
+      const connectorZ = new Vector3(0, 0, 1).applyQuaternion(baseRotation)
+      
+      const correctionAxis = desiredDirection.clone().normalize()
+      const projZ = connectorZ.clone().projectOnPlane(correctionAxis).normalize()
+      const projRodX = rodWorldX.clone().projectOnPlane(correctionAxis).normalize()
+      
+      if (projZ.lengthSq() > 0.001 && projRodX.lengthSq() > 0.001) {
+          const dot = Math.max(-1, Math.min(1, projZ.dot(projRodX)))
+          const cross = new Vector3().crossVectors(projZ, projRodX)
+          let angle = Math.acos(dot)
+          if (cross.dot(correctionAxis) < 0) angle = -angle
+          
+          const correctionQuat = new Quaternion().setFromAxisAngle(correctionAxis, angle)
+          baseRotation.premultiply(correctionQuat)
+      }
+    } else {
+      // Rod being placed onto Connector.
+      // Rod's local X (main axis) should align with Connector's world Z.
+      const connectorWorldZ = new Vector3(0, 0, 1).applyQuaternion(anchor.rotation).normalize()
+      const rodX = new Vector3(1, 0, 0).applyQuaternion(baseRotation)
+
+      const correctionAxis = desiredDirection.clone().normalize()
+      const projRodX = rodX.clone().projectOnPlane(correctionAxis).normalize()
+      const projConnZ = connectorWorldZ.clone().projectOnPlane(correctionAxis).normalize()
+
+      if (projRodX.lengthSq() > 0.001 && projConnZ.lengthSq() > 0.001) {
+        const dot = Math.max(-1, Math.min(1, projRodX.dot(projConnZ)))
+        const cross = new Vector3().crossVectors(projRodX, projConnZ)
+        let angle = Math.acos(dot)
+        if (cross.dot(correctionAxis) < 0) angle = -angle
+
+        const correctionQuat = new Quaternion().setFromAxisAngle(correctionAxis, angle)
+        baseRotation.premultiply(correctionQuat)
+      }
+    }
+  }
+
+  // Step 3: Apply user twist around the aligned direction
+  const twistRotation = new Quaternion().setFromAxisAngle(
+    desiredDirection.clone(),
     (twistDeg * Math.PI) / 180,
   )
 
-  const finalRotation = twist.multiply(align).normalize()
+  const finalRotation = twistRotation.clone().multiply(baseRotation).normalize()
+  
   const localPlacingPosition = new Vector3(
     placingPort.position[0],
     placingPort.position[1],
@@ -577,6 +648,8 @@ export function solveTopology(
             currentPort,
             neighborPort,
             angle,
+            currentPartDef,
+            neighborPartDef
           )
 
           const tempTransforms = new Map(transforms)

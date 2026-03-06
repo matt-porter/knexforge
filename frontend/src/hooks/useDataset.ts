@@ -79,11 +79,14 @@ export function datasetEntryToBuild(entry: DatasetEntry): {
       const toDot = action.to_port.lastIndexOf('.')
       if (fromDot === -1 || toDot === -1) continue
 
+      const normalizeLegacyRodSidePortId = (portId: string): string =>
+        portId === 'center_tangent' ? 'center_tangent_y_pos' : portId
+
       connections.push({
         from_instance: action.from_port.slice(0, fromDot),
-        from_port: action.from_port.slice(fromDot + 1),
+        from_port: normalizeLegacyRodSidePortId(action.from_port.slice(fromDot + 1)),
         to_instance: action.to_port.slice(0, toDot),
-        to_port: action.to_port.slice(toDot + 1),
+        to_port: normalizeLegacyRodSidePortId(action.to_port.slice(toDot + 1)),
         joint_type: inferJointType(action),
       })
     }
