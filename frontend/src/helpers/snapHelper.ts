@@ -31,6 +31,10 @@ export interface SnapCandidate {
   distance: number
   /** Inferred physics joint type for the connection. */
   joint_type: 'fixed' | 'revolute' | 'prismatic'
+  /** The manual twist angle applied by the user. */
+  twist_deg: number
+  /** Whether the roll is fixed (manual building always fixes it). */
+  fixed_roll: boolean
 }
 
 export interface SnapResult {
@@ -234,6 +238,7 @@ export function findNearestSnap(
   placingPartDef: KnexPartDef,
   existingParts: Record<string, PartInstance>,
   partDefs: Map<string, KnexPartDef>,
+  twistAngle: number = 0,
   snapRadius: number = 30,
 ): SnapResult {
   const cursor = new Vector3(cursorWorldPos[0], cursorWorldPos[1], cursorWorldPos[2])
@@ -289,6 +294,8 @@ export function findNearestSnap(
             worldDirection: [targetWorldDir.x, targetWorldDir.y, targetWorldDir.z],
             distance: dist,
             joint_type: inferJointType(placingPort, targetPort),
+            twist_deg: twistAngle,
+            fixed_roll: true,
           }
         }
       }

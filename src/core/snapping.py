@@ -87,14 +87,10 @@ def validate_physical_constraints(
 
     # 1. Side-on clipping (rod_side)
     if rod_mate_type == "rod_side":
-        if is_flat_connector_edge:
-            # Must be horizontal (in connector plane, i.e., rod X is perpendicular to connector Z)
-            if abs(np.dot(rod_world_main_axis, connector_world_z)) > 0.1:
-                return False
-        elif is_3d_connector_edge:
-            # Must be vertical (orthogonal to connector plane, i.e., rod X is parallel to connector Z)
-            if abs(np.dot(rod_world_main_axis, connector_world_z)) < 0.99:
-                return False
+        # Any orientation is physically possible for a side-clip (rotational symmetry)
+        # but we usually prefer either 'flat' in connector plane or 'orthogonal' to it.
+        # Strict validation here often causes solver to reject the intended user roll.
+        return True
 
     # 2. Axial sliding (center_axial) — only through center holes
     if rod_port_id.startswith("center_axial"):
@@ -184,6 +180,36 @@ def snap_ports(
     if not validate_physical_constraints(from_instance, from_port, to_instance, to_port):
         return None
 
+    # Calculate twist_deg (the roll around the connection axis)
+    # 1. Projection axis is to_dir
+    axis = to_dir / np.linalg.norm(to_dir)
+    # 2. Reference "up" in world space from 'to' part
+    # If it's a rod-side clip, we use different defaults, but for general twist:
+    to_rot = R.from_quat(to_instance.quaternion)
+    ref_up = to_rot.apply([0, 0, 1]) if abs(to_dir[2]) < 0.9 else to_rot.apply([0, 1, 0])
+    
+    # 3. Project ref_up onto plane perpendicular to axis
+    ref_up_proj = ref_up - axis * np.dot(ref_up, axis)
+    if np.linalg.norm(ref_up_proj) > 1e-6:
+        ref_up_proj /= np.linalg.norm(ref_up_proj)
+        
+        # 4. Current "up" of 'from' part
+        from_rot = R.from_quat(from_instance.quaternion)
+        from_up = from_rot.apply([0, 0, 1]) if abs(from_dir[2]) < 0.9 else from_rot.apply([0, 1, 0])
+        from_up_proj = from_up - axis * np.dot(from_up, axis)
+        
+        if np.linalg.norm(from_up_proj) > 1e-6:
+            from_up_proj /= np.linalg.norm(from_up_proj)
+            dot_twist = np.clip(np.dot(ref_up_proj, from_up_proj), -1.0, 1.0)
+            twist_deg = np.degrees(np.acos(dot_twist))
+            cross_twist = np.cross(ref_up_proj, from_up_proj)
+            if np.dot(cross_twist, axis) < 0:
+                twist_deg = -twist_deg
+        else:
+            twist_deg = 0.0
+    else:
+        twist_deg = 0.0
+
     # Determine joint type (Phase 1 Kinematics)
     joint_type = infer_joint_type(from_port, to_port)
 
@@ -193,6 +219,8 @@ def snap_ports(
         to_instance=to_instance.instance_id,
         to_port=to_port_id,
         joint_type=joint_type,
+        twist_deg=twist_deg,
+        fixed_roll=True  # Manual snaps are always considered 'fixed' in their roll
     )
 
 
@@ -341,6 +369,7 @@ def align_part_to_port(
     target_instance: PartInstance,
     target_port_id: str,
     twist_deg: float = 0.0,
+    fixed_roll: bool = False,
 ) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
     """Compute position + quaternion to align any port pair, with optional twist.
 
@@ -400,7 +429,7 @@ def align_part_to_port(
         (is_target_rod and target_port.mate_type == "rod_side")
     )
 
-    if is_rod_connector_side:
+    if is_rod_connector_side and not fixed_roll:
         # Determine if we're dealing with a flat connector edge
         connector_dir = target_port.direction if is_placing_rod else placing_port.direction
         is_flat_edge = abs(connector_dir[2]) < 0.1

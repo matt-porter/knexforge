@@ -23,6 +23,7 @@ class TopologyConnection(BaseModel):
     to_ref: str = Field(alias="to")
     joint_type: Literal["fixed", "revolute", "prismatic"] = "fixed"
     twist_deg: float = 0.0
+    fixed_roll: bool = False
 
 class TopologyModel(BaseModel):
     format_version: Literal["topology-v1"] = "topology-v1"
@@ -114,12 +115,12 @@ def parse_compact_topology(text: str) -> TopologyModel:
             discovered_instances.add(instance_id)
             continue
 
-        # 3. Connection: <inst>.<port> <op> <inst>.<port> [@ <twist>]
-        edge_match = re.match(r"^([A-Za-z0-9_.-]+)\s*(--|~~|=>)\s*([A-Za-z0-9_.-]+)(?:\s*@\s*(-?\d+(?:\.\d+)?))?$", line)
+        # 3. Connection: <inst>.<port> <op> <inst>.<port> [@ <twist>[!]]
+        edge_match = re.match(r"^([A-Za-z0-9_.-]+)\s*(--|~~|=>)\s*([A-Za-z0-9_.-]+)(?:\s*@\s*(-?\d+(?:\.\d+)?)(!)?)?$", line)
         if not edge_match:
             raise ParseError("Invalid compact syntax", line_num, raw.strip())
 
-        from_ref, operator, to_ref, twist_str = edge_match.groups()
+        from_ref, operator, to_ref, twist_str, fixed_roll_mark = edge_match.groups()
         
         # Verify ref format
         if "." not in from_ref or "." not in to_ref:
@@ -135,7 +136,8 @@ def parse_compact_topology(text: str) -> TopologyModel:
                 "from": from_ref,
                 "to": to_ref,
                 "joint_type": JOINT_OPERATOR_TO_TYPE[operator],
-                "twist_deg": float(twist_str) if twist_str else 0.0
+                "twist_deg": float(twist_str) if twist_str else 0.0,
+                "fixed_roll": fixed_roll_mark == "!"
             }
         ))
 
@@ -175,7 +177,7 @@ def stringify_compact_topology(model: TopologyModel) -> str:
         if conn.twist_deg != 0:
             # Format float nicely (strip .0)
             twist_val = f"{conn.twist_deg:g}"
-            line += f" @ {twist_val}"
+            line += f" @ {twist_val}{'!' if conn.fixed_roll else ''}"
         lines.append(line)
         
     return "\n".join(lines)

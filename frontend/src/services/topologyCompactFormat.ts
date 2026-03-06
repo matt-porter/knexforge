@@ -102,15 +102,16 @@ export function parseCompactTopology(text: string): TopologyModel {
       return
     }
 
-    const edgeMatch = line.match(/^([A-Za-z0-9_.-]+)\s*(--|~~|=>)\s*([A-Za-z0-9_.-]+)(?:\s*@\s*(-?\d+(?:\.\d+)?))?$/)
+    const edgeMatch = line.match(/^([A-Za-z0-9_.-]+)\s*(--|~~|=>)\s*([A-Za-z0-9_.-]+)(?:\s*@\s*(-?\d+(?:\.\d+)?)(!)?)?$/)
     if (!edgeMatch) {
       throw new Error(`Line ${index + 1}: invalid compact syntax '${raw.trim()}'`)
     }
 
-    const [, fromRef, operator, toRef, twistStr] = edgeMatch
+    const [, fromRef, operator, toRef, twistStr, fixedRollMark] = edgeMatch
     const from = parseEndpoint(fromRef)
     const to = parseEndpoint(toRef)
     const twist_deg = twistStr ? parseFloat(twistStr) : undefined
+    const fixed_roll = fixedRollMark === '!'
     discoveredInstances.add(from.instance_id)
     discoveredInstances.add(to.instance_id)
 
@@ -118,7 +119,8 @@ export function parseCompactTopology(text: string): TopologyModel {
       from: `${from.instance_id}.${from.port_id}`,
       to: `${to.instance_id}.${to.port_id}`,
       joint_type: JOINT_OPERATOR_TO_TYPE[operator as keyof typeof JOINT_OPERATOR_TO_TYPE],
-      twist_deg,
+      twist_deg: twist_deg ?? 0,
+      fixed_roll: fixed_roll ?? false,
     })
   })
 
@@ -155,7 +157,7 @@ export function stringifyCompactTopology(model: TopologyModel): string {
     const operator = JOINT_TYPE_TO_OPERATOR[connection.joint_type ?? 'fixed'] ?? '--'
     let line = `${connection.from} ${operator} ${connection.to}`
     if (connection.twist_deg) {
-      line += ` @ ${connection.twist_deg}`
+      line += ` @ ${connection.twist_deg}${connection.fixed_roll ? '!' : ''}`
     }
     lines.push(line)
   }

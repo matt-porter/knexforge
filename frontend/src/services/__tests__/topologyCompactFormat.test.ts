@@ -16,8 +16,8 @@ m1.drive_axle ~~ r1.end2
     const model = parseCompactTopology(text)
     expect(model.parts).toHaveLength(3)
     expect(model.connections).toEqual([
-      { from: 'c1.A', to: 'r1.end1', joint_type: 'fixed' },
-      { from: 'm1.drive_axle', to: 'r1.end2', joint_type: 'revolute' },
+      { from: 'c1.A', to: 'r1.end1', joint_type: 'fixed', twist_deg: 0, fixed_roll: false },
+      { from: 'm1.drive_axle', to: 'r1.end2', joint_type: 'revolute', twist_deg: 0, fixed_roll: false },
     ])
   })
 
@@ -42,7 +42,7 @@ wr_1.end2 -- rc3_2.C
         { instance_id: 'c1', part_id: 'connector-4way-green-v1' },
         { instance_id: 'r1', part_id: 'rod-128-red-v1' },
       ],
-      connections: [{ from: 'r1.end1', to: 'c1.A', joint_type: 'fixed' as const }],
+      connections: [{ from: 'r1.end1', to: 'c1.A', joint_type: 'fixed' as const, twist_deg: 0, fixed_roll: false }],
     }
 
     const compact = stringifyCompactTopology(initial)
@@ -54,7 +54,7 @@ wr_1.end2 -- rc3_2.C
         { instance_id: 'c1', part_id: 'connector-4way-green-v1' },
         { instance_id: 'r1', part_id: 'rod-128-red-v1' },
       ],
-      connections: [{ from: 'c1.A', to: 'r1.end1', joint_type: 'fixed' }],
+      connections: [{ from: 'c1.A', to: 'r1.end1', joint_type: 'fixed', twist_deg: 0, fixed_roll: false }],
     })
   })
 
@@ -72,8 +72,23 @@ r1.center_tangent_y_pos -- c1.A @ 90
 `.trim()
     const model = parseCompactTopology(text)
     expect(model.connections[0].twist_deg).toBe(90)
+    expect(model.connections[0].fixed_roll).toBe(false)
 
     const stringified = stringifyCompactTopology(model)
     expect(stringified).toContain('c1.A -- r1.center_tangent_y_pos @ 90')
+  })
+
+  it('handles connections with fixed-roll modifiers', () => {
+    const text = `
+part r1 rod-128-red-v1
+part c1 connector-4way-green-v1
+r1.center_tangent_y_pos -- c1.A @ 90!
+`.trim()
+    const model = parseCompactTopology(text)
+    expect(model.connections[0].twist_deg).toBe(90)
+    expect(model.connections[0].fixed_roll).toBe(true)
+
+    const stringified = stringifyCompactTopology(model)
+    expect(stringified).toContain('c1.A -- r1.center_tangent_y_pos @ 90!')
   })
 })

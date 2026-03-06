@@ -13,6 +13,7 @@ export interface TopologyConnection {
   to: string
   joint_type?: 'fixed' | 'revolute' | 'prismatic'
   twist_deg?: number
+  fixed_roll?: boolean
 }
 
 export interface TopologyModel {
@@ -75,6 +76,7 @@ interface ResolvedConnection {
   to_port: string
   joint_type: 'fixed' | 'revolute' | 'prismatic'
   twist_deg: number
+  fixed_roll: boolean
   key: string
 }
 
@@ -162,7 +164,8 @@ function buildPlacementCandidate(
   placingPort: Port,
   twistDeg: number,
   anchorDef: KnexPartDef,
-  placingDef: KnexPartDef
+  placingDef: KnexPartDef,
+  fixedRoll = false
 ): Transform {
   const anchorPose = getWorldPortPose(anchor, anchorPort)
   const desiredDirection = anchorPose.direction.clone().negate()
@@ -191,7 +194,7 @@ function buildPlacementCandidate(
     baseRotation = new Quaternion().setFromAxisAngle(rotAxis, rotAngle)
   }
 
-  // Step 2: Deterministic Side-Clip Orientation
+  // Step 2: Deterministic Side-Clip Orientation (skip if fixedRoll is requested)
   const isPlacingRod = placingDef.category === 'rod'
   const isAnchorRod = anchorDef.category === 'rod'
   const isRodConnectorSide = (
@@ -199,7 +202,7 @@ function buildPlacementCandidate(
     (isAnchorRod && anchorPort.mate_type === 'rod_side')
   )
 
-  if (isRodConnectorSide) {
+  if (isRodConnectorSide && !fixedRoll) {
     // Determine if we're dealing with a flat connector edge
     const connectorPort = isPlacingRod ? anchorPort : placingPort
     const isFlatEdge = Math.abs(connectorPort.direction[2]) < 0.1
@@ -471,6 +474,7 @@ export function canonicalizeTopology(model: TopologyModel): TopologyModel {
         to: endpointRef(parsed.toInstance, parsed.toPort),
         joint_type: connection.joint_type,
         twist_deg: connection.twist_deg,
+        fixed_roll: connection.fixed_roll,
       }
 
       const left = endpointRef(parsed.fromInstance, parsed.fromPort)
@@ -482,6 +486,7 @@ export function canonicalizeTopology(model: TopologyModel): TopologyModel {
         to: normalized.from,
         joint_type: normalized.joint_type,
         twist_deg: normalized.twist_deg,
+        fixed_roll: normalized.fixed_roll,
       }
     })
     .sort((a, b) => {
@@ -517,6 +522,7 @@ export function buildStateToTopology(
       to: endpointRef(connection.to_instance, normalizeLegacyRodSidePortId(connection.to_port)),
       joint_type: connection.joint_type,
       twist_deg: connection.twist_deg,
+      fixed_roll: connection.fixed_roll,
     }))
 
   return canonicalizeTopology({
@@ -662,7 +668,7 @@ export function solveTopology(
             angle,
             currentPartDef,
             neighborPartDef,
-            neighbor === edge.to_instance ? transforms.get(edge.from_instance) : transforms.get(edge.to_instance)
+            edge.fixed_roll
           )
 
           const tempTransforms = new Map(transforms)
@@ -736,6 +742,7 @@ export function solveTopology(
     to_port: connection.to_port,
     joint_type: connection.joint_type,
     twist_deg: connection.twist_deg,
+    fixed_roll: connection.fixed_roll,
   }))
 
   return { parts, connections: solvedConnections }

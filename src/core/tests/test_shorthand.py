@@ -14,16 +14,28 @@ def test_parse_happy_path():
     assert len(model.connections) == 1
     assert model.connections[0].from_ref == "r1.end1"
     assert model.connections[0].joint_type == "fixed"
+    assert model.connections[0].fixed_roll is False
 
 def test_parse_with_twist():
     text = "part r1 rr\npart c1 gc4\nr1.center_tangent_y_pos -- c1.A @ 90"
     model = parse_compact_topology(text)
     assert model.connections[0].twist_deg == 90.0
+    assert model.connections[0].fixed_roll is False
     
     # Round trip
     output = stringify_compact_topology(model)
     assert "@ 90" in output
     assert "r1.center_tangent_y_pos -- c1.A @ 90" in output
+
+def test_parse_with_fixed_roll():
+    text = "part r1 rr\npart c1 gc4\nr1.center_tangent_y_pos -- c1.A @ 90!"
+    model = parse_compact_topology(text)
+    assert model.connections[0].twist_deg == 90.0
+    assert model.connections[0].fixed_roll is True
+    
+    # Round trip
+    output = stringify_compact_topology(model)
+    assert "@ 90!" in output
 
 def test_alias_inference():
     text = "rc3_1.A -- br_1.center_tangent_y_pos"
@@ -48,11 +60,10 @@ def test_stringify_deterministic():
             {"instance_id": "c1", "part_id": "gc4"},
         ],
         connections=[
-            {"from": "r1.end1", "to": "c1.A", "joint_type": "fixed", "twist_deg": 45.0}
+            {"from": "r1.end1", "to": "c1.A", "joint_type": "fixed", "twist_deg": 45.0, "fixed_roll": True}
         ]
     )
     text = stringify_compact_topology(model)
     # Parts should be sorted
     assert text.index("part c1") < text.index("part r1")
-    assert "c1.A -- r1.end1" not in text # We don't swap in stringify currently
-    assert "r1.end1 -- c1.A @ 45" in text
+    assert "r1.end1 -- c1.A @ 45!" in text

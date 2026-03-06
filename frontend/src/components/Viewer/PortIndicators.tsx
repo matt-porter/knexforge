@@ -88,6 +88,7 @@ interface SnapVariant {
     ghostQuat: Quaternion
     joint_type: 'fixed' | 'revolute' | 'prismatic'
     angle: number
+    fixed_roll: boolean
     rodSideId: string
 }
 
@@ -258,6 +259,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                             ghostQuat,
                             joint_type: inferJointType(placingPort, targetPort),
                             angle,
+                            fixed_roll: true,
                             rodSideId: sideId,
                         })
                     }
@@ -420,6 +422,8 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                 to_instance: matchTargetId,
                 to_port: variant.targetPortId,
                 joint_type: variant.joint_type,
+                twist_deg: variant.angle,
+                fixed_roll: variant.fixed_roll,
             })
 
             useBuildStore.getState().selectPart(instanceId)
