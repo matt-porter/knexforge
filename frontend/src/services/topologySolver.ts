@@ -158,26 +158,6 @@ function candidateAngles(port: Port): number[] {
   return unique.sort((a, b) => a - b)
 }
 
-function connectorSideReferenceLocal(connectorPort: Port): Vector3 {
-  const connectorNormalLocal = new Vector3(0, 0, 1)
-  const connectorPortDirLocal = new Vector3(
-    connectorPort.direction[0],
-    connectorPort.direction[1],
-    connectorPort.direction[2],
-  ).normalize()
-  const tangent = new Vector3().crossVectors(connectorNormalLocal, connectorPortDirLocal)
-  if (tangent.lengthSq() > 1e-6) {
-    return tangent.normalize()
-  }
-
-  // Fallback for non-planar/degenerate cases: preserve prior deterministic behavior.
-  return new Vector3(0, 1, 0)
-}
-
-function connectorSideReferenceWorld(connectorPort: Port, connectorRotation: Quaternion): Vector3 {
-  return connectorSideReferenceLocal(connectorPort).applyQuaternion(connectorRotation).normalize()
-}
-
 function buildPlacementCandidate(
   anchor: Transform,
   anchorPort: Port,
@@ -229,11 +209,10 @@ function buildPlacementCandidate(
 
     if (!isPlacingRod) {
       // Connector being placed onto Rod.
-      // For flat edge: Connector's port tangent should align with Rod's world X.
+      // For flat edge: Connector's local Y should align with Rod's world X (rod is flat in plane)
       // For 3D edge: Connector's local Z (normal) should align with Rod's world X (rod is vertical)
       const rodWorldX = new Vector3(1, 0, 0).applyQuaternion(anchor.rotation).normalize()
-      const sourceLocal = isFlatEdge ? connectorSideReferenceLocal(connectorPort) : new Vector3(0, 0, 1)
-      const sourceVec = sourceLocal.applyQuaternion(baseRotation)
+      const sourceVec = new Vector3(0, isFlatEdge ? 1 : 0, isFlatEdge ? 0 : 1).applyQuaternion(baseRotation)
       
       const correctionAxis = desiredDirection.clone().normalize()
       const projSrc = sourceVec.clone().projectOnPlane(correctionAxis).normalize()
@@ -250,11 +229,9 @@ function buildPlacementCandidate(
       }
     } else {
       // Rod being placed onto Connector.
-      // For flat edge: Rod's local X should align with Connector port tangent.
+      // For flat edge: Rod's local X should align with Connector's world Y (rod is flat in plane)
       // For 3D edge: Rod's local X should align with Connector's world Z (rod is vertical)
-      const targetVec = isFlatEdge
-        ? connectorSideReferenceWorld(connectorPort, anchor.rotation)
-        : new Vector3(0, 0, 1).applyQuaternion(anchor.rotation).normalize()
+      const targetVec = new Vector3(0, isFlatEdge ? 1 : 0, isFlatEdge ? 0 : 1).applyQuaternion(anchor.rotation).normalize()
       const rodX = new Vector3(1, 0, 0).applyQuaternion(baseRotation)
 
       const correctionAxis = desiredDirection.clone().normalize()

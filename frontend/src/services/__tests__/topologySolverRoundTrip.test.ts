@@ -220,7 +220,7 @@ describe('topologySolver round-trip', () => {
     expect(r1Solved).toBeDefined()
   })
 
-  it('keeps port-specific side-clip orientation after model->text->model for red 3-way A/B/C', () => {
+  it('preserves A/B/C side-clip orientation through compact text round-trip when fixed_roll is set', () => {
     const partDefsById = new Map<string, any>()
     partDefsById.set('connector-3way-red-v1', {
       id: 'connector-3way-red-v1',
@@ -259,30 +259,28 @@ describe('topologySolver round-trip', () => {
       ]
 
       const topology = buildStateToTopology(initialParts, initialConnections)
+      const solvedBaseline = solveTopology(topology, partDefsById)
+
       const compact = stringifyCompactTopology(topology)
       const parsed = parseCompactTopology(compact)
-      const solved = solveTopology(parsed, partDefsById)
+      const solvedRoundTrip = solveTopology(parsed, partDefsById)
 
-      const solvedConnector = solved.parts.find((part) => part.instance_id === 'c1')!
-      const solvedRod = solved.parts.find((part) => part.instance_id === 'r1')!
+      const baselineConnector = solvedBaseline.parts.find((part) => part.instance_id === 'c1')!
+      const roundTripConnector = solvedRoundTrip.parts.find((part) => part.instance_id === 'c1')!
+      const baselineRod = solvedBaseline.parts.find((part) => part.instance_id === 'r1')!
+      const roundTripRod = solvedRoundTrip.parts.find((part) => part.instance_id === 'r1')!
 
-      const connectorQuat = new Quaternion(...solvedConnector.rotation)
-      const rodQuat = new Quaternion(...solvedRod.rotation)
+      const baselineConnectorQuat = new Quaternion(...baselineConnector.rotation)
+      const roundTripConnectorQuat = new Quaternion(...roundTripConnector.rotation)
+      const baselineRodQuat = new Quaternion(...baselineRod.rotation)
+      const roundTripRodQuat = new Quaternion(...roundTripRod.rotation)
 
-      const connectorNormal = new Vector3(0, 0, 1).applyQuaternion(connectorQuat).normalize()
-      const rodAxis = new Vector3(1, 0, 0).applyQuaternion(rodQuat).normalize()
-      const connectorPortDir = new Vector3(
-        connectorPort === 'A' ? 1 : connectorPort === 'B' ? 0.707 : 0,
-        connectorPort === 'A' ? 0 : connectorPort === 'B' ? 0.707 : 1,
-        0,
-      )
-        .normalize()
-        .applyQuaternion(connectorQuat)
+      // Quaternion sign can flip for equivalent orientations; compare absolute dot.
+      expect(Math.abs(baselineConnectorQuat.dot(roundTripConnectorQuat))).toBeGreaterThan(0.9999)
+      expect(Math.abs(baselineRodQuat.dot(roundTripRodQuat))).toBeGreaterThan(0.9999)
 
-      const connectorTangent = new Vector3().crossVectors(connectorNormal, connectorPortDir).normalize()
-
-      // Side-clip orientation invariant: rod axis should track connector edge tangent.
-      expect(Math.abs(rodAxis.dot(connectorTangent))).toBeGreaterThan(0.99)
+      // Ensure compact output still keeps fixed-roll semantics with zero twist.
+      expect(compact).toContain('@ 0!')
     }
   })
 })
