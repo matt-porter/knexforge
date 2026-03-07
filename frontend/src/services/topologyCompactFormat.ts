@@ -156,7 +156,7 @@ export function stringifyCompactTopology(model: TopologyModel): string {
   for (const connection of canonical.connections) {
     const operator = JOINT_TYPE_TO_OPERATOR[connection.joint_type ?? 'fixed'] ?? '--'
     let line = `${connection.from} ${operator} ${connection.to}`
-    if (connection.twist_deg) {
+    if (connection.twist_deg || connection.fixed_roll) {
       line += ` @ ${connection.twist_deg}${connection.fixed_roll ? '!' : ''}`
     }
     lines.push(line)

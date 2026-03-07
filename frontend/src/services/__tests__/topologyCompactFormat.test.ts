@@ -91,4 +91,19 @@ r1.center_tangent_y_pos -- c1.A @ 90!
     const stringified = stringifyCompactTopology(model)
     expect(stringified).toContain('c1.A -- r1.center_tangent_y_pos @ 90!')
   })
+
+  it('preserves fixed-roll when twist is zero', () => {
+    const text = `
+part r1 rod-128-red-v1
+part c1 connector-4way-green-v1
+r1.center_tangent_y_pos -- c1.A @ 0!
+`.trim()
+
+    const model = parseCompactTopology(text)
+    expect(model.connections[0].twist_deg).toBe(0)
+    expect(model.connections[0].fixed_roll).toBe(true)
+
+    const stringified = stringifyCompactTopology(model)
+    expect(stringified).toContain('c1.A -- r1.center_tangent_y_pos @ 0!')
+  })
 })

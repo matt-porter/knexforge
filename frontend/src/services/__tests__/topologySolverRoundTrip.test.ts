@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Quaternion, Vector3 } from 'three'
 import { solveTopology, buildStateToTopology, type TopologyModel, type PartInstance, type Connection } from '../topologySolver'
+import { parseCompactTopology, stringifyCompactTopology } from '../topologyCompactFormat'
 
 describe('topologySolver round-trip', () => {
   function createTestParts(): PartInstance[] {
@@ -217,5 +218,71 @@ describe('topologySolver round-trip', () => {
     console.log('Center connection - Solved rotation:', r1Solved.rotation)
     
     expect(r1Solved).toBeDefined()
+  })
+
+  it('keeps port-specific side-clip orientation after model->text->model for red 3-way A/B/C', () => {
+    const partDefsById = new Map<string, any>()
+    partDefsById.set('connector-3way-red-v1', {
+      id: 'connector-3way-red-v1',
+      category: 'connector' as const,
+      ports: [
+        { id: 'A', position: [12.7, 0, 0], direction: [1, 0, 0], mate_type: 'rod_hole', accepts: ['rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+        { id: 'B', position: [8.98, 8.98, 0], direction: [0.707, 0.707, 0], mate_type: 'rod_hole', accepts: ['rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+        { id: 'C', position: [0, 12.7, 0], direction: [0, 1, 0], mate_type: 'rod_hole', accepts: ['rod_side'], allowed_angles_deg: [0, 90, 180, 270] },
+      ],
+    })
+    partDefsById.set('rod-86-yellow-v1', {
+      id: 'rod-86-yellow-v1',
+      category: 'rod' as const,
+      ports: [
+        { id: 'center_tangent_z_neg', position: [43, 0, 0], direction: [0, 0, -1], mate_type: 'rod_side', accepts: ['rod_hole'], allowed_angles_deg: [0, 90, 180, 270] },
+      ],
+    })
+
+    const connectorPorts = ['A', 'B', 'C'] as const
+    for (const connectorPort of connectorPorts) {
+      const initialConnections: Connection[] = [
+        {
+          from_instance: 'c1',
+          from_port: connectorPort,
+          to_instance: 'r1',
+          to_port: 'center_tangent_z_neg',
+          joint_type: 'fixed',
+          twist_deg: 0,
+          fixed_roll: true,
+        },
+      ]
+
+      const initialParts: PartInstance[] = [
+        { instance_id: 'c1', part_id: 'connector-3way-red-v1', position: [0, 50, 0], rotation: [0, 0, 0, 1] },
+        { instance_id: 'r1', part_id: 'rod-86-yellow-v1', position: [0, 50, 0], rotation: [0, 0, 0, 1] },
+      ]
+
+      const topology = buildStateToTopology(initialParts, initialConnections)
+      const compact = stringifyCompactTopology(topology)
+      const parsed = parseCompactTopology(compact)
+      const solved = solveTopology(parsed, partDefsById)
+
+      const solvedConnector = solved.parts.find((part) => part.instance_id === 'c1')!
+      const solvedRod = solved.parts.find((part) => part.instance_id === 'r1')!
+
+      const connectorQuat = new Quaternion(...solvedConnector.rotation)
+      const rodQuat = new Quaternion(...solvedRod.rotation)
+
+      const connectorNormal = new Vector3(0, 0, 1).applyQuaternion(connectorQuat).normalize()
+      const rodAxis = new Vector3(1, 0, 0).applyQuaternion(rodQuat).normalize()
+      const connectorPortDir = new Vector3(
+        connectorPort === 'A' ? 1 : connectorPort === 'B' ? 0.707 : 0,
+        connectorPort === 'A' ? 0 : connectorPort === 'B' ? 0.707 : 1,
+        0,
+      )
+        .normalize()
+        .applyQuaternion(connectorQuat)
+
+      const connectorTangent = new Vector3().crossVectors(connectorNormal, connectorPortDir).normalize()
+
+      // Side-clip orientation invariant: rod axis should track connector edge tangent.
+      expect(Math.abs(rodAxis.dot(connectorTangent))).toBeGreaterThan(0.99)
+    }
   })
 })
