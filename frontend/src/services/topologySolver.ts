@@ -158,6 +158,12 @@ function candidateAngles(port: Port): number[] {
   return unique.sort((a, b) => a - b)
 }
 
+function candidateAnglesForConnection(anchorPort: Port, placingPort: Port): number[] {
+  const anchorAngles = candidateAngles(anchorPort)
+  const placingAngles = candidateAngles(placingPort)
+  return placingAngles.length > anchorAngles.length ? placingAngles : anchorAngles
+}
+
 function buildPlacementCandidate(
   anchor: Transform,
   anchorPort: Port,
@@ -269,6 +275,46 @@ function buildPlacementCandidate(
     .sub(localPlacingPosition.clone().applyQuaternion(finalRotation))
 
   return { position: worldPosition, rotation: finalRotation }
+}
+
+function isPhysicallyValidRodConnectorOrientation(
+  anchorTransform: Transform,
+  anchorDef: KnexPartDef,
+  anchorPort: Port,
+  placingTransform: Transform,
+  placingDef: KnexPartDef,
+  placingPort: Port,
+): boolean {
+  const isRodConnector =
+    (placingDef.category === 'rod' && anchorDef.category === 'connector') ||
+    (placingDef.category === 'connector' && anchorDef.category === 'rod')
+  if (!isRodConnector) return true
+
+  const isPlacingRod = placingDef.category === 'rod'
+
+  const rodTransform = isPlacingRod ? placingTransform : anchorTransform
+  const connectorTransform = isPlacingRod ? anchorTransform : placingTransform
+  const rodPort = isPlacingRod ? placingPort : anchorPort
+  const connectorPort = isPlacingRod ? anchorPort : placingPort
+
+  const rodWorldMainAxis = new Vector3(1, 0, 0).applyQuaternion(rodTransform.rotation).normalize()
+  const connectorWorldZ = new Vector3(0, 0, 1)
+    .applyQuaternion(connectorTransform.rotation)
+    .normalize()
+
+  const connectorDir = connectorPort.direction
+  const rodMateType = rodPort.mate_type
+
+  const isFlatConnectorEdge = Math.abs(connectorDir[2]) < 0.1
+  const is3DConnectorEdge = Math.abs(connectorDir[2]) > 0.9
+
+  if (rodMateType === 'rod_side') {
+    const dot = Math.abs(rodWorldMainAxis.dot(connectorWorldZ))
+    if (isFlatConnectorEdge && dot < 0.99) return false
+    if (is3DConnectorEdge && dot > 0.1) return false
+  }
+
+  return true
 }
 
 function connectionResidual(
@@ -658,7 +704,9 @@ export function solveTopology(
         })
 
         const lockRollToStoredTwist = edge.fixed_roll || edge.twist_deg !== 0
-        const angles = lockRollToStoredTwist ? [edge.twist_deg] : candidateAngles(neighborPort)
+        const angles = lockRollToStoredTwist
+          ? [edge.twist_deg]
+          : candidateAnglesForConnection(currentPort, neighborPort)
         let bestTransform: Transform | null = null
         let bestScore = Number.POSITIVE_INFINITY
 
@@ -672,6 +720,19 @@ export function solveTopology(
             neighborPartDef,
             edge.fixed_roll
           )
+
+          if (
+            !isPhysicallyValidRodConnectorOrientation(
+              transforms.get(current)!,
+              currentPartDef,
+              currentPort,
+              candidate,
+              neighborPartDef,
+              neighborPort,
+            )
+          ) {
+            continue
+          }
 
           const tempTransforms = new Map(transforms)
           tempTransforms.set(neighbor, candidate)

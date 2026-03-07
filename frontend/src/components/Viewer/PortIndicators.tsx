@@ -209,11 +209,12 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                         if (rodMateType === 'rod_side') {
                             const dot = Math.abs(rodWorldMainAxis.dot(connectorWorldZ))
                             if (isFlatConnectorEdge) {
-                                // Allow both Flat (dot ~ 0) and Vertical (dot ~ 1)
-                                if (dot > 0.1 && dot < 0.9) isValid = false
+                                // Side-clips on flat connector edges must be perpendicular to the rod axis.
+                                // This leaves quarter-turn solutions (90°/270°) and rejects 0°/180°.
+                                if (dot < 0.99) isValid = false
                             } else if (is3DConnectorEdge) {
-                                // 3D connectors usually require vertical alignment for side-clips
-                                if (dot < 0.9) isValid = false
+                                // 3D edges use the complementary "flat" alignment.
+                                if (dot > 0.1) isValid = false
                             }
                         }
 

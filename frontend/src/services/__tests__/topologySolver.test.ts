@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { Quaternion, Vector3 } from 'three'
 import { solveTopology, type TopologyModel } from '../topologySolver'
 
 describe('topologySolver rotation', () => {
@@ -145,13 +146,19 @@ describe('topologySolver rotation', () => {
     // A correct orientation would have the quaternion representing a 90-degree
     // rotation around some axis to align the tangent port
     
-    // For now, just verify it doesn't crash and produces reasonable values
     expect(r1.position).toBeDefined()
     expect(r1.rotation).toBeDefined()
     expect(Math.abs(rx)).toBeLessThan(2)
     expect(Math.abs(ry)).toBeLessThan(2)
     expect(Math.abs(rz)).toBeLessThan(2)
-    expect(Math.abs(rw - 1.0)).toBeLessThan(1.5) // Should be close to identity or simple rotation
+    expect(Math.abs(rw - 1.0)).toBeLessThan(1.5)
+
+    const rodQuat = new Quaternion(rx, ry, rz, rw)
+    const rodWorldMainAxis = new Vector3(1, 0, 0).applyQuaternion(rodQuat).normalize()
+    const connectorWorldZ = new Vector3(0, 0, 1)
+
+    // Side-clips on flat edges should keep connector plane perpendicular to the rod.
+    expect(Math.abs(rodWorldMainAxis.dot(connectorWorldZ))).toBeGreaterThan(0.99)
   })
 
   it('correctly handles red 3-way connector with center_tangent connection', () => {

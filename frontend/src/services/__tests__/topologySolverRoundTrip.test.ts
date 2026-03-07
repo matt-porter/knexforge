@@ -148,7 +148,7 @@ describe('topologySolver round-trip', () => {
     const connectorNormal = new Vector3(0, 0, 1)
     const dot = Math.abs(rodMainAxis.dot(connectorNormal))
     
-    expect(dot).toBeLessThan(0.01) // Rod is in plane
+    expect(dot).toBeGreaterThan(0.99) // Rod is perpendicular to connector plane
   })
 
   it('preserves orientation for center hole connection', () => {
@@ -248,7 +248,7 @@ describe('topologySolver round-trip', () => {
           to_instance: 'r1',
           to_port: 'center_tangent_z_neg',
           joint_type: 'fixed',
-          twist_deg: 0,
+          twist_deg: 90,
           fixed_roll: true,
         },
       ]
@@ -279,8 +279,8 @@ describe('topologySolver round-trip', () => {
       expect(Math.abs(baselineConnectorQuat.dot(roundTripConnectorQuat))).toBeGreaterThan(0.9999)
       expect(Math.abs(baselineRodQuat.dot(roundTripRodQuat))).toBeGreaterThan(0.9999)
 
-      // Ensure compact output still keeps fixed-roll semantics with zero twist.
-      expect(compact).toContain('@ 0!')
+      // Ensure compact output keeps fixed-roll semantics with explicit twist.
+      expect(compact).toContain('@ 90!')
     }
   })
 })
