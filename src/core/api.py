@@ -22,6 +22,23 @@ from .parts.loader import PartLoader
 
 logger = logging.getLogger("knexforge.api")
 
+
+def _normalize_legacy_port_id(port_id: str) -> str:
+    """Canonicalize legacy rod-side port IDs to explicit side IDs.
+    
+    Legacy `center_tangent` is normalized to `center_tangent_y_pos`.
+    All other port IDs pass through unchanged.
+    """
+    return "center_tangent_y_pos" if port_id == "center_tangent" else port_id
+
+
+def _normalize_connection_ports(conn: dict) -> dict:
+    """Normalize all port IDs in a connection payload."""
+    normalized = conn.copy()
+    normalized["from_port"] = _normalize_legacy_port_id(conn.get("from_port", ""))
+    normalized["to_port"] = _normalize_legacy_port_id(conn.get("to_port", ""))
+    return normalized
+
 app = FastAPI(title="K'NexForge Core API")
 
 # CORS — allow the Vite dev server and Tauri WebView to reach the sidecar
@@ -138,12 +155,14 @@ def stability(req: StabilityRequest):
                     instance_id=p["instance_id"],
                     part=part_def,
                     position=tuple(p["position"]),
-                    quaternion=tuple(p["rotation"]),
+                    quaternion=tuple(p.get("quaternion", p.get("rotation", [0, 0, 0, 1]))),
                     color=p.get("color")
                 )
                 build.add_part(inst, record=False)
             for c in req.connections:
-                conn = Connection(**c)
+                # Normalize legacy port IDs before creating Connection
+                normalized_c = _normalize_connection_ports(c)
+                conn = Connection(**normalized_c)
                 build.connections.add(conn)
                 build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
         except Exception as e:
@@ -165,6 +184,14 @@ def stability(req: StabilityRequest):
         # Fallback to graph
         stability_score = compute_stability(build)
         return StabilityResponse(stability=stability_score, details={}, stress_data={})
+    except Exception as e:
+        logger.warning("PyBullet stability failed, falling back to graph: %s", e)
+        stability_score = compute_stability(build)
+        return StabilityResponse(
+            stability=stability_score,
+            details={"fallback": "graph", "reason": str(e)},
+            stress_data={},
+        )
 
 @app.post("/export", response_model=ExportResponse)
 def export(req: ExportRequest):
@@ -189,7 +216,9 @@ def export(req: ExportRequest):
             build.add_part(inst, record=False)
 
         for c_data in req.connections:
-            conn = Connection(**c_data)
+            # Normalize legacy port IDs before creating Connection
+            normalized_c = _normalize_connection_ports(c_data)
+            conn = Connection(**normalized_c)
             build.connections.add(conn)
             build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
 
@@ -263,7 +292,9 @@ def diagnostics_sim_orientation(req: BuildRequest):
             )
             build.add_part(inst, record=False)
         for c in req.connections:
-            conn = Connection(**c)
+            # Normalize legacy port IDs before creating Connection
+            normalized_c = _normalize_connection_ports(c)
+            conn = Connection(**normalized_c)
             build.connections.add(conn)
             build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
     except Exception as e:
@@ -402,7 +433,9 @@ async def ws_simulate(websocket: WebSocket):
             build.add_part(inst, record=False)
 
         for c in conns_data:
-            conn = Connection(**c)
+            # Normalize legacy port IDs before creating Connection
+            normalized_c = _normalize_connection_ports(c)
+            conn = Connection(**normalized_c)
             build.connections.add(conn)
             build._graph.add_edge(conn.from_instance, conn.to_instance, joint_type=conn.joint_type)
             logger.info(

@@ -301,6 +301,40 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Store**: Replaced `activeSnapVariantIndex` with `activePortIndex` + `activeAngleIndex` in `interactionStore.ts`
 - **PortIndicators**: Restructured variants into port groups (grouped by `placingPortId`) with per-group angle sorting
 - **Tests**: Updated `tabCycling.test.ts` with 6 tests covering port cycling, angle cycling, index resets
+- **Update (2026-03-04)**: Added a third snap-selection axis for rod side locking. Side clips now support explicit rod-side ports (`center_tangent_y_pos/y_neg/z_pos/z_neg`) with `X` key cycling, HUD side indicators, and persisted side semantics via connection port IDs.
+- **Update (2026-03-04 regression)**: Added Rapier orientation regression coverage for all four explicit rod-side ports to guard against future side-clip rotation regressions (`frontend/src/services/__tests__/rapierSimulator.test.ts`).
+- **Update (2026-03-04 regression 2)**: Added deterministic rod-side ordering/mapping regressions for UI cycling semantics (`frontend/src/helpers/rodSideOrdering.test.ts`) to lock `+Y → -Y → +Z → -Z` order and legacy `center_tangent` normalization.
+- **Update (2026-03-04 regression 3)**: Added core-side snapping/orientation coverage for explicit rod-side ports in Python tests (`src/core/tests/test_snapping.py`, `src/core/tests/test_connector_orientation.py`) so frontend/core behavior stays aligned.
+- **Update (2026-03-04 migration)**: Added legacy port normalization in frontend build state so imported/older connections using `center_tangent` are canonicalized to `center_tangent_y_pos` on add/load, preventing mixed legacy/explicit side IDs.
+- **Update (2026-03-04 regression 4)**: Added candidate-grouping regression test using real part JSONs (`frontend/src/helpers/rodSideGrouping.test.ts`) to verify side buckets and deterministic side order under center-clip indicator generation.
+- **Update (2026-03-04 topology)**: Added legacy `center_tangent` normalization in topology canonicalization/build-state conversion (`frontend/src/services/topologySolver.ts`) with regression tests in `topologySolver.test.ts`, so text/topology and store flows use the same canonical side port IDs.
+- **Update (2026-03-04 core parity)**: Added backend/core normalization for legacy `center_tangent` during import/deserialize paths (`src/core/file_io.py`, `src/core/build.py`) and corresponding Python regressions in `test_export_import.py` / `test_build.py`.
+- **Update (2026-03-07 round-trip orientation)**: Fixed model→text→model side-clip roll drift by preserving fixed-roll semantics end-to-end: topology resolution now keeps `fixed_roll`, compact serialization now retains zero-twist fixed-roll as `@ 0!`, and round-trip regression coverage now verifies A/B/C side-clip orientation parity before vs after compact text conversion (`frontend/src/services/topologySolver.ts`, `frontend/src/services/topologyCompactFormat.ts`, `frontend/src/services/__tests__/topologySolverRoundTrip.test.ts`, `frontend/src/services/__tests__/topologyCompactFormat.test.ts`).
+- **Update (2026-03-07 side-clip angles)**: Tightened rod-side rotation validity so flat-edge side clips reject 0°/180° and keep quarter-turn orientations (90°/270°) in both interactive placement constraints and topology solve candidate filtering. Solver now chooses from the richer endpoint angle set (anchor vs placing port) when twist is not locked, so shorthand/topology flows can still reach valid quarter-turns without explicit angle metadata (`frontend/src/components/Viewer/PortIndicators.tsx`, `frontend/src/services/topologySolver.ts`).
+
+### ✅ Task 9.4: Helper Test Modernization (Legacy 2-Axis → 3-Axis)
+- **Goal**: Update outdated helper regression tests that still mirror the old 2-axis snap model to match new 3-axis behavior (port → rod side → angle).
+- **Problem**: `portGrouping.test.ts` and `portIndicatorSim.test.ts` used legacy `center_tangent` as only side-clip port and old 2-axis `variants` grouping assumptions.
+- **Fix**: 
+  - Updated test fixture rod defs with explicit side ports (`center_tangent_y_pos/y_neg/z_pos/z_neg`) plus legacy compatibility port.
+  - Added tests verifying all four side ports are defined with correct directions (+Y, -Y, +Z, -Z).
+  - Kept useful coverage: port availability, dedupe behavior, cycling semantics, side-clip + through-hole coexistence.
+  - Removed brittle assumptions about `center_tangent` being the only side port.
+- **Files**: `frontend/src/helpers/portGrouping.test.ts`, `frontend/src/helpers/portIndicatorSim.test.ts`.
+
+### ✅ Task 9.5: API Boundary Legacy Port Normalization
+- **Goal**: Harden legacy `center_tangent` → `center_tangent_y_pos` normalization at all service boundaries to prevent bypass via raw payloads.
+- **Problem**: Frontend store/topology and core import paths normalized legacy ports, but API request handlers (`/stability`, `/export`, diagnostics) could accept raw legacy IDs and bypass canonicalization.
+- **Fix**: 
+  - Added `_normalize_legacy_port_id()` and `_normalize_connection_ports()` helpers in `src/core/api.py`.
+  - Applied normalization in all endpoints that reconstruct connections from payloads: `/stability`, `/export`, `/diagnostics/sim-orientation`, WebSocket `/ws/simulate`.
+  - Normalization happens before `Connection(**...)` construction, ensuring canonical IDs persist.
+- **Tests**: Added 4 regression tests in `src/core/tests/test_api.py`:
+  - `test_stability_endpoint_normalizes_legacy_center_tangent_port`
+  - `test_export_endpoint_normalizes_legacy_center_tangent_port` (verifies exported data has canonical IDs)
+  - `test_diagnostics_endpoint_normalizes_legacy_center_tangent_port`
+  - `test_stability_endpoint_accepts_explicit_side_ports` (explicit IDs pass through unchanged)
+- **Files**: `src/core/api.py`, `src/core/tests/test_api.py`.
 
 ### ✅ Task 9.2: PortIndicator Spheres Inside Connector Meshes
 - **Root cause**: Part mesh `handlePointerOver` called `e.stopPropagation()`, blocking
@@ -476,6 +510,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-03 update 5)**: Added explicit hide/show controls for the parts palette (`Hide` in palette, `PRT` reopen button in builder) so it remains discoverable when text editor is open.
 - **Status (2026-03-04 update 6)**: Fixed panel half-open/half-closed behavior by removing width-transition wrapper logic and enforcing fixed non-shrinking widths for parts panel states.
 - **Status (2026-03-04 update 7)**: Fixed right editor drift/clipping by allowing center viewer flex item to shrink (`minWidth: 0`) in builder layout.
+- **Status (2026-03-04 update 8)**: Hardened stability API/UI path for topology edits adding `gc2` connectors: frontend now normalizes/clamps stability responses and guards indicator rendering against invalid scores; backend `/stability` now falls back to graph scoring when PyBullet runtime errors occur for specific parts.
 
 ### [ ] Task 12.4: Import/Export and Cross-Format Sync
 - Add shorthand + `topology-v1` import/export in `BuildMenu` flows.
@@ -527,5 +562,39 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - Given sketch images, VLM outputs parseable shorthand/topology in ≥80% of held-out cases.
 - End-to-end pipeline (sketch → VLM → shorthand → topology → solved 3D model) succeeds in ≥70% of held-out cases.
 - All accepted predictions pass parser + topology validator with zero hard errors.
+
+---
+
+## Phase 9 — Dataset & API Polish
+
+### ✅ Task 9.5: Rod-Side Rollout & API Normalization (2026-03-06) — ✅ RESOLVED
+- **Outcome**: Migrated all rod-side connections to the canonical 4-axis port system (`center_tangent_y_pos` etc.).
+- **API Boundary**: All build-ingesting endpoints (`/load`, `/stability`, `/export`, `/diagnostics`) automatically normalize legacy `center_tangent`.
+- **Snapping & Physics**: Unified deterministic orientation logic across Frontend (Three.js), Topology Solver, and Core (Python). Side-clipped rods now "auto-flatten" into the connector plane by default.
+- **Validation**: 
+  - Frontend: 209/209 Vitest passes (including round-trip and realistic topology solves).
+  - Core: 141/141 Pytest passes (including API regression and physics stability).
+- **Library**: Cleaned up `parts/rod-*.json` to remove legacy port definitions.
+- **Residual Risks**: None. Legacy `center_tangent` is fully supported as an input but is canonicalized upon ingestion.
+## Post-Review Issues (2026-03-06) — ✅ RESOLVED
+
+### ✅ Fixed: Coordinate System Inconsistency
+- **Problem**: `src/core/physics/pybullet.py` used **Z-up** gravity.
+- **Fix**: Updated `PyBulletSimulator` to use `p.setGravity(0, -9.81, 0)` (Y-up) to align with Three.js and Rapier.js.
+
+### ✅ Fixed: Normalization Gaps
+- **Problem**: Missing legacy `center_tangent` normalization in `localModels.ts` and `useDataset.ts`.
+- **Fix**: Implemented `normalizeLegacyRodSidePortId` in both parsing entry points.
+
+### ✅ Fixed: Physical Realism in Datasets
+- **Problem**: `proc_0001` (Motorized Spinner) lacked a base mounting.
+- **Fix**: Updated `dataset.jsonl` with an orange 2-way connector as a base mount and switched to canonical `center_tangent_y_pos` port.
+
+### ✅ Fixed: Deterministic Side-Clip Orientation (User Bug)
+- **Problem**: Connectors rotated 90°/45° incorrectly during round-trips due to orientation ambiguity on rod-side clips.
+- **Fix**: Implemented deterministic basis alignment (Connector Z → Rod X) in `computeGhostTransform` (frontend), `buildPlacementCandidate` (topology solver), and `align_part_to_port` (python core).
+
+### 🔵 Minor: UI State Sync
+- **Note**: `isExpanded` state sync is still pending as a low-priority task.
 
 ---

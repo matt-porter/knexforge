@@ -90,8 +90,8 @@ def _run_zero_gravity_sim(build: Build, steps: int = 10):
     return results
 
 
-def _make_side_clip_build():
-    """Create a connector + rod with side-on clip (center_tangent → port A)."""
+def _make_side_clip_build(rod_side_port_id: str = "center_tangent"):
+    """Create a connector + rod with side-on clip (rod side port → connector A)."""
     library = PartLoader.load()
     conn_def = library.get("connector-2way-orange-v1")
     rod_def = library.get("rod-54-blue-v1")
@@ -103,7 +103,7 @@ def _make_side_clip_build():
         quaternion=(0.0, 0.0, 0.0, 1.0),
     )
 
-    # Place rod so its center_tangent aligns to the connector's port A
+    # Place rod so the selected rod-side port aligns to the connector's port A
     rod_placeholder = PartInstance(
         instance_id="rod1",
         part=rod_def,
@@ -112,7 +112,7 @@ def _make_side_clip_build():
     )
 
     new_pos, new_quat = align_part_to_port(
-        rod_placeholder, "center_tangent",
+        rod_placeholder, rod_side_port_id,
         conn_inst, "A",
     )
 
@@ -127,7 +127,7 @@ def _make_side_clip_build():
     build.add_part(conn_inst, record=False)
     build.add_part(rod_inst, record=False)
     build.connections.add(Connection(
-        from_instance="rod1", from_port="center_tangent",
+        from_instance="rod1", from_port=rod_side_port_id,
         to_instance="conn1", to_port="A",
         joint_type="fixed",
     ))
@@ -185,22 +185,32 @@ def _make_end_on_build():
 # a) Side-on clip orientation preserved
 # --------------------------------------------------------------------------
 @pytest.mark.skipif(Build is None, reason="Cannot import core modules.")
-def test_side_clip_orientation_preserved():
-    build = _make_side_clip_build()
+@pytest.mark.parametrize(
+    "rod_side_port_id",
+    [
+        "center_tangent",
+        "center_tangent_y_pos",
+        "center_tangent_y_neg",
+        "center_tangent_z_pos",
+        "center_tangent_z_neg",
+    ],
+)
+def test_side_clip_orientation_preserved(rod_side_port_id):
+    build = _make_side_clip_build(rod_side_port_id)
     results = _run_zero_gravity_sim(build, steps=10)
 
     conn_data = results["conn1"]
     delta = quat_angle_deg(conn_data["initial_quaternion"], conn_data["after_quaternion"])
 
     assert delta < FLIP_THRESHOLD_DEG, (
-        f"Connector flipped {delta:.1f}° after side-on clip simulation "
+        f"Connector flipped {delta:.1f}° after side-on clip simulation ({rod_side_port_id}) "
         f"(threshold {FLIP_THRESHOLD_DEG}°)"
     )
 
     rod_data = results["rod1"]
     rod_delta = quat_angle_deg(rod_data["initial_quaternion"], rod_data["after_quaternion"])
     assert rod_delta < FLIP_THRESHOLD_DEG, (
-        f"Rod flipped {rod_delta:.1f}° after side-on clip simulation"
+        f"Rod flipped {rod_delta:.1f}° after side-on clip simulation ({rod_side_port_id})"
     )
 
 

@@ -12,6 +12,8 @@ export interface TopologyConnection {
   from: string
   to: string
   joint_type?: 'fixed' | 'revolute' | 'prismatic'
+  twist_deg?: number
+  fixed_roll?: boolean
 }
 
 export interface TopologyModel {
@@ -73,6 +75,8 @@ interface ResolvedConnection {
   to_instance: string
   to_port: string
   joint_type: 'fixed' | 'revolute' | 'prismatic'
+  twist_deg: number
+  fixed_roll: boolean
   key: string
 }
 
@@ -81,12 +85,16 @@ interface Transform {
   rotation: Quaternion
 }
 
+function normalizeLegacyRodSidePortId(portId: string): string {
+  return portId === 'center_tangent' ? 'center_tangent_y_pos' : portId
+}
+
 function parseEndpointRef(value: string): ConnectionEndpoints | null {
   const first = value.indexOf('.')
   if (first <= 0 || first === value.length - 1) return null
   return {
     fromInstance: value.slice(0, first),
-    fromPort: value.slice(first + 1),
+    fromPort: normalizeLegacyRodSidePortId(value.slice(first + 1)),
     toInstance: '',
     toPort: '',
   }
@@ -150,11 +158,20 @@ function candidateAngles(port: Port): number[] {
   return unique.sort((a, b) => a - b)
 }
 
+function candidateAnglesForConnection(anchorPort: Port, placingPort: Port): number[] {
+  const anchorAngles = candidateAngles(anchorPort)
+  const placingAngles = candidateAngles(placingPort)
+  return placingAngles.length > anchorAngles.length ? placingAngles : anchorAngles
+}
+
 function buildPlacementCandidate(
   anchor: Transform,
   anchorPort: Port,
   placingPort: Port,
   twistDeg: number,
+  anchorDef: KnexPartDef,
+  placingDef: KnexPartDef,
+  _fixedRoll = false
 ): Transform {
   const anchorPose = getWorldPortPose(anchor, anchorPort)
   const desiredDirection = anchorPose.direction.clone().negate()
@@ -165,13 +182,88 @@ function buildPlacementCandidate(
     placingPort.direction[2],
   ).normalize()
 
-  const align = new Quaternion().setFromUnitVectors(localPlacingDirection, desiredDirection)
-  const twist = new Quaternion().setFromAxisAngle(
-    desiredDirection,
+  // Step 1: Base Alignment
+  const rotAxis = new Vector3().crossVectors(localPlacingDirection, desiredDirection)
+  const rotAngle = Math.acos(Math.max(-1, Math.min(1, localPlacingDirection.dot(desiredDirection))))
+
+  let baseRotation: Quaternion
+  if (rotAngle < 0.001) {
+    baseRotation = new Quaternion(0, 0, 0, 1)
+  } else if (rotAngle > Math.PI - 0.001) {
+    const perpAxis = new Vector3(0, 1, 0)
+    if (Math.abs(localPlacingDirection.dot(perpAxis)) > 0.9) {
+      perpAxis.set(1, 0, 0)
+    }
+    baseRotation = new Quaternion().setFromAxisAngle(perpAxis, Math.PI)
+  } else {
+    rotAxis.normalize()
+    baseRotation = new Quaternion().setFromAxisAngle(rotAxis, rotAngle)
+  }
+
+  // Step 2: Deterministic Side-Clip Orientation
+  const isPlacingRod = placingDef.category === 'rod'
+  const isAnchorRod = anchorDef.category === 'rod'
+  const isRodConnectorSide = (
+    (isPlacingRod && placingPort.mate_type === 'rod_side') ||
+    (isAnchorRod && anchorPort.mate_type === 'rod_side')
+  )
+
+  if (isRodConnectorSide) {
+    // Determine if we're dealing with a flat connector edge
+    const connectorPort = isPlacingRod ? anchorPort : placingPort
+    const isFlatEdge = Math.abs(connectorPort.direction[2]) < 0.1
+
+    if (!isPlacingRod) {
+      // Connector being placed onto Rod.
+      // For flat edge: Connector's local Y should align with Rod's world X (rod is flat in plane)
+      // For 3D edge: Connector's local Z (normal) should align with Rod's world X (rod is vertical)
+      const rodWorldX = new Vector3(1, 0, 0).applyQuaternion(anchor.rotation).normalize()
+      const sourceVec = new Vector3(0, isFlatEdge ? 1 : 0, isFlatEdge ? 0 : 1).applyQuaternion(baseRotation)
+      
+      const correctionAxis = desiredDirection.clone().normalize()
+      const projSrc = sourceVec.clone().projectOnPlane(correctionAxis).normalize()
+      const projRodX = rodWorldX.clone().projectOnPlane(correctionAxis).normalize()
+      
+      if (projSrc.lengthSq() > 0.001 && projRodX.lengthSq() > 0.001) {
+          const dot = Math.max(-1, Math.min(1, projSrc.dot(projRodX)))
+          const cross = new Vector3().crossVectors(projSrc, projRodX)
+          let angle = Math.acos(dot)
+          if (cross.dot(correctionAxis) < 0) angle = -angle
+          
+          const correctionQuat = new Quaternion().setFromAxisAngle(correctionAxis, angle)
+          baseRotation.premultiply(correctionQuat)
+      }
+    } else {
+      // Rod being placed onto Connector.
+      // For flat edge: Rod's local X should align with Connector's world Y (rod is flat in plane)
+      // For 3D edge: Rod's local X should align with Connector's world Z (rod is vertical)
+      const targetVec = new Vector3(0, isFlatEdge ? 1 : 0, isFlatEdge ? 0 : 1).applyQuaternion(anchor.rotation).normalize()
+      const rodX = new Vector3(1, 0, 0).applyQuaternion(baseRotation)
+
+      const correctionAxis = desiredDirection.clone().normalize()
+      const projRodX = rodX.clone().projectOnPlane(correctionAxis).normalize()
+      const projTarget = targetVec.clone().projectOnPlane(correctionAxis).normalize()
+
+      if (projRodX.lengthSq() > 0.001 && projTarget.lengthSq() > 0.001) {
+        const dot = Math.max(-1, Math.min(1, projRodX.dot(projTarget)))
+        const cross = new Vector3().crossVectors(projRodX, projTarget)
+        let angle = Math.acos(dot)
+        if (cross.dot(correctionAxis) < 0) angle = -angle
+
+        const correctionQuat = new Quaternion().setFromAxisAngle(correctionAxis, angle)
+        baseRotation.premultiply(correctionQuat)
+      }
+    }
+  }
+
+  // Step 3: Apply user twist around the aligned direction
+  const twistRotation = new Quaternion().setFromAxisAngle(
+    desiredDirection.clone(),
     (twistDeg * Math.PI) / 180,
   )
 
-  const finalRotation = twist.multiply(align).normalize()
+  const finalRotation = twistRotation.clone().multiply(baseRotation).normalize()
+  
   const localPlacingPosition = new Vector3(
     placingPort.position[0],
     placingPort.position[1],
@@ -183,6 +275,46 @@ function buildPlacementCandidate(
     .sub(localPlacingPosition.clone().applyQuaternion(finalRotation))
 
   return { position: worldPosition, rotation: finalRotation }
+}
+
+function isPhysicallyValidRodConnectorOrientation(
+  anchorTransform: Transform,
+  anchorDef: KnexPartDef,
+  anchorPort: Port,
+  placingTransform: Transform,
+  placingDef: KnexPartDef,
+  placingPort: Port,
+): boolean {
+  const isRodConnector =
+    (placingDef.category === 'rod' && anchorDef.category === 'connector') ||
+    (placingDef.category === 'connector' && anchorDef.category === 'rod')
+  if (!isRodConnector) return true
+
+  const isPlacingRod = placingDef.category === 'rod'
+
+  const rodTransform = isPlacingRod ? placingTransform : anchorTransform
+  const connectorTransform = isPlacingRod ? anchorTransform : placingTransform
+  const rodPort = isPlacingRod ? placingPort : anchorPort
+  const connectorPort = isPlacingRod ? anchorPort : placingPort
+
+  const rodWorldMainAxis = new Vector3(1, 0, 0).applyQuaternion(rodTransform.rotation).normalize()
+  const connectorWorldZ = new Vector3(0, 0, 1)
+    .applyQuaternion(connectorTransform.rotation)
+    .normalize()
+
+  const connectorDir = connectorPort.direction
+  const rodMateType = rodPort.mate_type
+
+  const isFlatConnectorEdge = Math.abs(connectorDir[2]) < 0.1
+  const is3DConnectorEdge = Math.abs(connectorDir[2]) > 0.9
+
+  if (rodMateType === 'rod_side') {
+    const dot = Math.abs(rodWorldMainAxis.dot(connectorWorldZ))
+    if (isFlatConnectorEdge && dot < 0.99) return false
+    if (is3DConnectorEdge && dot > 0.1) return false
+  }
+
+  return true
 }
 
 function connectionResidual(
@@ -355,6 +487,8 @@ function validateAndResolveConnections(
       to_instance: endpoints.toInstance,
       to_port: endpoints.toPort,
       joint_type: inferred,
+      twist_deg: connection.twist_deg ?? 0,
+      fixed_roll: connection.fixed_roll ?? false,
       key: duplicateKey,
     })
   }
@@ -382,14 +516,24 @@ export function canonicalizeTopology(model: TopologyModel): TopologyModel {
       const parsed = parseConnectionEndpoints(connection)
       if (!parsed) return connection
 
+      const normalized = {
+        from: endpointRef(parsed.fromInstance, parsed.fromPort),
+        to: endpointRef(parsed.toInstance, parsed.toPort),
+        joint_type: connection.joint_type,
+        twist_deg: connection.twist_deg,
+        fixed_roll: connection.fixed_roll,
+      }
+
       const left = endpointRef(parsed.fromInstance, parsed.fromPort)
       const right = endpointRef(parsed.toInstance, parsed.toPort)
-      if (left <= right) return connection
+      if (left <= right) return normalized
 
       return {
-        from: connection.to,
-        to: connection.from,
-        joint_type: connection.joint_type,
+        from: normalized.to,
+        to: normalized.from,
+        joint_type: normalized.joint_type,
+        twist_deg: normalized.twist_deg,
+        fixed_roll: normalized.fixed_roll,
       }
     })
     .sort((a, b) => {
@@ -421,9 +565,11 @@ export function buildStateToTopology(
 
   const topologyConnections: TopologyConnection[] = connections
     .map((connection) => ({
-      from: endpointRef(connection.from_instance, connection.from_port),
-      to: endpointRef(connection.to_instance, connection.to_port),
+      from: endpointRef(connection.from_instance, normalizeLegacyRodSidePortId(connection.from_port)),
+      to: endpointRef(connection.to_instance, normalizeLegacyRodSidePortId(connection.to_port)),
       joint_type: connection.joint_type,
+      twist_deg: connection.twist_deg,
+      fixed_roll: connection.fixed_roll,
     }))
 
   return canonicalizeTopology({
@@ -557,17 +703,36 @@ export function solveTopology(
           return transforms.has(other)
         })
 
-        const angles = candidateAngles(neighborPort)
+        const lockRollToStoredTwist = edge.fixed_roll || edge.twist_deg !== 0
+        const angles = lockRollToStoredTwist
+          ? [edge.twist_deg]
+          : candidateAnglesForConnection(currentPort, neighborPort)
         let bestTransform: Transform | null = null
         let bestScore = Number.POSITIVE_INFINITY
 
         for (const angle of angles) {
           const candidate = buildPlacementCandidate(
-            currentTransform,
+            transforms.get(current)!,
             currentPort,
             neighborPort,
             angle,
+            currentPartDef,
+            neighborPartDef,
+            edge.fixed_roll
           )
+
+          if (
+            !isPhysicallyValidRodConnectorOrientation(
+              transforms.get(current)!,
+              currentPartDef,
+              currentPort,
+              candidate,
+              neighborPartDef,
+              neighborPort,
+            )
+          ) {
+            continue
+          }
 
           const tempTransforms = new Map(transforms)
           tempTransforms.set(neighbor, candidate)
@@ -639,6 +804,8 @@ export function solveTopology(
     to_instance: connection.to_instance,
     to_port: connection.to_port,
     joint_type: connection.joint_type,
+    twist_deg: connection.twist_deg,
+    fixed_roll: connection.fixed_roll,
   }))
 
   return { parts, connections: solvedConnections }

@@ -12,6 +12,7 @@ describe('Port/angle cycling (Tab/R keys)', () => {
     store.startPlacing('connector-4way-green-v1', 'rod-1')
     store.setSnapTarget('rod-1', 'center_axial_1', 'center')
     expect(useInteractionStore.getState().activePortIndex).toBe(0)
+    expect(useInteractionStore.getState().activeSideIndex).toBe(0)
     expect(useInteractionStore.getState().activeAngleIndex).toBe(0)
 
     // User presses Tab → cycles port
@@ -37,6 +38,7 @@ describe('Port/angle cycling (Tab/R keys)', () => {
     // User moves to a completely different part → should reset
     useInteractionStore.getState().setSnapTarget('rod-2', 'end1', 'A')
     expect(useInteractionStore.getState().activePortIndex).toBe(0)
+    expect(useInteractionStore.getState().activeSideIndex).toBe(0)
     expect(useInteractionStore.getState().activeAngleIndex).toBe(0)
   })
 
@@ -76,6 +78,7 @@ describe('Port/angle cycling (Tab/R keys)', () => {
 
     store.startPlacing('connector-3way-red-v1', 'rod-2')
     expect(useInteractionStore.getState().activePortIndex).toBe(0)
+    expect(useInteractionStore.getState().activeSideIndex).toBe(0)
     expect(useInteractionStore.getState().activeAngleIndex).toBe(0)
   })
 
@@ -87,6 +90,18 @@ describe('Port/angle cycling (Tab/R keys)', () => {
 
     store.cancelPlacing()
     expect(useInteractionStore.getState().activePortIndex).toBe(0)
+    expect(useInteractionStore.getState().activeSideIndex).toBe(0)
+    expect(useInteractionStore.getState().activeAngleIndex).toBe(0)
+  })
+
+  it('cycleSide increments side index and resets angle index', () => {
+    const store = useInteractionStore.getState()
+    store.startPlacing('connector-4way-green-v1', 'rod-1')
+    store.cycleAngle()
+    store.cycleAngle()
+
+    store.cycleSide()
+    expect(useInteractionStore.getState().activeSideIndex).toBe(1)
     expect(useInteractionStore.getState().activeAngleIndex).toBe(0)
   })
 })

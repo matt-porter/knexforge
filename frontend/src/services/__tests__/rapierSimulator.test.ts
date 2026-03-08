@@ -11,6 +11,7 @@
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest'
 import fs from 'fs'
 import path from 'path'
+import { Quaternion, Vector3 } from 'three'
 import { RapierSimulator } from '../rapierSimulator'
 import type { KnexPartDef, PartInstance, Connection } from '../../types/parts'
 
@@ -186,6 +187,61 @@ describe('Connector orientation stability (Rapier)', () => {
 
     expect(connDelta).toBeLessThan(FLIP_THRESHOLD_DEG)
     expect(rodDelta).toBeLessThan(FLIP_THRESHOLD_DEG)
+  })
+
+  it('side-on clip: explicit rod-side ports remain stable for all four sides', async () => {
+    const targetWorldPos = new Vector3(12.7, 0, 50)
+    const targetWorldDir = new Vector3(1, 0, 0)
+    const desiredDir = targetWorldDir.clone().negate()
+
+    const sidePortIds = [
+      'center_tangent_y_pos',
+      'center_tangent_y_neg',
+      'center_tangent_z_pos',
+      'center_tangent_z_neg',
+    ]
+
+    for (const sidePortId of sidePortIds) {
+      const sidePort = rodDef.ports.find((port) => port.id === sidePortId)
+      expect(sidePort, `missing rod-side port ${sidePortId}`).toBeDefined()
+
+      const localDir = new Vector3(...sidePort!.direction)
+      const localPos = new Vector3(...sidePort!.position)
+      const ghostQuat = new Quaternion().setFromUnitVectors(localDir, desiredDir)
+      const ghostPos = targetWorldPos.clone().sub(localPos.clone().applyQuaternion(ghostQuat))
+
+      const parts: Record<string, PartInstance> = {
+        conn1: {
+          instance_id: 'conn1',
+          part_id: CONNECTOR_ID,
+          position: [0, 0, 50],
+          rotation: [0, 0, 0, 1],
+        },
+        rod1: {
+          instance_id: 'rod1',
+          part_id: ROD_ID,
+          position: [ghostPos.x, ghostPos.y, ghostPos.z],
+          rotation: [ghostQuat.x, ghostQuat.y, ghostQuat.z, ghostQuat.w],
+        },
+      }
+
+      const connections: Connection[] = [
+        {
+          from_instance: 'rod1',
+          from_port: sidePortId,
+          to_instance: 'conn1',
+          to_port: 'A',
+          joint_type: 'fixed',
+        },
+      ]
+
+      const { initial, after } = await runZeroGravitySim(parts, connections, 10)
+      const connDelta = quatAngleDeg(initial['conn1'], after['conn1'])
+      const rodDelta = quatAngleDeg(initial['rod1'], after['rod1'])
+
+      expect(connDelta, `${sidePortId} connector flipped`).toBeLessThan(FLIP_THRESHOLD_DEG)
+      expect(rodDelta, `${sidePortId} rod flipped`).toBeLessThan(FLIP_THRESHOLD_DEG)
+    }
   })
 
   // ---------------------------------------------------------------------------

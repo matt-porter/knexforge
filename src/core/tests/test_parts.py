@@ -12,8 +12,8 @@ from core.parts.models import KnexPart, Port
 def test_part_loader_loads_all_active_parts(clean_part_library):
     """Verify all active parts (non-underscore-prefixed) are loaded correctly."""
     library = clean_part_library
-    assert len(library.parts) == 16
-    assert len(library.get_by_category("connector")) == 8
+    assert len(library.parts) == 17
+    assert len(library.get_by_category("connector")) == 9
     assert len(library.get_by_category("rod")) == 6
     assert len(library.get_by_category("wheel")) == 1
     assert len(library.get_by_category("special")) == 1
@@ -86,11 +86,11 @@ def test_part_loader_returns_correct_3way_red_connector(clean_part_library):
     assert center.direction == (0.0, 0.0, 1.0)
     assert center.accepts == ["rod_end"]
 
-def test_part_loader_rod_port_geometry(clean_part_library):
-    """Rods have end ports, center axial ports, and a center tangent (side-clip) port."""
+def test_rod_ports(clean_part_library):
+    """Rods expose end/axial ports plus 4 explicit side ports for side clipping."""
     rod = clean_part_library.get("rod-128-red-v1")
     assert rod.category == "rod"
-    assert len(rod.ports) == 5  # end1, end2, center_axial_1, center_axial_2, center_tangent
+    assert len(rod.ports) == 8
 
     end1 = next(p for p in rod.ports if p.id == "end1")
     end2 = next(p for p in rod.ports if p.id == "end2")
@@ -99,11 +99,27 @@ def test_part_loader_rod_port_geometry(clean_part_library):
     assert end2.mate_type == "rod_end"
     assert end2.position[0] == 128.0  # exact length from JSON
 
-    # Center tangent port for side-on clipping
-    tangent = next(p for p in rod.ports if p.id == "center_tangent")
+    # Canonical center tangent port for side-on clipping
+    tangent = next(p for p in rod.ports if p.id == "center_tangent_y_pos")
     assert tangent.mate_type == "rod_side"
     assert set(tangent.accepts) == {"rod_hole", "clip", "rotational_hole", "slider_hole"}
     assert tangent.position[0] == 64.0  # midpoint of rod
+    assert sorted(tangent.allowed_angles_deg) == [0, 90, 180, 270]
+
+    side_ports = {
+        p.id: p for p in rod.ports if p.id.startswith("center_tangent_")
+    }
+    assert set(side_ports.keys()) == {
+        "center_tangent_y_pos",
+        "center_tangent_y_neg",
+        "center_tangent_z_pos",
+        "center_tangent_z_neg",
+    }
+
+    assert side_ports["center_tangent_y_pos"].direction == (0.0, 1.0, 0.0)
+    assert side_ports["center_tangent_y_neg"].direction == (0.0, -1.0, 0.0)
+    assert side_ports["center_tangent_z_pos"].direction == (0.0, 0.0, 1.0)
+    assert side_ports["center_tangent_z_neg"].direction == (0.0, 0.0, -1.0)
 
 
 def test_part_loader_get_mesh_path_returns_correct_path(clean_part_library):

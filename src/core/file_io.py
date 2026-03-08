@@ -16,6 +16,11 @@ from .parts.loader import PARTS_DIR, PartLoader
 from .parts.models import Connection, PartInstance, PartLibrary
 
 
+def _normalize_legacy_port_id(port_id: str) -> str:
+    """Canonicalize legacy rod-side port IDs to explicit side IDs."""
+    return "center_tangent_y_pos" if port_id == "center_tangent" else port_id
+
+
 class Manifest(BaseModel):
     """Metadata stored in manifest.json inside a .knx file."""
 
@@ -348,11 +353,18 @@ def _build_to_model_json(build: Build, library: PartLibrary) -> dict:
 
     connections = []
     for conn in build.connections:
-        connections.append({
-            "from": f"{conn.from_instance}.{conn.from_port}",
-            "to": f"{conn.to_instance}.{conn.to_port}",
+        from_port = _normalize_legacy_port_id(conn.from_port)
+        to_port = _normalize_legacy_port_id(conn.to_port)
+        c_dict = {
+            "from": f"{conn.from_instance}.{from_port}",
+            "to": f"{conn.to_instance}.{to_port}",
             "joint_type": getattr(conn, 'joint_type', 'fixed'),
-        })
+        }
+        if hasattr(conn, 'twist_deg') and conn.twist_deg != 0:
+            c_dict["twist_deg"] = conn.twist_deg
+        if hasattr(conn, 'fixed_roll') and conn.fixed_roll:
+            c_dict["fixed_roll"] = True
+        connections.append(c_dict)
 
     return {"parts": parts, "connections": connections}
 
@@ -397,10 +409,12 @@ def _model_json_to_build(data: dict, library: PartLibrary) -> Build:
         to_instance, to_port = c_dict["to"].rsplit(".", 1)
         conn = Connection(
             from_instance=from_instance,
-            from_port=from_port,
+            from_port=_normalize_legacy_port_id(from_port),
             to_instance=to_instance,
-            to_port=to_port,
+            to_port=_normalize_legacy_port_id(to_port),
             joint_type=c_dict.get("joint_type", "fixed"),
+            twist_deg=c_dict.get("twist_deg", 0.0),
+            fixed_roll=c_dict.get("fixed_roll", False),
         )
         build.connections.add(conn)
         build._graph.add_edge(from_instance, to_instance, joint_type=conn.joint_type)

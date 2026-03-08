@@ -87,13 +87,14 @@ def validate_physical_constraints(
 
     # 1. Side-on clipping (rod_side)
     if rod_mate_type == "rod_side":
+        dot = abs(np.dot(rod_world_main_axis, connector_world_z))
         if is_flat_connector_edge:
-            # Must be vertical (orthogonal to connector plane)
-            if abs(np.dot(rod_world_main_axis, connector_world_z)) < 0.99:
+            # Enforce either flat (dot ~ 0) or vertical (dot ~ 1)
+            if dot > 0.1 and dot < 0.9:
                 return False
         elif is_3d_connector_edge:
-            # Must be horizontal (in connector plane)
-            if abs(np.dot(rod_world_main_axis, connector_world_z)) > 0.1:
+            # 3D connectors usually require vertical alignment for side-clips
+            if dot < 0.9:
                 return False
 
     # 2. Axial sliding (center_axial) — only through center holes
@@ -184,6 +185,36 @@ def snap_ports(
     if not validate_physical_constraints(from_instance, from_port, to_instance, to_port):
         return None
 
+    # Calculate twist_deg (the roll around the connection axis)
+    # 1. Projection axis is to_dir
+    axis = to_dir / np.linalg.norm(to_dir)
+    # 2. Reference "up" in world space from 'to' part
+    # If it's a rod-side clip, we use different defaults, but for general twist:
+    to_rot = R.from_quat(to_instance.quaternion)
+    ref_up = to_rot.apply([0, 0, 1]) if abs(to_dir[2]) < 0.9 else to_rot.apply([0, 1, 0])
+    
+    # 3. Project ref_up onto plane perpendicular to axis
+    ref_up_proj = ref_up - axis * np.dot(ref_up, axis)
+    if np.linalg.norm(ref_up_proj) > 1e-6:
+        ref_up_proj /= np.linalg.norm(ref_up_proj)
+        
+        # 4. Current "up" of 'from' part
+        from_rot = R.from_quat(from_instance.quaternion)
+        from_up = from_rot.apply([0, 0, 1]) if abs(from_dir[2]) < 0.9 else from_rot.apply([0, 1, 0])
+        from_up_proj = from_up - axis * np.dot(from_up, axis)
+        
+        if np.linalg.norm(from_up_proj) > 1e-6:
+            from_up_proj /= np.linalg.norm(from_up_proj)
+            dot_twist = np.clip(np.dot(ref_up_proj, from_up_proj), -1.0, 1.0)
+            twist_deg = np.degrees(np.acos(dot_twist))
+            cross_twist = np.cross(ref_up_proj, from_up_proj)
+            if np.dot(cross_twist, axis) < 0:
+                twist_deg = -twist_deg
+        else:
+            twist_deg = 0.0
+    else:
+        twist_deg = 0.0
+
     # Determine joint type (Phase 1 Kinematics)
     joint_type = infer_joint_type(from_port, to_port)
 
@@ -193,6 +224,8 @@ def snap_ports(
         to_instance=to_instance.instance_id,
         to_port=to_port_id,
         joint_type=joint_type,
+        twist_deg=twist_deg,
+        fixed_roll=True  # Manual snaps are always considered 'fixed' in their roll
     )
 
 
@@ -341,12 +374,13 @@ def align_part_to_port(
     target_instance: PartInstance,
     target_port_id: str,
     twist_deg: float = 0.0,
+    fixed_roll: bool = False,
 ) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
     """Compute position + quaternion to align any port pair, with optional twist.
 
-    Works for both end-on and side-on connections. The twist angle rotates the
-    placing part around the target port's direction axis, allowing the caller
-    to select among the discrete ``allowed_angles_deg`` positions.
+    Works for both end-on and side-on connections. For side-on clipping (rod_side),
+    it enforces a deterministic "up" orientation where the connector's plane (local XY)
+    is perpendicular to the rod's main axis (local X).
 
     Args:
         placing_instance: The part being placed (provides local port geometry).
@@ -358,7 +392,14 @@ def align_part_to_port(
     Returns:
         (position, quaternion) for the placing part's new world transform.
     """
+    # Normalize legacy port IDs
+    if placing_port_id == "center_tangent":
+        placing_port_id = "center_tangent_y_pos"
+    if target_port_id == "center_tangent":
+        target_port_id = "center_tangent_y_pos"
+
     placing_port = placing_instance.get_port(placing_port_id)
+    target_port = target_instance.get_port(target_port_id)
 
     # Target world pose
     target_pos, target_dir = _port_world_pose(target_instance, target_port_id)
@@ -369,11 +410,99 @@ def align_part_to_port(
     # Current placing port local direction
     current_local_dir = np.array(placing_port.direction)
 
-    # Base rotation: align placing port direction → desired direction
-    base_rot = R.align_vectors([desired_dir], [current_local_dir])[0]
+    # Base rotation: align placing port direction -> desired direction
+    # Use axis-angle to match frontend's computeGhostTransform logic
+    cross = np.cross(current_local_dir, desired_dir)
+    dot = np.dot(current_local_dir, desired_dir)
+    
+    if np.linalg.norm(cross) < 1e-6:
+        if dot > 0:
+            base_rot = R.from_quat([0, 0, 0, 1])
+        else:
+            # 180 degree flip
+            perp = [0, 1, 0] if abs(current_local_dir[1]) < 0.9 else [1, 0, 0]
+            base_rot = R.from_rotvec(np.pi * np.array(perp))
+    else:
+        angle = np.arccos(np.clip(dot, -1.0, 1.0))
+        base_rot = R.from_rotvec(angle * (cross / np.linalg.norm(cross)))
 
-    # Apply twist around the target port direction axis
-    twist_rot = R.from_rotvec(np.radians(twist_deg) * np.array(target_dir))
+    # Deterministic Side-Clip Orientation
+    is_placing_rod = placing_instance.part.category == "rod"
+    is_target_rod = target_instance.part.category == "rod"
+    is_rod_connector_side = (
+        (is_placing_rod and placing_port.mate_type == "rod_side") or
+        (is_target_rod and target_port.mate_type == "rod_side")
+    )
+
+    if is_rod_connector_side:
+        # Determine if we're dealing with a flat connector edge
+        connector_dir = target_port.direction if is_placing_rod else placing_port.direction
+        is_flat_edge = abs(connector_dir[2]) < 0.1
+
+        # Rods always have main axis along local X; Connector normal is local Z
+        if not is_placing_rod:
+            # Connector being placed onto Rod
+            rod_world_x = R.from_quat(target_instance.quaternion).apply([1.0, 0.0, 0.0])
+            connector_z = base_rot.apply([0.0, 0.0, 1.0])
+            connector_y = base_rot.apply([0.0, 1.0, 0.0])
+            
+            # We want to align either connector_z or connector_y with rod_world_x
+            # depending on whether it's a flat edge or 3D edge.
+            # For flat edge: rod must be in connector plane (rod_x perp to conn_z)
+            #   -> align conn_y with rod_x
+            # For 3D edge: rod must be vertical (rod_x parallel to conn_z)
+            #   -> align conn_z with rod_x
+            source_vec = connector_y if is_flat_edge else connector_z
+
+            def project_on_plane(v, n):
+                v = np.array(v)
+                n = np.array(n)
+                n_norm_sq = np.dot(n, n)
+                if n_norm_sq < 1e-12: return v
+                return v - n * np.dot(v, n) / n_norm_sq
+
+            proj_src = project_on_plane(source_vec, desired_dir)
+            proj_rod_x = project_on_plane(rod_world_x, desired_dir)
+
+            if np.linalg.norm(proj_src) > 1e-6 and np.linalg.norm(proj_rod_x) > 1e-6:
+                proj_src /= np.linalg.norm(proj_src)
+                proj_rod_x /= np.linalg.norm(proj_rod_x)
+                dot_p = np.clip(np.dot(proj_src, proj_rod_x), -1.0, 1.0)
+                angle_p = np.arccos(dot_p)
+                cross_p = np.cross(proj_src, proj_rod_x)
+                if np.dot(cross_p, desired_dir) < 0: angle_p = -angle_p
+                correction_rot = R.from_rotvec(angle_p * desired_dir)
+                base_rot = correction_rot * base_rot
+        else:
+            # Rod being placed onto Connector
+            connector_world_z = R.from_quat(target_instance.quaternion).apply([0.0, 0.0, 1.0])
+            connector_world_y = R.from_quat(target_instance.quaternion).apply([0.0, 1.0, 0.0])
+            rod_x = base_rot.apply([1.0, 0.0, 0.0])
+
+            target_vec = connector_world_y if is_flat_edge else connector_world_z
+
+            def project_on_plane(v, n):
+                v = np.array(v)
+                n = np.array(n)
+                n_norm_sq = np.dot(n, n)
+                if n_norm_sq < 1e-12: return v
+                return v - n * np.dot(v, n) / n_norm_sq
+
+            proj_rod_x = project_on_plane(rod_x, desired_dir)
+            proj_target = project_on_plane(target_vec, desired_dir)
+
+            if np.linalg.norm(proj_rod_x) > 1e-6 and np.linalg.norm(proj_target) > 1e-6:
+                proj_rod_x /= np.linalg.norm(proj_rod_x)
+                proj_target /= np.linalg.norm(proj_target)
+                dot_p = np.clip(np.dot(proj_rod_x, proj_target), -1.0, 1.0)
+                angle_p = np.arccos(dot_p)
+                cross_p = np.cross(proj_rod_x, proj_target)
+                if np.dot(cross_p, desired_dir) < 0: angle_p = -angle_p
+                correction_rot = R.from_rotvec(angle_p * desired_dir)
+                base_rot = correction_rot * base_rot
+
+    # Apply user twist around the target port direction axis
+    twist_rot = R.from_rotvec(np.radians(twist_deg) * target_dir)
     final_rot = twist_rot * base_rot
 
     # New world position: target port pos minus rotated local port pos

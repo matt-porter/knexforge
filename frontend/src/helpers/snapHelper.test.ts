@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { getPortWorldPose, findNearestSnap } from '../helpers/snapHelper'
+import { Quaternion, Vector3 } from 'three'
+import { getPortWorldPose, findNearestSnap, computeGhostTransform } from '../helpers/snapHelper'
 import type { KnexPartDef, PartInstance, Port } from '../types/parts'
 
 // ---------------------------------------------------------------------------
@@ -319,5 +320,97 @@ describe('findNearestSnap', () => {
 
     const result = findNearestSnap([13, 0, 0], rodDef, existingParts, defs)
     expect(result.candidate!.placingPortId).toBe('end1')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// computeGhostTransform
+// ---------------------------------------------------------------------------
+
+describe('computeGhostTransform', () => {
+  it('aligns placing port to target port (opposite directions)', () => {
+    const targetPort = makePort({ direction: [0, 1, 0] }) // Target points Up
+    const placingPort = makePort({ direction: [1, 0, 0] }) // Placing points Right
+    const targetWorldPos = new Vector3(0, 0, 0)
+    const targetWorldDir = new Vector3(0, 1, 0)
+
+    const { rotation } = computeGhostTransform(placingPort, targetPort, targetWorldPos, targetWorldDir)
+
+    // To align [1,0,0] -> [0,-1,0], we need -90° around Z
+    const direction = new Vector3(1, 0, 0).applyQuaternion(rotation)
+    expect(direction.x).toBeCloseTo(0)
+    expect(direction.y).toBeCloseTo(-1)
+    expect(direction.z).toBeCloseTo(0)
+  })
+
+  it('applies twist angle around target direction', () => {
+    const targetPort = makePort({ direction: [0, 0, 1] })
+    const placingPort = makePort({ direction: [0, 0, -1] }) // Already aligned
+    const targetWorldPos = new Vector3(0, 0, 0)
+    const targetWorldDir = new Vector3(0, 0, 1)
+
+    // 90° twist around Z
+    const { rotation } = computeGhostTransform(placingPort, targetPort, targetWorldPos, targetWorldDir, 90)
+
+    // Local [1,0,0] should rotate to world [0,1,0]
+    const localX = new Vector3(1, 0, 0).applyQuaternion(rotation)
+    expect(localX.x).toBeCloseTo(0)
+    expect(localX.y).toBeCloseTo(1)
+    expect(localX.z).toBeCloseTo(0)
+  })
+
+  it('enforces deterministic orientation for rod-side clips', () => {
+    // Target is a Rod pointing along world Y (rotated 90° Z)
+    const s = Math.sin(Math.PI / 4)
+    const c = Math.cos(Math.PI / 4)
+    const rodInstance = makeInstance({
+      part_id: 'rod-1',
+      rotation: [0, 0, s, c] // 90° Z: local X [1,0,0] -> world Y [0,1,0]
+    })
+    const rodDef = makePartDef({ id: 'rod-1', category: 'rod' })
+    
+    // Rod side port pointing along world X (local Y [0,1,0] rotated 90° Z -> world -X [-1,0,0])
+    const rodPort = makePort({ 
+      id: 'center_tangent_y_pos', 
+      direction: [0, 1, 0], 
+      mate_type: 'rod_side' 
+    })
+    const targetWorldPos = new Vector3(0, 0, 0)
+    const targetWorldDir = new Vector3(-1, 0, 0)
+
+    // Placing is a Connector
+    const connDef = makePartDef({ id: 'conn-1', category: 'connector' })
+    const connPort = makePort({ 
+      id: 'A', 
+      direction: [1, 0, 0], 
+      mate_type: 'rod_hole' 
+    })
+
+    const { rotation } = computeGhostTransform(
+      connPort,
+      rodPort,
+      targetWorldPos,
+      targetWorldDir,
+      0,
+      rodInstance,
+      connDef,
+      rodDef,
+      false // isPlacingRod
+    )
+
+    // 1. Check alignment: connPort [1,0,0] should face targetWorldDir [-1,0,0] -> Opposed
+    const dir = new Vector3(1, 0, 0).applyQuaternion(rotation)
+    expect(dir.x).toBeCloseTo(1) // targetWorldDir is [-1,0,0], opposite is [1,0,0]
+    expect(dir.y).toBeCloseTo(0)
+    expect(dir.z).toBeCloseTo(0)
+
+    // 2. Check deterministic orientation: connector must be FLAT in rod plane.
+    // Rod main axis is world Y [0,1,0].
+    // Flat orientation means connector local Y [0,1,0] aligns with rod world Y [0,1,0].
+    const localY = new Vector3(0, 1, 0).applyQuaternion(rotation)
+    expect(localY.x).toBeCloseTo(0)
+    expect(localY.y).toBeCloseTo(1)
+    expect(localY.z).toBeCloseTo(0)
+
   })
 })

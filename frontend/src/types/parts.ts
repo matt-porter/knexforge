@@ -44,6 +44,8 @@ export interface Connection {
   to_instance: string
   to_port: string
   joint_type?: 'fixed' | 'revolute' | 'prismatic'
+  twist_deg?: number // Optional roll/twist in degrees around the connection axis
+  fixed_roll?: boolean // If true, the solver will not attempt to 'auto-flatten' this connection
 }
 
 /** The complete state of a K'Nex build. */

@@ -1,9 +1,9 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { type ThreeEvent } from '@react-three/fiber'
-import { Quaternion, Vector3, MathUtils } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
-import { getPortWorldPose, inferJointType } from '../../helpers/snapHelper'
+import { getPortWorldPose, inferJointType, computeGhostTransform } from '../../helpers/snapHelper'
 import type { KnexPartDef, Port } from '../../types/parts'
 
 interface PortIndicatorsProps {
@@ -21,39 +21,54 @@ function arePortsCompatible(placingPort: Port, targetPort: Port): boolean {
     )
 }
 
-function computeGhostTransform(
-    placingPort: Port,
-    targetWorldPos: Vector3,
-    targetWorldDir: Vector3,
-    angleDeg: number = 0
-): { position: Vector3; rotation: Quaternion } {
-    const desiredDir = targetWorldDir.clone().normalize().negate()
-    const placingLocalDir = new Vector3(
-        placingPort.direction[0],
-        placingPort.direction[1],
-        placingPort.direction[2],
-    ).normalize()
-    const baseQuat = new Quaternion().setFromUnitVectors(placingLocalDir, desiredDir)
-    const twistQuat = new Quaternion().setFromAxisAngle(targetWorldDir.clone().normalize(), MathUtils.degToRad(angleDeg))
-    const ghostQuat = twistQuat.clone().multiply(baseQuat)
-
-    const placingLocalPos = new Vector3(
-        placingPort.position[0],
-        placingPort.position[1],
-        placingPort.position[2],
-    )
-    const rotatedLocalPos = placingLocalPos.clone().applyQuaternion(ghostQuat)
-    const ghostPos = targetWorldPos.clone().sub(rotatedLocalPos)
-
-    return { position: ghostPos, rotation: ghostQuat }
-}
-
 /** Format a port ID into a human-readable label. */
 function portLabel(portId: string): string {
     if (portId === 'center') return 'Center'
     if (portId.startsWith('center_')) return 'Center (' + portId.replace('center_', '') + ')'
     if (portId.length === 1) return 'Port ' + portId.toUpperCase()
     return portId.charAt(0).toUpperCase() + portId.slice(1)
+}
+
+const LEGACY_ROD_SIDE_PORT_ID = 'center_tangent'
+
+function hasExplicitRodSidePorts(def: KnexPartDef): boolean {
+    return def.ports.some((port) =>
+        port.id.startsWith('center_tangent_') && port.id !== LEGACY_ROD_SIDE_PORT_ID,
+    )
+}
+
+function normalizeRodSidePortId(portId: string): string {
+    return portId === LEGACY_ROD_SIDE_PORT_ID ? 'center_tangent_y_pos' : portId
+}
+
+function rodSideSortRank(sideId: string): number {
+    switch (sideId) {
+        case 'center_tangent_y_pos':
+            return 0
+        case 'center_tangent_y_neg':
+            return 1
+        case 'center_tangent_z_pos':
+            return 2
+        case 'center_tangent_z_neg':
+            return 3
+        default:
+            return 100
+    }
+}
+
+function rodSideLabel(sideId: string): string {
+    switch (sideId) {
+        case 'center_tangent_y_pos':
+            return '+Y'
+        case 'center_tangent_y_neg':
+            return '-Y'
+        case 'center_tangent_z_pos':
+            return '+Z'
+        case 'center_tangent_z_neg':
+            return '-Z'
+        default:
+            return 'Default'
+    }
 }
 
 let instanceCounter = Date.now()
@@ -73,12 +88,20 @@ interface SnapVariant {
     ghostQuat: Quaternion
     joint_type: 'fixed' | 'revolute' | 'prismatic'
     angle: number
+    fixed_roll: boolean
+    rodSideId: string
+}
+
+interface SideGroup {
+    sideId: string
+    label: string
+    variants: SnapVariant[]
 }
 
 interface PortGroup {
     placingPortId: string
     label: string
-    variants: SnapVariant[]
+    sideGroups: SideGroup[]
 }
 
 interface PortIndicator {
@@ -111,9 +134,14 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
 
         if (!targetInstance || !placingDef || !targetDef) return []
 
+        const skipLegacyTargetSide = targetDef.category === 'rod' && hasExplicitRodSidePorts(targetDef)
+        const skipLegacyPlacingSide = placingDef.category === 'rod' && hasExplicitRodSidePorts(placingDef)
+
         const rawIndicators: Map<string, { worldPos: Vector3; variants: SnapVariant[] }> = new Map()
 
         for (const targetPort of targetDef.ports) {
+            if (skipLegacyTargetSide && targetPort.id === LEGACY_ROD_SIDE_PORT_ID) continue
+
             // Find if this specific port on the target instance is already occupied
             const isOccupied = connections.some(conn => 
                 (conn.from_instance === matchTargetId && conn.from_port === targetPort.id) ||
@@ -133,6 +161,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
             const indData = rawIndicators.get(posKey)!
 
             for (const placingPort of placingDef.ports) {
+                if (skipLegacyPlacingSide && placingPort.id === LEGACY_ROD_SIDE_PORT_ID) continue
                 if (!arePortsCompatible(placingPort, targetPort)) continue
 
                 const targetAngles = targetPort.allowed_angles_deg?.length > 0 ? targetPort.allowed_angles_deg : [0]
@@ -140,11 +169,17 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                 const angles = placingAngles.length > targetAngles.length ? placingAngles : targetAngles
 
                 for (const angle of angles) {
+                    const isPlacingRod = placingDef.category === 'rod'
                     const { position: ghostPos, rotation: ghostQuat } = computeGhostTransform(
                         placingPort,
+                        targetPort,
                         targetWorldPos,
                         targetWorldDir,
-                        angle
+                        angle,
+                        targetInstance,
+                        placingDef,
+                        targetDef,
+                        isPlacingRod
                     )
 
                     // --- Physical Constraints ---
@@ -156,12 +191,12 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                         const isPlacingRod = placingDef.category === 'rod'
 
                         const rodWorldMainAxis = isPlacingRod
-                            ? new Vector3(1, 0, 0).applyQuaternion(ghostQuat)
-                            : new Vector3(1, 0, 0).applyQuaternion(new Quaternion(...targetInstance.rotation))
+                            ? new Vector3(1, 0, 0).applyQuaternion(ghostQuat).normalize()
+                            : new Vector3(1, 0, 0).applyQuaternion(new Quaternion(...targetInstance.rotation)).normalize()
 
                         const connectorWorldZ = isPlacingRod
-                            ? new Vector3(0, 0, 1).applyQuaternion(new Quaternion(...targetInstance.rotation))
-                            : new Vector3(0, 0, 1).applyQuaternion(ghostQuat)
+                            ? new Vector3(0, 0, 1).applyQuaternion(new Quaternion(...targetInstance.rotation)).normalize()
+                            : new Vector3(0, 0, 1).applyQuaternion(ghostQuat).normalize()
 
                         const connectorDir = isPlacingRod ? targetPort.direction : placingPort.direction
                         const rodMateType = isPlacingRod ? placingPort.mate_type : targetPort.mate_type
@@ -173,8 +208,14 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
 
                         if (rodMateType === 'rod_side') {
                             const dot = Math.abs(rodWorldMainAxis.dot(connectorWorldZ))
-                            // Side-clipping always makes the rod axial to the connector plane (perpendicular to radial slots)
-                            if (dot < 0.99) isValid = false
+                            if (isFlatConnectorEdge) {
+                                // Side-clips on flat connector edges must be perpendicular to the rod axis.
+                                // This leaves quarter-turn solutions (90°/270°) and rejects 0°/180°.
+                                if (dot < 0.99) isValid = false
+                            } else if (is3DConnectorEdge) {
+                                // 3D edges use the complementary "flat" alignment.
+                                if (dot > 0.1) isValid = false
+                            }
                         }
 
                         if (rodPortId.startsWith('center_axial') || rodPortId === 'center_tangent') {
@@ -215,13 +256,17 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                     })
 
                     if (!isDuplicate) {
+                        const sidePort = placingPort.mate_type === 'rod_side' ? placingPort : targetPort.mate_type === 'rod_side' ? targetPort : null
+                        const sideId = sidePort ? normalizeRodSidePortId(sidePort.id) : '__default'
                         indData.variants.push({
                             targetPortId: targetPort.id,
                             placingPortId: placingPort.id,
                             ghostPos,
                             ghostQuat,
                             joint_type: inferJointType(placingPort, targetPort),
-                            angle
+                            angle,
+                            fixed_roll: true,
+                            rodSideId: sideId,
                         })
                     }
                 }
@@ -233,23 +278,41 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
         for (const [posKey, data] of rawIndicators) {
             if (data.variants.length === 0) continue
 
-            // Group variants by placingPortId
-            const groupMap = new Map<string, SnapVariant[]>()
+            // Group variants by placingPortId, then by rod-side choice.
+            const groupMap = new Map<string, Map<string, SnapVariant[]>>()
             for (const v of data.variants) {
                 if (!groupMap.has(v.placingPortId)) {
-                    groupMap.set(v.placingPortId, [])
+                    groupMap.set(v.placingPortId, new Map())
                 }
-                groupMap.get(v.placingPortId)!.push(v)
+                const sideMap = groupMap.get(v.placingPortId)!
+                if (!sideMap.has(v.rodSideId)) {
+                    sideMap.set(v.rodSideId, [])
+                }
+                sideMap.get(v.rodSideId)!.push(v)
             }
 
             const portGroups: PortGroup[] = []
-            for (const [pid, variants] of groupMap) {
-                // Sort variants within each port group by angle
-                variants.sort((a, b) => a.angle - b.angle)
+            for (const [pid, sideMap] of groupMap) {
+                const sideGroups: SideGroup[] = []
+                for (const [sideId, variants] of sideMap) {
+                    variants.sort((a, b) => a.angle - b.angle)
+                    sideGroups.push({
+                        sideId,
+                        label: rodSideLabel(sideId),
+                        variants,
+                    })
+                }
+
+                sideGroups.sort((a, b) => {
+                    const rank = rodSideSortRank(a.sideId) - rodSideSortRank(b.sideId)
+                    if (rank !== 0) return rank
+                    return a.sideId.localeCompare(b.sideId)
+                })
+
                 portGroups.push({
                     placingPortId: pid,
                     label: portLabel(pid),
-                    variants,
+                    sideGroups,
                 })
             }
 
@@ -271,6 +334,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
     }, [mode, placingPartId, matchTargetId, parts, connections, defs])
 
     const activePortIndex = useInteractionStore((s) => s.activePortIndex)
+    const activeSideIndex = useInteractionStore((s) => s.activeSideIndex)
     const activeAngleIndex = useInteractionStore((s) => s.activeAngleIndex)
 
     // Reactively update the ghost preview when port/angle index changes
@@ -282,10 +346,14 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
 
         const pIdx = activePortIndex % ind.portGroups.length
         const group = ind.portGroups[pIdx]
-        if (group.variants.length === 0) return
+        if (group.sideGroups.length === 0) return
 
-        const aIdx = activeAngleIndex % group.variants.length
-        const variant = group.variants[aIdx]
+        const sIdx = activeSideIndex % group.sideGroups.length
+        const side = group.sideGroups[sIdx]
+        if (side.variants.length === 0) return
+
+        const aIdx = activeAngleIndex % side.variants.length
+        const variant = side.variants[aIdx]
 
         useInteractionStore.getState().setGhostPosition([variant.ghostPos.x, variant.ghostPos.y, variant.ghostPos.z])
         useInteractionStore.getState().setGhostRotation([variant.ghostQuat.x, variant.ghostQuat.y, variant.ghostQuat.z, variant.ghostQuat.w])
@@ -297,11 +365,15 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
             portIndex: pIdx,
             totalPorts: ind.portGroups.length,
             allPortLabels: ind.portGroups.map((g) => g.label),
+            sideLabel: side.label,
+            sideIndex: sIdx,
+            totalSides: group.sideGroups.length,
+            allSideLabels: group.sideGroups.map((g) => g.label),
             angleDeg: variant.angle,
             angleIndex: aIdx,
-            totalAngles: group.variants.length,
+            totalAngles: side.variants.length,
         })
-    }, [activePortIndex, activeAngleIndex, hoveredPortId, matchTargetId, indicators])
+    }, [activePortIndex, activeSideIndex, activeAngleIndex, hoveredPortId, matchTargetId, indicators])
 
     const handlePointerOver = useCallback(
         (e: ThreeEvent<PointerEvent>, ind: PortIndicator) => {
@@ -309,7 +381,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
 
             const prevHovered = hoveredPortIdRef.current
             if (prevHovered !== ind.positionKey) {
-                useInteractionStore.setState({ activePortIndex: 0, activeAngleIndex: 0 })
+                useInteractionStore.setState({ activePortIndex: 0, activeSideIndex: 0, activeAngleIndex: 0 })
             }
             hoveredPortIdRef.current = ind.positionKey
             setHoveredPortId(ind.positionKey)
@@ -333,10 +405,14 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
 
             const pIdx = activePortIndex % ind.portGroups.length
             const group = ind.portGroups[pIdx]
-            if (group.variants.length === 0) return
+            if (group.sideGroups.length === 0) return
 
-            const aIdx = activeAngleIndex % group.variants.length
-            const variant = group.variants[aIdx]
+            const sIdx = activeSideIndex % group.sideGroups.length
+            const side = group.sideGroups[sIdx]
+            if (side.variants.length === 0) return
+
+            const aIdx = activeAngleIndex % side.variants.length
+            const variant = side.variants[aIdx]
             const instanceId = generateInstanceId(placingPartId)
 
             useBuildStore.getState().addPart({
@@ -352,12 +428,14 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                 to_instance: matchTargetId,
                 to_port: variant.targetPortId,
                 joint_type: variant.joint_type,
+                twist_deg: variant.angle,
+                fixed_roll: variant.fixed_roll,
             })
 
             useBuildStore.getState().selectPart(instanceId)
             useInteractionStore.getState().startPlacing(placingPartId, instanceId)
         },
-        [placingPartId, matchTargetId, activePortIndex, activeAngleIndex]
+        [placingPartId, matchTargetId, activePortIndex, activeSideIndex, activeAngleIndex]
     )
 
     if (indicators.length === 0) return null
@@ -369,8 +447,10 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                 
                 const targetInstance = matchTargetId ? parts[matchTargetId] : undefined
                 const hasActivePort = targetInstance && ind.portGroups.some(g =>
-                    g.variants.some(v => 
-                        v.targetPortId && defs.get(targetInstance.part_id)?.ports.find(p => p.id === v.targetPortId)?.is_active
+                    g.sideGroups.some((s) =>
+                        s.variants.some((v) =>
+                            v.targetPortId && defs.get(targetInstance.part_id)?.ports.find(p => p.id === v.targetPortId)?.is_active
+                        ),
                     )
                 )
                 

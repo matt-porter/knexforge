@@ -151,16 +151,55 @@ def test_side_clip_connector_onto_rod_succeeds(library):
 
     conn_temp = PartInstance(instance_id="c1", part=conn_part)
     new_pos, new_quat = align_part_to_port(
-        conn_temp, "A", rod_inst, "center_tangent", twist_deg=90.0,
+        conn_temp, "A", rod_inst, "center_tangent_y_pos", twist_deg=0.0,
     )
     conn_inst = PartInstance(
         instance_id="c1", part=conn_part, position=new_pos, quaternion=new_quat,
     )
 
-    result = snap_ports(conn_inst, "A", rod_inst, "center_tangent", tolerance_mm=0.2)
+    result = snap_ports(conn_inst, "A", rod_inst, "center_tangent_y_pos", tolerance_mm=0.2)
     assert isinstance(result, Connection)
     assert result.from_port == "A"
-    assert result.to_port == "center_tangent"
+    assert result.to_port == "center_tangent_y_pos"
+
+
+@pytest.mark.parametrize(
+    "rod_side_port_id, expected_twist",
+    [
+        ("center_tangent_y_pos", 0.0),
+        ("center_tangent_y_neg", 0.0),
+        ("center_tangent_z_pos", 0.0),
+        ("center_tangent_z_neg", 0.0),
+    ],
+)
+def test_side_clip_connector_onto_explicit_rod_sides_succeeds(library, rod_side_port_id, expected_twist):
+    """Connector edge ports can snap to all explicit rod-side ports with correct orientation."""
+    rod_part = library.get("rod-128-red-v1")
+    conn_part = library.get("connector-4way-green-v1")
+
+    rod_inst = PartInstance(instance_id="r1", part=rod_part, position=(0.0, 0.0, 0.0))
+
+    from core.snapping import align_part_to_port
+
+    conn_temp = PartInstance(instance_id="c1", part=conn_part)
+    new_pos, new_quat = align_part_to_port(
+        conn_temp,
+        "A",
+        rod_inst,
+        rod_side_port_id,
+        twist_deg=expected_twist,
+    )
+    conn_inst = PartInstance(
+        instance_id="c1",
+        part=conn_part,
+        position=new_pos,
+        quaternion=new_quat,
+    )
+
+    result = snap_ports(conn_inst, "A", rod_inst, rod_side_port_id, tolerance_mm=0.2)
+    assert isinstance(result, Connection)
+    assert result.from_port == "A"
+    assert result.to_port == rod_side_port_id
 
 
 def test_side_clip_rod_side_compat_with_connector_hole(library):
@@ -168,7 +207,7 @@ def test_side_clip_rod_side_compat_with_connector_hole(library):
     rod_part = library.get("rod-54-blue-v1")
     conn_part = library.get("connector-8way-white-v1")
 
-    tangent = next(p for p in rod_part.ports if p.id == "center_tangent")
+    tangent = next(p for p in rod_part.ports if p.id == "center_tangent_y_pos")
     port_n = next(p for p in conn_part.ports if p.id == "N")
 
     # rod_side ∈ rod_hole.accepts
@@ -191,7 +230,7 @@ def test_align_part_to_port_side_clip(library):
     conn_temp = PartInstance(instance_id="c1", part=conn_part)
 
     new_pos, new_quat = align_part_to_port(
-        conn_temp, "A", rod_inst, "center_tangent", twist_deg=90.0,
+        conn_temp, "A", rod_inst, "center_tangent_y_pos", twist_deg=90.0,
     )
 
     # Connector port A should be at the rod's center_tangent position (64, 0, 0)
@@ -221,7 +260,7 @@ def test_side_clip_wrong_direction_fails(library):
     )
     # Rod center_tangent direction is [0,1,0], so connector port A direction [1,0,0]
     # doesn't anti-align with it → should fail the direction check
-    result = snap_ports(conn_inst, "A", rod_inst, "center_tangent", tolerance_mm=0.2)
+    result = snap_ports(conn_inst, "A", rod_inst, "center_tangent_y_pos", tolerance_mm=0.2)
     assert result is None
 
 

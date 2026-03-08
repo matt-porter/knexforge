@@ -31,6 +31,8 @@ To reduce token count and prevent AI hallucinations, the model is trained to out
 
 * **Instances:** `[part_id]_[instance_number]` (e.g., `rc3_1` for Red 3-Way Connector instance 1).
 * **Ports:** `.A`, `.B`, `.C` for connectors (clockwise from top). `.end1`, `.end2`, `.center` for rods.
+* **Rod Side Ports:** side-clips are encoded with explicit rod-side ports: `.center_tangent_y_pos`, `.center_tangent_y_neg`, `.center_tangent_z_pos`, `.center_tangent_z_neg`.
+* **Legacy Port:** `.center_tangent` remains readable for backward compatibility, and should be treated as `.center_tangent_y_pos` by default.
 * **Joints:** `--` for Fixed (snap) connections. `~~` for Revolute (slip/spinning) connections.
 
 **Example (A Rectangle):**

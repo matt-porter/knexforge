@@ -9,7 +9,7 @@
  * nearest to the target connector.
  */
 
-import { Quaternion, Vector3 } from 'three'
+import { Quaternion, Vector3, MathUtils } from 'three'
 import type { KnexPartDef, PartInstance, Port } from '../types/parts'
 
 // ---------------------------------------------------------------------------
@@ -31,6 +31,10 @@ export interface SnapCandidate {
   distance: number
   /** Inferred physics joint type for the connection. */
   joint_type: 'fixed' | 'revolute' | 'prismatic'
+  /** The manual twist angle applied by the user. */
+  twist_deg: number
+  /** Whether the roll is fixed (manual building always fixes it). */
+  fixed_roll: boolean
 }
 
 export interface SnapResult {
@@ -98,25 +102,115 @@ function arePortsCompatible(placingPort: Port, targetPort: Port): boolean {
 /**
  * Compute the ghost position and rotation if a specific placing port
  * were to connect to a specific target port.
+ *
+ * Implements a deterministic orientation for `rod_side` mates by aligning the
+ * connector's local Z-axis with the rod's local X-axis (the main axis).
  */
-function computeGhostTransform(
+export function computeGhostTransform(
   placingPort: Port,
+  targetPort: Port,
   targetWorldPos: Vector3,
   targetWorldDir: Vector3,
+  angleDeg: number = 0,
+  targetInstance?: PartInstance,
+  placingDef?: KnexPartDef,
+  targetDef?: KnexPartDef,
+  isPlacingRod?: boolean,
 ): { position: Vector3; rotation: Quaternion } {
-  // Rod inserts opposite to hole direction
-  const desiredDir = targetWorldDir.clone().negate()
-
+  const desiredDir = targetWorldDir.clone().normalize().negate()
   const placingLocalDir = new Vector3(
     placingPort.direction[0],
     placingPort.direction[1],
     placingPort.direction[2],
+  ).normalize()
+
+  // 1. Base Alignment: align placingPort.direction -> -targetPort.direction
+  const rotAxis = new Vector3().crossVectors(placingLocalDir, desiredDir)
+  const rotAngle = Math.acos(Math.max(-1, Math.min(1, placingLocalDir.dot(desiredDir))))
+
+  let baseQuat: Quaternion
+  if (rotAngle < 0.001) {
+    baseQuat = new Quaternion(0, 0, 0, 1)
+  } else if (rotAngle > Math.PI - 0.001) {
+    const perpAxis = new Vector3(0, 1, 0)
+    if (Math.abs(placingLocalDir.dot(perpAxis)) > 0.9) {
+      perpAxis.set(1, 0, 0)
+    }
+    baseQuat = new Quaternion().setFromAxisAngle(perpAxis, Math.PI)
+  } else {
+    rotAxis.normalize()
+    baseQuat = new Quaternion().setFromAxisAngle(rotAxis, rotAngle)
+  }
+
+  // 2. Deterministic "Up" Orientation:
+  const isRodConnectorSide =
+    placingDef &&
+    targetDef &&
+    ((isPlacingRod && placingPort.mate_type === 'rod_side') ||
+      (!isPlacingRod && targetPort.mate_type === 'rod_side'))
+
+  if (isRodConnectorSide && targetInstance) {
+    const targetQuat = new Quaternion(
+      targetInstance.rotation[0],
+      targetInstance.rotation[1],
+      targetInstance.rotation[2],
+      targetInstance.rotation[3],
+    )
+
+    // Determine if we're dealing with a flat connector edge
+    const connectorPort = isPlacingRod ? targetPort : placingPort
+    const isFlatEdge = Math.abs(connectorPort.direction[2]) < 0.1
+
+    if (!isPlacingRod) {
+      // Connector being placed onto Rod.
+      // For flat edge: Connector's local Y should align with Rod's world X (rod is flat in plane)
+      // For 3D edge: Connector's local Z (normal) should align with Rod's world X (rod is vertical)
+      const rodWorldX = new Vector3(1, 0, 0).applyQuaternion(targetQuat).normalize()
+      const sourceVec = new Vector3(0, isFlatEdge ? 1 : 0, isFlatEdge ? 0 : 1).applyQuaternion(baseQuat)
+      
+      const correctionAxis = desiredDir.clone().normalize()
+      const projSrc = sourceVec.clone().projectOnPlane(correctionAxis).normalize()
+      const projRodX = rodWorldX.clone().projectOnPlane(correctionAxis).normalize()
+
+      if (projSrc.lengthSq() > 0.001 && projRodX.lengthSq() > 0.001) {
+        const dot = Math.max(-1, Math.min(1, projSrc.dot(projRodX)))
+        const cross = new Vector3().crossVectors(projSrc, projRodX)
+        let angle = Math.acos(dot)
+        if (cross.dot(correctionAxis) < 0) angle = -angle
+        
+        const correctionQuat = new Quaternion().setFromAxisAngle(correctionAxis, angle)
+        baseQuat.premultiply(correctionQuat)
+      }
+    } else {
+      // Rod being placed onto Connector.
+      // For flat edge: Rod's local X should align with Connector's world Y (rod is flat in plane)
+      // For 3D edge: Rod's local X should align with Connector's world Z (rod is vertical)
+      const targetVec = new Vector3(0, isFlatEdge ? 1 : 0, isFlatEdge ? 0 : 1).applyQuaternion(targetQuat).normalize()
+      const rodX = new Vector3(1, 0, 0).applyQuaternion(baseQuat)
+
+      const correctionAxis = desiredDir.clone().normalize()
+      const projRodX = rodX.clone().projectOnPlane(correctionAxis).normalize()
+      const projTarget = targetVec.clone().projectOnPlane(correctionAxis).normalize()
+
+      if (projRodX.lengthSq() > 0.001 && projTarget.lengthSq() > 0.001) {
+        const dot = Math.max(-1, Math.min(1, projRodX.dot(projTarget)))
+        const cross = new Vector3().crossVectors(projRodX, projTarget)
+        let angle = Math.acos(dot)
+        if (cross.dot(correctionAxis) < 0) angle = -angle
+
+        const correctionQuat = new Quaternion().setFromAxisAngle(correctionAxis, angle)
+        baseQuat.premultiply(correctionQuat)
+      }
+    }
+  }
+
+  // 3. User Twist
+  const twistQuat = new Quaternion().setFromAxisAngle(
+    targetWorldDir.clone().normalize(),
+    MathUtils.degToRad(angleDeg),
   )
+  const ghostQuat = twistQuat.clone().multiply(baseQuat).normalize()
 
-  // Rotation to align placing port direction → desired world direction
-  const ghostQuat = new Quaternion().setFromUnitVectors(placingLocalDir, desiredDir)
-
-  // Position: target port pos minus rotated placing port local pos
   const placingLocalPos = new Vector3(
     placingPort.position[0],
     placingPort.position[1],
@@ -144,6 +238,7 @@ export function findNearestSnap(
   placingPartDef: KnexPartDef,
   existingParts: Record<string, PartInstance>,
   partDefs: Map<string, KnexPartDef>,
+  twistAngle: number = 0,
   snapRadius: number = 30,
 ): SnapResult {
   const cursor = new Vector3(cursorWorldPos[0], cursorWorldPos[1], cursorWorldPos[2])
@@ -169,11 +264,17 @@ export function findNearestSnap(
       for (const placingPort of placingPartDef.ports) {
         if (!arePortsCompatible(placingPort, targetPort)) continue
 
-        // Compute where the ghost would end up if this pair connected
+        const isPlacingRod = placingPartDef.category === 'rod'
         const { position: ghostPos, rotation: ghostQuat } = computeGhostTransform(
           placingPort,
+          targetPort,
           targetWorldPos,
           targetWorldDir,
+          0,
+          instance,
+          placingPartDef,
+          targetDef,
+          isPlacingRod
         )
 
         // Compute distance from cursor to the ghost's center position
@@ -193,6 +294,8 @@ export function findNearestSnap(
             worldDirection: [targetWorldDir.x, targetWorldDir.y, targetWorldDir.z],
             distance: dist,
             joint_type: inferJointType(placingPort, targetPort),
+            twist_deg: twistAngle,
+            fixed_roll: true,
           }
         }
       }

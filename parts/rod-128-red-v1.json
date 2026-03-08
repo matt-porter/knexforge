@@ -100,7 +100,7 @@
       "tolerance_mm": 0.2
     },
     {
-      "id": "center_tangent",
+      "id": "center_tangent_y_pos",
       "position": [
         64.0,
         0.0,
@@ -110,6 +110,87 @@
         0.0,
         1.0,
         0.0
+      ],
+      "mate_type": "rod_side",
+      "accepts": [
+        "rod_hole",
+        "clip",
+        "rotational_hole",
+        "slider_hole"
+      ],
+      "allowed_angles_deg": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "center_tangent_y_neg",
+      "position": [
+        64.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "mate_type": "rod_side",
+      "accepts": [
+        "rod_hole",
+        "clip",
+        "rotational_hole",
+        "slider_hole"
+      ],
+      "allowed_angles_deg": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "center_tangent_z_pos",
+      "position": [
+        64.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mate_type": "rod_side",
+      "accepts": [
+        "rod_hole",
+        "clip",
+        "rotational_hole",
+        "slider_hole"
+      ],
+      "allowed_angles_deg": [
+        0,
+        90,
+        180,
+        270
+      ],
+      "tolerance_mm": 0.2
+    },
+    {
+      "id": "center_tangent_z_neg",
+      "position": [
+        64.0,
+        0.0,
+        0.0
+      ],
+      "direction": [
+        0.0,
+        0.0,
+        -1.0
       ],
       "mate_type": "rod_side",
       "accepts": [

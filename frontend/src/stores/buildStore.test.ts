@@ -199,6 +199,24 @@ describe('buildStore', () => {
 
       expect(useBuildStore.getState().connections).toHaveLength(1)
     })
+
+    it('normalizes legacy center_tangent ports on add', () => {
+      const store = useBuildStore.getState()
+
+      store.addPart(makePart('rod-1'))
+      store.addPart(makePart('conn-1', 'connector-8way-white-v1'))
+
+      useBuildStore.getState().addConnection({
+        from_instance: 'rod-1',
+        from_port: 'center_tangent',
+        to_instance: 'conn-1',
+        to_port: 'A',
+      })
+
+      const state = useBuildStore.getState()
+      expect(state.connections).toHaveLength(1)
+      expect(state.connections[0].from_port).toBe('center_tangent_y_pos')
+    })
   })
 
   // -------------------------------------------------------------------------
@@ -441,6 +459,27 @@ describe('buildStore', () => {
 
       expect(useBuildStore.getState().selectedPartId).toBeNull()
     })
+
+    it('normalizes legacy center_tangent ports when loading', () => {
+      const parts: PartInstance[] = [
+        makePart('rod-1'),
+        makePart('conn-1', 'connector-8way-white-v1'),
+      ]
+      const connections: Connection[] = [
+        {
+          from_instance: 'rod-1',
+          from_port: 'center_tangent',
+          to_instance: 'conn-1',
+          to_port: 'A',
+        },
+      ]
+
+      useBuildStore.getState().loadBuild(parts, connections)
+
+      const state = useBuildStore.getState()
+      expect(state.connections).toHaveLength(1)
+      expect(state.connections[0].from_port).toBe('center_tangent_y_pos')
+    })
   })
 
   // -------------------------------------------------------------------------
@@ -534,6 +573,20 @@ describe('buildStore', () => {
     it('updates the stability score', () => {
       useBuildStore.getState().setStabilityScore(75.5)
       expect(useBuildStore.getState().stabilityScore).toBe(75.5)
+    })
+
+    it('clamps scores to the valid 0-100 range', () => {
+      useBuildStore.getState().setStabilityScore(135)
+      expect(useBuildStore.getState().stabilityScore).toBe(100)
+
+      useBuildStore.getState().setStabilityScore(-10)
+      expect(useBuildStore.getState().stabilityScore).toBe(0)
+    })
+
+    it('ignores non-finite scores', () => {
+      useBuildStore.getState().setStabilityScore(55)
+      useBuildStore.getState().setStabilityScore(Number.NaN)
+      expect(useBuildStore.getState().stabilityScore).toBe(55)
     })
   })
 

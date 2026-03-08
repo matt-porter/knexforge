@@ -114,6 +114,42 @@ def test_build_to_dict_and_from_dict_roundtrip(empty_build, library):
     assert rebuilt.stability_score() == empty_build.stability_score()
 
 
+def test_build_from_dict_normalizes_legacy_center_tangent_port(library):
+    data = {
+        "parts": [
+            {
+                "instance_id": "r1",
+                "part": library.get("rod-54-blue-v1").model_dump(),
+                "position": [0.0, 0.0, 0.0],
+                "quaternion": [0.0, 0.0, 0.0, 1.0],
+                "color": None,
+            },
+            {
+                "instance_id": "c1",
+                "part": library.get("connector-2way-orange-v1").model_dump(),
+                "position": [0.0, 0.0, 50.0],
+                "quaternion": [0.0, 0.0, 0.0, 1.0],
+                "color": None,
+            },
+        ],
+        "connections": [
+            {
+                "from_instance": "r1",
+                "from_port": "center_tangent",
+                "to_instance": "c1",
+                "to_port": "A",
+                "joint_type": "fixed",
+            }
+        ],
+        "stability_score": 100.0,
+    }
+
+    rebuilt = Build.from_dict(data, library)
+    assert len(rebuilt.connections) == 1
+    conn = next(iter(rebuilt.connections))
+    assert conn.from_port == "center_tangent_y_pos"
+
+
 def test_stability_score_defaults_to_100_and_updates_with_physics_placeholder(empty_build):
     assert empty_build.stability_score() == 100.0
     empty_build._stability_score = 87.5
