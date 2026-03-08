@@ -34,6 +34,7 @@ export interface SolveTopologyOptions {
 export interface SolvedTopologyBuild {
   parts: PartInstance[]
   connections: Connection[]
+  warnings?: TopologyIssue[]
 }
 
 export interface TopologyIssue {
@@ -198,10 +199,14 @@ function buildPlacementCandidate(
   if (rotAngle < 0.001) {
     baseRotation = new Quaternion(0, 0, 0, 1)
   } else if (rotAngle > Math.PI - 0.001) {
-    const perpAxis = new Vector3(0, 1, 0)
-    if (Math.abs(localPlacingDirection.dot(perpAxis)) > 0.9) {
-      perpAxis.set(1, 0, 0)
+    let perpAxis = new Vector3(0, 0, 1).projectOnPlane(localPlacingDirection)
+    if (perpAxis.lengthSq() < 0.01) {
+      perpAxis = new Vector3(0, 1, 0).projectOnPlane(localPlacingDirection)
+      if (perpAxis.lengthSq() < 0.01) {
+        perpAxis = new Vector3(1, 0, 0).projectOnPlane(localPlacingDirection)
+      }
     }
+    perpAxis.normalize()
     baseRotation = new Quaternion().setFromAxisAngle(perpAxis, Math.PI)
   } else {
     rotAxis.normalize()
@@ -660,6 +665,7 @@ export function solveTopology(
   }
 
   const transforms = new Map<string, Transform>()
+  const warnings: TopologyIssue[] = []
 
   for (const root of sortedInstances) {
     if (transforms.has(root)) continue
@@ -707,7 +713,9 @@ export function solveTopology(
             )
           }
           // Record the loop-closing edge for post-BFS refinement
-          loopClosingEdges.push(edge)
+          if (!loopClosingEdges.some(e => e.key === edge.key)) {
+            loopClosingEdges.push(edge)
+          }
           continue
         }
 
@@ -799,7 +807,13 @@ export function solveTopology(
           angleToleranceDeg,
         })
 
-        if (!refined) {
+        if (refined) {
+          warnings.push({
+            code: 'near_tolerance_loop',
+            message: 'Loop closed successfully after refinement, but original geometry was near or slightly beyond ideal limits. The build may be tight or fragile.',
+            severity: 'info'
+          })
+        } else {
           // Refinement failed — throw with same error shape as before
           // Report ALL failing edges, not just the first
           const issues = failingLoopEdges.map((edge) => {
@@ -897,7 +911,7 @@ export function solveTopology(
     fixed_roll: connection.fixed_roll,
   }))
 
-  return { parts, connections: solvedConnections }
+  return { parts, connections: solvedConnections, warnings }
 }
 
 function getLocalPerpendicular(port: Port): Vector3 {
@@ -1080,7 +1094,7 @@ function refineLoopComponent(
       const e_p = maskPositionError(rawPosError, edge, transforms, partDefs)
 
       const targetDir = toPose.direction.clone().negate()
-      const e_omega = new Vector3().crossVectors(fromPose.direction, targetDir)
+      let e_omega = new Vector3().crossVectors(fromPose.direction, targetDir)
 
       const fromIsRoot = edge.from_instance === rootId
       const toIsRoot = edge.to_instance === rootId
@@ -1090,16 +1104,26 @@ function refineLoopComponent(
       posDeltas.get(edge.from_instance)!.sub(e_p.clone().multiplyScalar(K_POS * fromWeight))
       posDeltas.get(edge.to_instance)!.add(e_p.clone().multiplyScalar(K_POS * toWeight))
 
-      const sinAngle = e_omega.length()
+      let sinAngle = e_omega.length()
       const cosAngle = fromPose.direction.dot(targetDir)
+
+      // Handle exact 180 degree flip where cross product is zero
+      if (sinAngle < 1e-6 && cosAngle < -0.999) {
+        // Find an arbitrary orthogonal axis to flip around
+        e_omega = getLocalPerpendicular(fromPort).applyQuaternion(fromTransform.rotation)
+        sinAngle = e_omega.length()
+      }
+
       const angle = Math.atan2(sinAngle, cosAngle)
 
       if (Math.abs(angle) > 1e-6) {
         const axis = e_omega.clone().normalize()
         if (!Number.isNaN(axis.x) && !Number.isNaN(axis.y) && !Number.isNaN(axis.z)) {
           const pivot = fromPose.position.clone().add(toPose.position).multiplyScalar(0.5)
-          rotDeltas.get(edge.from_instance)!.push({ axis: axis.clone().negate(), angle: K_ROT * angle * fromWeight, pivot })
-          rotDeltas.get(edge.to_instance)!.push({ axis, angle: K_ROT * angle * toWeight, pivot })
+          // from rotates around +axis to reach targetDir
+          rotDeltas.get(edge.from_instance)!.push({ axis: axis.clone(), angle: K_ROT * angle * fromWeight, pivot })
+          // to rotates around -axis to reach -fromDir
+          rotDeltas.get(edge.to_instance)!.push({ axis: axis.clone().negate(), angle: K_ROT * angle * toWeight, pivot })
         }
       }
     }

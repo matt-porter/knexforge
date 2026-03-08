@@ -151,7 +151,11 @@ export function TopologyEditor() {
       setStatus(
         `Applied ${format.toUpperCase()} topology (${solved.parts.length} parts, ${solved.connections.length} connections)`,
       )
-      setErrorLines([])
+      if (solved.warnings && solved.warnings.length > 0) {
+        setErrorLines(solved.warnings.map(w => ({ message: `${w.code}: ${w.message}`, severity: w.severity || 'warning' })))
+      } else {
+        setErrorLines([])
+      }
     } catch (error) {
       if (error instanceof TopologyValidationError || error instanceof TopologySolveError) {
         setStatus('Topology has issues')

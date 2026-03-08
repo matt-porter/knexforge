@@ -60,7 +60,7 @@ describe('topologySolver loops', () => {
     })
 
     const result = solveTopology(model, partDefsById)
-    // result.parts.forEach(p => console.log(p.instance_id, p.position)); expect(result.parts.length).toBe(16)
+    expect(result.parts.length).toBe(16)
     
     // Check if it's solved without throwing an error
     // In our test, solveTopology will throw if residuals exceed tolerance.
