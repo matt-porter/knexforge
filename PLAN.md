@@ -565,6 +565,78 @@ share on a public gallery — all hosted at $0/month on free tiers.
 
 ---
 
+## Phase 13 — Iterative Constraint Solver for Loop Closure
+
+**Motivation**: The greedy BFS tree-construction solver cannot reliably close loops — cumulative floating-point errors across many parts cause the closing edge's residual to exceed tolerance. This makes results order-dependent and causes valid geometries (e.g., regular octagons) to fail. Phase 13 adds a Jacobi iterative constraint projector that redistributes loop errors across all parts, making loop closure reliable and order-independent.
+
+**Supersedes**: Task 11.5's "future: iterative refinement" note and Issue #4's "Task 12.X" TODO.
+
+### [ ] Task 13.1: Loop Detection and Refinement Hook
+- Detect loops per connected component during BFS placement.
+- Defer loop-closing edge failures (don't throw immediately).
+- Add `refineLoopComponent()` stub — called when loop residuals exceed tolerance.
+- Stub returns `false`; existing error behavior preserved until Task 13.2.
+- **Files**: `frontend/src/services/topologySolver.ts`
+- **Docs**: `docs/tasks/task-13-1-loop-detection-and-refinement-hook.md`
+
+### [ ] Task 13.2: Jacobi Iterative Constraint Solver (Position + Direction)
+- Implement Jacobi XPBD-style constraint projection in `refineLoopComponent()`.
+- Position constraint: port positions must coincide.
+- Direction constraint: port directions must be anti-parallel.
+- Root part pinned (gauge fixed) per component for stability.
+- Corrections accumulated and applied simultaneously (order-independent).
+- Max 12 iterations with early exit on convergence.
+- **Key deliverable**: User's octagon loop (8×gc4 + 8×gsr) must solve.
+- **Files**: `frontend/src/services/topologySolver.ts`
+- **Docs**: `docs/tasks/task-13-2-jacobi-iterative-constraint-solver.md`
+
+### [ ] Task 13.3: Twist and Allowed-Angle Snapping During Refinement
+- Periodic roll-snap pass (every 3 iterations) during Jacobi refinement.
+- Measure current roll angle, snap to nearest `allowed_angles_deg` value.
+- Gradual correction (clamped per pass) to avoid oscillation.
+- Skip roll snapping for connections with no discrete constraints.
+- **Files**: `frontend/src/services/topologySolver.ts`
+- **Docs**: `docs/tasks/task-13-3-twist-and-roll-snapping.md`
+
+### [ ] Task 13.4: Joint-Type-Aware Constraints (Revolute, Prismatic, Cylindrical)
+- Fixed joints: position + direction + roll (existing behavior).
+- Revolute joints: position + direction only (roll is free).
+- Prismatic joints: perpendicular position + direction + roll (axial translation free).
+- Center-axial connections (rod through center hole): detected internally via port ID — both axial translation AND roll are free. No new public joint type; `inferJointType` continues to return `revolute` for compatibility across physics engines, UI, serialization, and datasets.
+- Actively exploit free DOFs during refinement — the solver slides rods along axes to help close loops, not just passively ignore axial error.
+- `fixed_roll` overrides free-roll when explicitly set.
+- No changes to physics engines, interactive builder, serialization, or Python core.
+- **Files**: `frontend/src/services/topologySolver.ts` (only)
+- **Docs**: `docs/tasks/task-13-4-joint-type-aware-constraints.md`
+
+### [ ] Task 13.5: Comprehensive Loop Solver Test Suite
+- 15+ new test cases across 6 categories: valid loops, order-independence, infeasible geometry, mixed joints, open-chain regression, edge cases.
+- Shared part definition fixtures in `__tests__/partFixtures.ts`.
+- Geometry assertion helpers (residual checks, equivalence checks).
+- All tests deterministic, each <100ms.
+- **Files**: `frontend/src/services/__tests__/topologySolver.test.ts`, `frontend/src/services/__tests__/partFixtures.ts`
+- **Docs**: `docs/tasks/task-13-5-comprehensive-loop-solver-tests.md`
+
+### [ ] Task 13.6: Performance Optimization and Warm-Start Caching
+- Explicit skip of refinement for tree-only components.
+- Warm-start transform cache keyed by topology hash.
+- Pre-allocated Three.js temporaries in refinement hot loop.
+- Debug timing instrumentation via `__TOPOLOGY_SOLVER_DEBUG__`.
+- Fallback to full re-solve if warm-start refinement fails.
+- **Files**: `frontend/src/services/topologySolver.ts`
+- **Docs**: `docs/tasks/task-13-6-performance-and-warm-start.md`
+
+### [ ] Task 13.7: Solver Error UX Improvements
+- Human-readable error messages with mm/degree residual data.
+- Severity classification (close-miss vs far-miss vs impossible).
+- Actionable fix suggestions in error text.
+- Multi-issue reporting (all failing edges, not just first).
+- Near-tolerance success warnings.
+- **Files**: `frontend/src/services/topologySolver.ts`, `frontend/src/components/TopologyEditor.tsx`
+- **Docs**: `docs/tasks/task-13-7-solver-error-ux-improvements.md`
+
+---
+
 ## Phase 9 — Dataset & API Polish
 
 ### ✅ Task 9.5: Rod-Side Rollout & API Normalization (2026-03-06) — ✅ RESOLVED
