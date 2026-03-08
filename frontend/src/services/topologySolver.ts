@@ -40,6 +40,14 @@ export interface TopologyIssue {
   code: string
   message: string
   item?: string
+  severity?: 'error' | 'warning' | 'info'
+  details?: {
+    residualDistanceMm?: number
+    residualAngleDeg?: number
+    toleranceDistanceMm?: number
+    toleranceAngleDeg?: number
+    refinementIterations?: number
+  }
 }
 
 export class TopologyValidationError extends Error {
@@ -634,10 +642,29 @@ export function solveTopology(
     componentCounter += 1
   }
 
+  // A connected component has a loop if edgeCount >= vertexCount
+  // Count unique undirected edges per component (adjacency lists double-count,
+  // so count via the ResolvedConnection[] array, not adjacency.get().length)
+  const componentEdgeCounts = new Map<number, number>()
+  const componentVertexCounts = new Map<number, number>()
+  for (const edge of connections) {
+    const compId = componentIdByInstance.get(edge.from_instance)!
+    componentEdgeCounts.set(compId, (componentEdgeCounts.get(compId) ?? 0) + 1)
+  }
+  for (const [_, compId] of componentIdByInstance) {
+    componentVertexCounts.set(compId, (componentVertexCounts.get(compId) ?? 0) + 1)
+  }
+  const componentHasLoop = new Map<number, boolean>()
+  for (const compId of componentEdgeCounts.keys()) {
+    componentHasLoop.set(compId, componentEdgeCounts.get(compId)! >= componentVertexCounts.get(compId)!)
+  }
+
   const transforms = new Map<string, Transform>()
 
   for (const root of sortedInstances) {
     if (transforms.has(root)) continue
+
+    const loopClosingEdges: ResolvedConnection[] = []
 
     const componentIndex = componentIdByInstance.get(root) ?? 0
     transforms.set(root, {
@@ -672,25 +699,15 @@ export function solveTopology(
         }
 
         if (transforms.has(neighbor)) {
-          const residual = connectionResidual(edge, transforms, partsByInstance)
-          if (residual.distance > positionToleranceMm || residual.angleDeg > angleToleranceDeg) {
-            throw new TopologySolveError(
-              `Closed-loop constraint violation on ${edge.key} (distance=${residual.distance.toFixed(3)}mm, angle=${residual.angleDeg.toFixed(3)}°)`,
-              [
-                {
-                  code: 'loop_constraint_violation',
-                  message: `Residual too high for ${edge.key}`,
-                  item: edge.key,
-                },
-              ],
-            )
-          }
           // Log near-tolerance residuals for debugging
+          const residual = connectionResidual(edge, transforms, partsByInstance)
           if (residual.distance > positionToleranceMm * 0.8 || residual.angleDeg > angleToleranceDeg * 0.8) {
             console.debug(
               `[TopologySolver] Loop-closing edge ${edge.key} near tolerance: distance=${residual.distance.toFixed(3)}mm (limit ${positionToleranceMm}), angle=${residual.angleDeg.toFixed(2)}° (limit ${angleToleranceDeg})`,
             )
           }
+          // Record the loop-closing edge for post-BFS refinement
+          loopClosingEdges.push(edge)
           continue
         }
 
@@ -760,6 +777,78 @@ export function solveTopology(
         queue.push(neighbor)
       }
     }
+
+    // Post-BFS refinement gate (per component, before final residual check)
+    const componentId = componentIdByInstance.get(root)!
+    if (componentHasLoop.get(componentId) && loopClosingEdges.length > 0) {
+      // Check if any loop-closing edges exceed tolerance
+      const failingLoopEdges = loopClosingEdges.filter((edge) => {
+        const residual = connectionResidual(edge, transforms, partsByInstance)
+        return residual.distance > positionToleranceMm || residual.angleDeg > angleToleranceDeg
+      })
+
+      if (failingLoopEdges.length > 0) {
+        // Collect ALL edges in this component (tree edges + loop-closing edges)
+        const componentEdges = connections.filter(
+          (edge) => componentIdByInstance.get(edge.from_instance) === componentId
+        )
+
+        // Attempt iterative refinement
+        const refined = refineLoopComponent(transforms, failingLoopEdges, componentEdges, partsByInstance, {
+          positionToleranceMm,
+          angleToleranceDeg,
+        })
+
+        if (!refined) {
+          // Refinement failed — throw with same error shape as before
+          // Report ALL failing edges, not just the first
+          const issues = failingLoopEdges.map((edge) => {
+            const residual = connectionResidual(edge, transforms, partsByInstance)
+            
+            let message = ''
+            const posFail = residual.distance > positionToleranceMm
+            const angleFail = residual.angleDeg > angleToleranceDeg
+            
+            if (posFail && angleFail) {
+              message = `Loop cannot close: ${edge.key} gap is ${residual.distance.toFixed(1)}mm and ${residual.angleDeg.toFixed(1)}° off.`
+            } else if (posFail) {
+              message = `Loop cannot close: ports in ${edge.key} are ${residual.distance.toFixed(1)}mm apart (limit: ${positionToleranceMm}mm).`
+            } else {
+              message = `Loop cannot close: ports in ${edge.key} are misaligned by ${residual.angleDeg.toFixed(1)}° (limit: ${angleToleranceDeg}°).`
+            }
+            
+            let severity: 'error' | 'warning' | 'info' = 'error'
+            if (residual.distance < positionToleranceMm * 3 && residual.angleDeg < angleToleranceDeg * 3) {
+              severity = 'warning'
+              message += ' Loop is close to closing. Try adjusting rod lengths.'
+            } else if (residual.distance > positionToleranceMm * 10) {
+              message += ' This combination of parts cannot form a closed loop.'
+            } else {
+              if (posFail) message += ' The loop geometry may need different rod lengths or connector angles.'
+              if (!posFail && angleFail) message += ' Try a different connector type at this junction.'
+            }
+
+            return {
+              code: 'loop_constraint_violation',
+              message,
+              item: edge.key,
+              severity,
+              details: {
+                residualDistanceMm: residual.distance,
+                residualAngleDeg: residual.angleDeg,
+                toleranceDistanceMm: positionToleranceMm,
+                toleranceAngleDeg: angleToleranceDeg,
+                refinementIterations: 12,
+              }
+            }
+          })
+          throw new TopologySolveError(
+            `Closed-loop constraint violation on ${issues.length} edge(s)`,
+            issues,
+          )
+        }
+      }
+    }
   }
 
   for (const edge of connections) {
@@ -809,4 +898,239 @@ export function solveTopology(
   }))
 
   return { parts, connections: solvedConnections }
+}
+
+function getLocalPerpendicular(port: Port): Vector3 {
+  const dir = new Vector3(port.direction[0], port.direction[1], port.direction[2]).normalize()
+  const up = new Vector3(0, 1, 0)
+  const cross = dir.clone().cross(up)
+  if (cross.lengthSq() > 0.01) {
+    return cross.normalize()
+  } else {
+    // If direction is nearly parallel to Y, use Z
+    return dir.clone().cross(new Vector3(0, 0, 1)).normalize()
+  }
+}
+
+function hasAxialFreedom(edge: ResolvedConnection, _partDefs: Map<string, KnexPartDef>): boolean {
+  return edge.from_port.startsWith('center_axial') || edge.to_port.startsWith('center_axial')
+}
+
+function hasRollFreedom(edge: ResolvedConnection, partDefs: Map<string, KnexPartDef>): boolean {
+  return edge.joint_type === 'revolute' || hasAxialFreedom(edge, partDefs)
+}
+
+function maskPositionError(
+  posError: Vector3,
+  edge: ResolvedConnection,
+  transforms: Map<string, Transform>,
+  partDefs: Map<string, KnexPartDef>,
+): Vector3 {
+  const hasFreeAxial = edge.joint_type === 'prismatic' || hasAxialFreedom(edge, partDefs)
+
+  if (!hasFreeAxial) {
+    return posError.clone()
+  }
+
+  const fromPort = getPartPort(partDefs.get(edge.from_instance)!, edge.from_port)!
+  const fromTransform = transforms.get(edge.from_instance)!
+  const axis = getWorldPortPose(fromTransform, fromPort).direction.clone().normalize()
+
+  const axialComponent = posError.dot(axis)
+  return posError.clone().sub(axis.clone().multiplyScalar(axialComponent))
+}
+
+function snapRollAngles(
+  transforms: Map<string, Transform>,
+  edges: ResolvedConnection[],
+  partDefs: Map<string, KnexPartDef>,
+  rootId: string,
+): void {
+  for (const edge of edges) {
+    if (hasRollFreedom(edge, partDefs) && !edge.fixed_roll) continue
+
+    const fromPort = getPartPort(partDefs.get(edge.from_instance)!, edge.from_port)!
+    const toPort = getPartPort(partDefs.get(edge.to_instance)!, edge.to_port)!
+
+    const allowedAngles = edge.fixed_roll
+      ? [edge.twist_deg]
+      : candidateAnglesForConnection(fromPort, toPort)
+
+    if (allowedAngles.length <= 1 && allowedAngles[0] === 0 && !edge.fixed_roll) continue
+
+    const fromTransform = transforms.get(edge.from_instance)!
+    const toTransform = transforms.get(edge.to_instance)!
+
+    const fromPose = getWorldPortPose(fromTransform, fromPort)
+    const toPose = getWorldPortPose(toTransform, toPort)
+
+    const matingAxis = fromPose.direction.clone().add(toPose.direction.clone().negate()).normalize()
+    if (matingAxis.lengthSq() < 0.1) continue
+
+    const fromRefLocal = getLocalPerpendicular(fromPort)
+    const toRefLocal = getLocalPerpendicular(toPort)
+
+    const fromRefWorld = fromRefLocal.applyQuaternion(fromTransform.rotation)
+    const toRefWorld = toRefLocal.applyQuaternion(toTransform.rotation)
+
+    fromRefWorld.sub(matingAxis.clone().multiplyScalar(fromRefWorld.dot(matingAxis))).normalize()
+    toRefWorld.sub(matingAxis.clone().multiplyScalar(toRefWorld.dot(matingAxis))).normalize()
+
+    if (fromRefWorld.lengthSq() < 0.1 || toRefWorld.lengthSq() < 0.1) continue
+
+    const crossProd = fromRefWorld.clone().cross(toRefWorld)
+    const sinA = crossProd.dot(matingAxis)
+    const cosA = fromRefWorld.dot(toRefWorld)
+    let currentRoll = Math.atan2(sinA, cosA) * (180 / Math.PI)
+    if (currentRoll < 0) currentRoll += 360
+
+    let nearestAngle = allowedAngles[0]
+    let minDiff = Infinity
+    for (const angle of allowedAngles) {
+      let diff = Math.abs(angle - currentRoll)
+      if (diff > 180) diff = 360 - diff
+      if (diff < minDiff) {
+        minDiff = diff
+        nearestAngle = angle
+      }
+    }
+
+    let correctionDeg = nearestAngle - currentRoll
+    if (correctionDeg > 180) correctionDeg -= 360
+    if (correctionDeg < -180) correctionDeg += 360
+
+    const maxCorrectionDeg = 5.0
+    if (correctionDeg > maxCorrectionDeg) correctionDeg = maxCorrectionDeg
+    if (correctionDeg < -maxCorrectionDeg) correctionDeg = -maxCorrectionDeg
+
+    if (Math.abs(correctionDeg) < 0.1) continue
+
+    const correctionRad = correctionDeg * (Math.PI / 180)
+    const correctionQuat = new Quaternion().setFromAxisAngle(matingAxis, correctionRad)
+
+    const fromIsRoot = edge.from_instance === rootId
+    const toIsRoot = edge.to_instance === rootId
+
+    if (!fromIsRoot && !toIsRoot) {
+      const halfQuat = new Quaternion().setFromAxisAngle(matingAxis, correctionRad * 0.5)
+      const toLocalPortPos = new Vector3(toPort.position[0], toPort.position[1], toPort.position[2])
+      toTransform.rotation.premultiply(halfQuat).normalize()
+      toTransform.position.copy(toPose.position).sub(toLocalPortPos.applyQuaternion(toTransform.rotation))
+
+      const halfQuatInv = new Quaternion().setFromAxisAngle(matingAxis, -correctionRad * 0.5)
+      const fromLocalPortPos = new Vector3(fromPort.position[0], fromPort.position[1], fromPort.position[2])
+      fromTransform.rotation.premultiply(halfQuatInv).normalize()
+      fromTransform.position.copy(fromPose.position).sub(fromLocalPortPos.applyQuaternion(fromTransform.rotation))
+      
+    } else if (!toIsRoot) {
+      const toLocalPortPos = new Vector3(toPort.position[0], toPort.position[1], toPort.position[2])
+      toTransform.rotation.premultiply(correctionQuat).normalize()
+      toTransform.position.copy(fromPose.position).sub(toLocalPortPos.applyQuaternion(toTransform.rotation))
+    } else if (!fromIsRoot) {
+      const correctionQuatInv = new Quaternion().setFromAxisAngle(matingAxis, -correctionRad)
+      const fromLocalPortPos = new Vector3(fromPort.position[0], fromPort.position[1], fromPort.position[2])
+      fromTransform.rotation.premultiply(correctionQuatInv).normalize()
+      fromTransform.position.copy(toPose.position).sub(fromLocalPortPos.applyQuaternion(fromTransform.rotation))
+    }
+  }
+}
+
+const MAX_ITERATIONS = 12
+const K_POS = 0.6
+const K_ROT = 0.5
+
+function refineLoopComponent(
+  transforms: Map<string, Transform>,
+  _failingEdges: ResolvedConnection[],
+  allEdges: ResolvedConnection[],
+  partDefs: Map<string, KnexPartDef>,
+  tolerances: { positionToleranceMm: number; angleToleranceDeg: number },
+): boolean {
+  const componentParts = new Set<string>()
+  for (const edge of allEdges) {
+    componentParts.add(edge.from_instance)
+    componentParts.add(edge.to_instance)
+  }
+
+  const rootId = [...componentParts].sort()[0]
+
+  for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+    if ((iter + 1) % 3 === 0) {
+      snapRollAngles(transforms, allEdges, partDefs, rootId)
+    }
+
+    const posDeltas = new Map<string, Vector3>()
+    const rotDeltas = new Map<string, { axis: Vector3; angle: number; pivot: Vector3 }[]>()
+
+    for (const partId of componentParts) {
+      posDeltas.set(partId, new Vector3(0, 0, 0))
+      rotDeltas.set(partId, [])
+    }
+
+    for (const edge of allEdges) {
+      const fromTransform = transforms.get(edge.from_instance)!
+      const toTransform = transforms.get(edge.to_instance)!
+      const fromPort = getPartPort(partDefs.get(edge.from_instance)!, edge.from_port)!
+      const toPort = getPartPort(partDefs.get(edge.to_instance)!, edge.to_port)!
+
+      const fromPose = getWorldPortPose(fromTransform, fromPort)
+      const toPose = getWorldPortPose(toTransform, toPort)
+
+      const rawPosError = fromPose.position.clone().sub(toPose.position)
+      const e_p = maskPositionError(rawPosError, edge, transforms, partDefs)
+
+      const targetDir = toPose.direction.clone().negate()
+      const e_omega = new Vector3().crossVectors(fromPose.direction, targetDir)
+
+      const fromIsRoot = edge.from_instance === rootId
+      const toIsRoot = edge.to_instance === rootId
+      const fromWeight = fromIsRoot ? 0 : (toIsRoot ? 1 : 0.5)
+      const toWeight = toIsRoot ? 0 : (fromIsRoot ? 1 : 0.5)
+
+      posDeltas.get(edge.from_instance)!.sub(e_p.clone().multiplyScalar(K_POS * fromWeight))
+      posDeltas.get(edge.to_instance)!.add(e_p.clone().multiplyScalar(K_POS * toWeight))
+
+      const sinAngle = e_omega.length()
+      const cosAngle = fromPose.direction.dot(targetDir)
+      const angle = Math.atan2(sinAngle, cosAngle)
+
+      if (Math.abs(angle) > 1e-6) {
+        const axis = e_omega.clone().normalize()
+        if (!Number.isNaN(axis.x) && !Number.isNaN(axis.y) && !Number.isNaN(axis.z)) {
+          const pivot = fromPose.position.clone().add(toPose.position).multiplyScalar(0.5)
+          rotDeltas.get(edge.from_instance)!.push({ axis: axis.clone().negate(), angle: K_ROT * angle * fromWeight, pivot })
+          rotDeltas.get(edge.to_instance)!.push({ axis, angle: K_ROT * angle * toWeight, pivot })
+        }
+      }
+    }
+
+    for (const partId of componentParts) {
+      if (partId === rootId) continue
+      const t = transforms.get(partId)!
+
+      t.position.add(posDeltas.get(partId)!)
+
+      for (const { axis, angle, pivot } of rotDeltas.get(partId)!) {
+        const dq = new Quaternion().setFromAxisAngle(axis, angle)
+        t.position.sub(pivot).applyQuaternion(dq).add(pivot)
+        t.rotation.premultiply(dq).normalize()
+      }
+    }
+
+    let maxPosMm = 0
+    let maxAngleDeg = 0
+    for (const edge of allEdges) {
+      const residual = connectionResidual(edge, transforms, partDefs)
+      maxPosMm = Math.max(maxPosMm, residual.distance)
+      maxAngleDeg = Math.max(maxAngleDeg, residual.angleDeg)
+    }
+
+    if (maxPosMm <= tolerances.positionToleranceMm && maxAngleDeg <= tolerances.angleToleranceDeg) {
+      console.debug(`[TopologySolver] Loop refinement converged in ${iter + 1} iterations (pos=${maxPosMm.toFixed(3)}mm, angle=${maxAngleDeg.toFixed(2)}°)`)
+      return true
+    }
+  }
+
+  console.debug(`[TopologySolver] Loop refinement did not converge after ${MAX_ITERATIONS} iterations`)
+  return false
 }

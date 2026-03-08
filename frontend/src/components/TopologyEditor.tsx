@@ -77,7 +77,7 @@ export function TopologyEditor() {
   const [format, setFormat] = useState<EditorFormat>('json')
   const [text, setText] = useState(DEFAULT_TEMPLATE)
   const [status, setStatus] = useState('Ready')
-  const [errorLines, setErrorLines] = useState<string[]>([])
+  const [errorLines, setErrorLines] = useState<{message: string, severity: 'error' | 'warning' | 'info'}[]>([])
   const [isApplying, setIsApplying] = useState(false)
   const [partDefsReady, setPartDefsReady] = useState(false)
   const [autocomplete, setAutocomplete] = useState<CompactAutocompleteResult | null>(null)
@@ -124,7 +124,7 @@ export function TopologyEditor() {
       .catch((error) => {
         if (cancelled) return
         setStatus('Failed to load part definitions')
-        setErrorLines([String(error)])
+        setErrorLines([{ message: String(error), severity: 'error' }])
       })
 
     return () => {
@@ -155,10 +155,13 @@ export function TopologyEditor() {
     } catch (error) {
       if (error instanceof TopologyValidationError || error instanceof TopologySolveError) {
         setStatus('Topology has issues')
-        setErrorLines(error.issues.map((issue) => `${issue.code}: ${issue.message}`))
+        setErrorLines(error.issues.map((issue) => ({ 
+          message: `${issue.code}: ${issue.message}`, 
+          severity: issue.severity ?? 'error' 
+        })))
       } else {
         setStatus('Could not parse/apply topology')
-        setErrorLines([error instanceof Error ? error.message : String(error)])
+        setErrorLines([{ message: error instanceof Error ? error.message : String(error), severity: 'error' }])
       }
     } finally {
       setIsApplying(false)
@@ -209,7 +212,7 @@ export function TopologyEditor() {
       const fallback = nextFormat === 'json' ? DEFAULT_TEMPLATE : DEFAULT_COMPACT_TEMPLATE
       setText(fallback)
       setStatus(`Switched to ${nextFormat.toUpperCase()} mode (could not convert previous text)`)
-      setErrorLines([error instanceof Error ? error.message : String(error)])
+      setErrorLines([{ message: error instanceof Error ? error.message : String(error), severity: 'error' }])
     }
 
     setFormat(nextFormat)
@@ -574,17 +577,20 @@ export function TopologyEditor() {
               {status}
             </div>
             {errorLines.length > 0 ? (
-              <pre
+              <div
                 style={{
                   margin: 0,
                   whiteSpace: 'pre-wrap',
-                  color: '#fca5a5',
                   fontSize: 11,
                   fontFamily: 'Consolas, Monaco, "Courier New", monospace',
                 }}
               >
-                {errorLines.join('\n')}
-              </pre>
+                {errorLines.map((line, idx) => (
+                  <div key={idx} style={{ color: line.severity === 'warning' ? '#fcd34d' : line.severity === 'info' ? '#93c5fd' : '#fca5a5' }}>
+                    {line.message}
+                  </div>
+                ))}
+              </div>
             ) : null}
           </div>
         </>

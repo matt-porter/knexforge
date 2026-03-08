@@ -571,7 +571,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 
 **Supersedes**: Task 11.5's "future: iterative refinement" note and Issue #4's "Task 12.X" TODO.
 
-### [ ] Task 13.1: Loop Detection and Refinement Hook
+### [x] Task 13.1: Loop Detection and Refinement Hook
 - Detect loops per connected component during BFS placement.
 - Defer loop-closing edge failures (don't throw immediately).
 - Add `refineLoopComponent()` stub — called when loop residuals exceed tolerance.
@@ -579,7 +579,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `frontend/src/services/topologySolver.ts`
 - **Docs**: `docs/tasks/task-13-1-loop-detection-and-refinement-hook.md`
 
-### [ ] Task 13.2: Jacobi Iterative Constraint Solver (Position + Direction)
+### [x] Task 13.2: Jacobi Iterative Constraint Solver (Position + Direction)
 - Implement Jacobi XPBD-style constraint projection in `refineLoopComponent()`.
 - Position constraint: port positions must coincide.
 - Direction constraint: port directions must be anti-parallel.
@@ -590,7 +590,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `frontend/src/services/topologySolver.ts`
 - **Docs**: `docs/tasks/task-13-2-jacobi-iterative-constraint-solver.md`
 
-### [ ] Task 13.3: Twist and Allowed-Angle Snapping During Refinement
+### [x] Task 13.3: Twist and Allowed-Angle Snapping During Refinement
 - Periodic roll-snap pass (every 3 iterations) during Jacobi refinement.
 - Measure current roll angle, snap to nearest `allowed_angles_deg` value.
 - Gradual correction (clamped per pass) to avoid oscillation.
@@ -598,7 +598,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `frontend/src/services/topologySolver.ts`
 - **Docs**: `docs/tasks/task-13-3-twist-and-roll-snapping.md`
 
-### [ ] Task 13.4: Joint-Type-Aware Constraints (Revolute, Prismatic, Cylindrical)
+### [x] Task 13.4: Joint-Type-Aware Constraints (Revolute, Prismatic, Cylindrical)
 - Fixed joints: position + direction + roll (existing behavior).
 - Revolute joints: position + direction only (roll is free).
 - Prismatic joints: perpendicular position + direction + roll (axial translation free).
@@ -626,7 +626,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `frontend/src/services/topologySolver.ts`
 - **Docs**: `docs/tasks/task-13-6-performance-and-warm-start.md`
 
-### [ ] Task 13.7: Solver Error UX Improvements
+### [x] Task 13.7: Solver Error UX Improvements
 - Human-readable error messages with mm/degree residual data.
 - Severity classification (close-miss vs far-miss vs impossible).
 - Actionable fix suggestions in error text.
