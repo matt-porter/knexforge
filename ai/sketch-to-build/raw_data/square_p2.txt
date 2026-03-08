@@ -1,0 +1,8 @@
+br_1.end2 -- rc3_1.C
+rc3_1.A -- br_2.end1
+br_2.end2 -- rc3_2.C
+rc3_2.A -- br_3.end2
+br_3.end1 -- rc3_3.C
+rc3_3.A -- br_4.end2
+br_4.end1 -- rc3_4.C
+rc3_4.A -- br_1.end1

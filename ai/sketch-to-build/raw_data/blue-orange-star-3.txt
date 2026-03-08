@@ -1,0 +1,31 @@
+bc7_1.slot -- bc7_2.slot
+
+br_1.end1 -- bc7_1.A
+br_1.end2 -- oc2_1.A
+br_2.end1 -- bc7_1.B
+br_2.end2 -- oc2_2.A
+br_3.end1 -- bc7_1.C
+br_3.end2 -- oc2_3.A
+br_4.end1 -- bc7_1.D
+br_4.end2 -- oc2_4.A
+br_5.end1 -- bc7_1.E
+br_5.end2 -- oc2_5.A
+br_6.end1 -- bc7_1.F
+br_6.end2 -- oc2_6.A
+br_7.end1 -- bc7_1.G
+br_7.end2 -- oc2_7.A
+
+br_8.end1 -- bc7_2.A
+br_8.end2 -- oc2_8.A
+br_9.end1 -- bc7_2.B
+br_9.end2 -- oc2_9.A
+br_10.end1 -- bc7_2.C
+br_10.end2 -- oc2_10.A
+br_11.end1 -- bc7_2.D
+br_11.end2 -- oc2_11.A
+br_12.end1 -- bc7_2.E
+br_12.end2 -- oc2_12.A
+br_13.end1 -- bc7_2.F
+br_13.end2 -- oc2_13.A
+br_14.end1 -- bc7_2.G
+br_14.end2 -- oc2_14.A

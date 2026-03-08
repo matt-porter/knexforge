@@ -1,0 +1,8 @@
+yc5_1.D -- br_1.end2
+br_1.end1 -- yc5_2.B
+yc5_2.D -- br_2.end1
+br_2.end2 -- yc5_3.B
+yc5_3.D -- br_3.end1
+br_3.end2 -- yc5_4.B
+yc5_4.D -- br_4.end1
+br_4.end2 -- yc5_1.B

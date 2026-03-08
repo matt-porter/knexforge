@@ -1,0 +1,11 @@
+br_3.end1 -- yc5_1.B
+br_4.end1 -- yc5_2.D
+br_4.end2 -- yc5_4.D
+yc5_5.D -- br_6.end2
+br_5.end1 -- yc5_2.B
+br_6.end1 -- yc5_3.D
+yr_3.end1 -- yc5_4.E
+yc5_1.A -- yr_1.end1
+yc5_2.A -- yr_2.end1
+yc5_2.E -- yr_1.end2
+yc5_3.E -- yr_2.end2

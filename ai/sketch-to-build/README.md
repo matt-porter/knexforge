@@ -89,13 +89,21 @@ Kick off the training process using MLX. This will download the base Qwen2-VL mo
 
 ```bash
 .venv/bin/python -m mlx_vlm.lora \
-    --model-path "qwen/Qwen2-VL-7B-Instruct" # or: Qwen/Qwen3.5-9B \
+    --model-path "qwen/Qwen2-VL-2B-Instruct" # or: Qwen/Qwen3.5-9B \
     --dataset "data/" \
     --batch-size 1 \
     --epochs 5 \
     --learning-rate 2e-5
-
 ```
+
+This command/model 'works' - i.e. training runs
+
+.venv/bin/python -m mlx_vlm.lora \
+    --model-path "mlx-community/Qwen2-VL-2B-Instruct-4bit" \
+    --dataset "data/" \
+    --batch-size 1 \
+    --epochs 10 \
+    --learning-rate 2e-5
 
 *The trained weights will be saved in the `adapters/` directory.*
 
@@ -105,11 +113,11 @@ Pass a brand-new sketch through your fine-tuned model to generate the topologica
 
 ```bash
 .venv/bin/python -m mlx_vlm.generate \
-    --model "qwen/Qwen2-VL-7B-Instruct" # or: Qwen/Qwen3.5-9B \ 
+    --model "mlx-community/Qwen2-VL-2B-Instruct-4bit" # or: Qwen/Qwen3.5-9B \ 
     --adapter-path . \
     --image "raw_data/splice1.png" \
-    --system "You are a raw K'NEX topology parser. Output ONLY the shorthand. No markdown, no explanations." \
-    --prompt "Extract K'NEX topology." \
+    --system "You are a strict K'NEX topology extractor. Output only raw shorthand syntax without markdown or description." \
+    --prompt "Extract K'NEX topology shorthand syntax." \
     --max-tokens 500
 
 ```

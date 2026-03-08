@@ -1,0 +1,3 @@
+bc7_1.slot -- bc7_2.slot
+bc7_1.B -- wr_1.end1
+bc7_2.B -- wr_2.end1

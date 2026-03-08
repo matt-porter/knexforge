@@ -1,0 +1,7 @@
+rc3_1.A -- br_1.end1
+br_1.end2 -- gc2_1.A
+gc2_1.B -- yr_1.end2
+rc3_1.C -- br_2.end1
+gc2_2.A -- br_2.end2
+gc2_2.B -- yr_1.end1
+

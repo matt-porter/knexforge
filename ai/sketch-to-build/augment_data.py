@@ -6,7 +6,8 @@ from PIL import Image, ImageEnhance
 # --- Configuration ---
 INPUT_DIR = "raw_data"
 OUTPUT_DIR = "augmented_data"
-AUGMENTATIONS_PER_IMAGE = 4  # e.g., 1 original + 4 variants = 5 total per sketch
+AUGMENTATIONS_PER_IMAGE = 8  # e.g., 1 original + 4 variants = 5 total per sketch
+MAX_SIZE = 512
 
 def augment_image(img, variant_num):
     """Applies random safe transformations to a PIL image."""
@@ -60,11 +61,14 @@ def main():
 
         # Read the text and image for variants
         with open(txt_path, 'r', encoding='utf-8') as f:
-            shorthand_text = f.read()
+            shorthand_text_lines = f.readlines()
             
         with Image.open(img_path) as img:
             # Convert to RGB to ensure white background works during rotation
             img = img.convert("RGB") 
+            if max(img.size) > MAX_SIZE:
+                img.thumbnail((MAX_SIZE, MAX_SIZE), Image.Resampling.LANCZOS)
+                img.save(orig_img_out, quality=90)  # Save resized original
             
             # 2. Generate variants
             for i in range(1, AUGMENTATIONS_PER_IMAGE + 1):
@@ -79,7 +83,8 @@ def main():
                 var_txt_name = f"{base_name}_aug{i}.txt"
                 var_txt_path = os.path.join(OUTPUT_DIR, var_txt_name)
                 with open(var_txt_path, 'w', encoding='utf-8') as f:
-                    f.write(shorthand_text)
+                    random.shuffle(shorthand_text_lines)
+                    f.writelines(shorthand_text_lines)
                     
                 total_generated += 1
 

@@ -1,0 +1,22 @@
+# BUG: Loop won't join - it's too twisted
+# TOPOLOGY LIVE EDITOR
+# Current Build: 16 parts · 15 connections
+# Topology has issues
+# loop_constraint_violation: Residual too high for gc4_5.A|gsr_5.end1
+
+gc4_1.A -- gsr_1.end1
+gsr_1.end2 -- gc4_2.D
+gc4_2.A -- gsr_2.end1
+gsr_2.end2 -- gc4_3.D
+gc4_3.A -- gsr_3.end1
+gsr_3.end2 -- gc4_4.D
+gc4_4.A -- gsr_4.end1
+gsr_4.end2 -- gc4_5.D
+gc4_5.A -- gsr_5.end1
+gsr_5.end2 -- gc4_6.D
+gc4_6.A -- gsr_6.end1
+gsr_6.end2 -- gc4_7.D
+gc4_7.A -- gsr_7.end1
+gsr_7.end2 -- gc4_8.D
+gc4_8.A -- gsr_8.end1
+gsr_8.end2 -- gc4_1.D

@@ -1,0 +1,19 @@
+# BUG: center_tangent doesn't seem to be at the rigth angle
+# Building using the center rather than B-port of the red3 connectors
+# BUG: cannot have side clip at any point along a rods, only center
+
+rc3_1.A -- br_2.end1
+rc3_1.C -- yr_2.end1
+rc3_1.center -- yr_1.end1
+
+yr_1.end2 -- rc3_4.center
+rc3_4.A -- br_1.end1
+rc3_4.C -- yr_4.end1
+
+yr_4.end2 -- rc3_3.A
+rc3_3.C -- br_4.end1
+rc3_3.center -- yr_3.end2
+
+yr_3.end1 -- rc3_2.center
+rc3_2.A -- br_3.end1
+rc3_2.C -- yr_2.end2

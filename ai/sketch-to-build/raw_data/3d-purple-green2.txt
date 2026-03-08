@@ -1,0 +1,6 @@
+# BUG: purple model doens't have an actual slot?
+# BUG: display isn't right - second purple isn't shown after adding the green rods.
+#      white rods work OK though.
+pc4_1.slot -- pc4_2.slot
+pc4_2.B -- gsr_1.end1
+pc4_2.D -- gsr_2.end1
