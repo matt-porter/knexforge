@@ -241,23 +241,25 @@ function createSquareModel(prefix?: string, rodPartIds?: string[]): TopologyMode
   })
 }
 
-function createOctagonCompactText(): string {
-  const lines: string[] = []
-
-  for (let index = 1; index <= 8; index += 1) {
-    lines.push(`part c${index} test-connector-135-v1`)
-    lines.push(`part r${index} test-rod-16-v1`)
-  }
-
-  lines.push('')
-
-  for (let index = 1; index <= 8; index += 1) {
-    const nextIndex = index === 8 ? 1 : index + 1
-    lines.push(`c${index}.A -- r${index}.end1 @ 0!`)
-    lines.push(`r${index}.end2 -- c${nextIndex}.D @ 0!`)
-  }
-
-  return lines.join('\n')
+function createGreen8pCompactText(): string {
+  return `
+gc4_1.A -- gsr_1.end1
+gsr_1.end2 -- gc4_2.D
+gc4_2.A -- gsr_2.end1
+gsr_2.end2 -- gc4_3.D
+gc4_3.A -- gsr_3.end1
+gsr_3.end2 -- gc4_4.D
+gc4_4.A -- gsr_4.end1
+gsr_4.end2 -- gc4_5.D
+gc4_5.A -- gsr_5.end1
+gsr_5.end2 -- gc4_6.D
+gc4_6.A -- gsr_6.end1
+gsr_6.end2 -- gc4_7.D
+gc4_7.A -- gsr_7.end1
+gsr_7.end2 -- gc4_8.D
+gc4_8.A -- gsr_8.end1
+gsr_8.end2 -- gc4_1.D
+  `.trim()
 }
 
 describe('topologySolver loop refinement tests', () => {
@@ -297,8 +299,8 @@ r4.end2 -- c1.B @ 0!
       expect(solved.parts.length).toBe(8)
     })
 
-    it('1.4: solves the octagon when expressed through compact syntax', () => {
-      const solved = solveAndAssert(parseCompactTopology(createOctagonCompactText()))
+    it('1.4: solves the real green8p compact shorthand example', () => {
+      const solved = solveAndAssert(parseCompactTopology(createGreen8pCompactText()))
       expect(solved.parts.length).toBe(16)
     })
   })

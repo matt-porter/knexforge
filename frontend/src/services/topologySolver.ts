@@ -766,6 +766,15 @@ export function solveTopology(
           const primaryResidual = connectionResidual(edge, tempTransforms, partsByInstance)
           score += primaryResidual.distance + primaryResidual.angleDeg * 0.1
 
+          // For fixed joints with no explicit twist, prefer the canonical untwisted branch.
+          // This keeps symmetric compact shorthand loops (for example green8p) from
+          // wandering onto a locally-plausible but globally over-twisted placement.
+          if (edge.joint_type === 'fixed' && !edge.fixed_roll && edge.twist_deg === 0) {
+            const normalizedAngle = ((angle % 360) + 360) % 360
+            const zeroRollDistance = Math.min(normalizedAngle, 360 - normalizedAngle)
+            score += zeroRollDistance * 0.5
+          }
+
           for (const relatedEdge of neighborsOfCandidate) {
             const residual = connectionResidual(relatedEdge, tempTransforms, partsByInstance)
             score += residual.distance + residual.angleDeg * 0.1
@@ -1013,7 +1022,11 @@ function snapRollAngles(
     if (correctionDeg > 180) correctionDeg -= 360
     if (correctionDeg < -180) correctionDeg += 360
 
-    const maxCorrectionDeg = 5.0
+    // Fixed-joint loop closures can enter refinement tens of degrees off their nearest
+    // discrete roll target. A wider clamp lets the projector recover real compact
+    // shorthand loops like green8p within the 12-iteration budget without waiting on
+    // dozens of tiny snap passes.
+    const maxCorrectionDeg = 30.0
     if (correctionDeg > maxCorrectionDeg) correctionDeg = maxCorrectionDeg
     if (correctionDeg < -maxCorrectionDeg) correctionDeg = -maxCorrectionDeg
 
