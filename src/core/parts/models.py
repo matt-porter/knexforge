@@ -20,6 +20,10 @@ class Port(BaseModel):
     mate_type: MateType
     accepts: List[MateType] = Field(default_factory=list)
     allowed_angles_deg: List[int] = Field(default_factory=lambda: [0, 90, 180, 270])
+    slide_clearance_mm: float = Field(
+        default=15.0,
+        description="Minimum spacing between this connector and adjacent slide connections"
+    )
     tolerance_mm: float = Field(default=0.2)
 
     model_config = ConfigDict(frozen=True)
@@ -92,6 +96,11 @@ class Connection(BaseModel):
     joint_type: Literal["fixed", "revolute", "prismatic"] = Field(default="fixed")
     twist_deg: float = Field(default=0.0)
     fixed_roll: bool = Field(default=False)
+    slide_offset: float = Field(
+        default=0.0,
+        description="Offset in mm along the rod's main axis from the port's default position. "
+                    "Only meaningful for center_axial and center_tangent ports."
+    )
 
     model_config = ConfigDict(frozen=True)
 
@@ -102,3 +111,32 @@ class Connection(BaseModel):
         if v == "center_tangent":
             return "center_tangent_y_pos"
         return v
+
+def get_slide_range(part: KnexPart, port_id: str) -> tuple[float, float] | None:
+    """Return (min_offset, max_offset) in mm for a slidable port, or None if not slidable."""
+    if not (port_id.startswith("center_axial") or port_id.startswith("center_tangent")):
+        return None
+
+    # Find the port
+    port = next((p for p in part.ports if p.id == port_id), None)
+    if not port:
+        return None
+
+    # We need end1 and end2 to find the rod length
+    end1 = next((p for p in part.ports if p.id == "end1"), None)
+    end2 = next((p for p in part.ports if p.id == "end2"), None)
+    
+    if not end1 or not end2:
+        return None
+        
+    clearance = port.slide_clearance_mm / 2.0
+    
+    min_x = min(end1.position[0], end2.position[0]) + clearance
+    max_x = max(end1.position[0], end2.position[0]) - clearance
+    
+    if min_x > max_x:
+        return 0.0, 0.0
+        
+    center_x = port.position[0]
+    
+    return (min_x - center_x, max_x - center_x)

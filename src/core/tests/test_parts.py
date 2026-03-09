@@ -6,7 +6,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from core.parts.loader import PartLoader
-from core.parts.models import KnexPart, Port
+from core.parts.models import KnexPart, Port, Connection, get_slide_range
 
 
 def test_part_loader_loads_all_active_parts(clean_part_library):
@@ -183,3 +183,63 @@ def test_all_core_parts_have_valid_schema(clean_part_library):
     for part in clean_part_library.parts.values():
         # re-validate to catch any loader bugs
         KnexPart.model_validate(part.model_dump())
+
+def test_connection_slide_offset_serialization():
+    # Connection with slide_offset=0
+    conn1 = Connection(from_instance="inst1", from_port="center_axial", to_instance="inst2", to_port="A", slide_offset=0.0)
+    data1 = conn1.model_dump()
+    assert data1["slide_offset"] == 0.0
+    conn1_re = Connection.model_validate(data1)
+    assert conn1_re.slide_offset == 0.0
+
+    # Connection with slide_offset=25.5
+    conn2 = Connection(from_instance="inst1", from_port="center_axial", to_instance="inst2", to_port="A", slide_offset=25.5)
+    data2 = conn2.model_dump()
+    assert data2["slide_offset"] == 25.5
+    conn2_re = Connection.model_validate(data2)
+    assert conn2_re.slide_offset == 25.5
+
+    # Connection without slide_offset key defaults to 0.0
+    data3 = {
+        "from_instance": "inst1",
+        "from_port": "center_axial",
+        "to_instance": "inst2",
+        "to_port": "A"
+    }
+    conn3_re = Connection.model_validate(data3)
+    assert conn3_re.slide_offset == 0.0
+
+def test_get_slide_range(clean_part_library):
+    rod_16 = clean_part_library.get("rod-16-green-v1")
+    rod_54 = clean_part_library.get("rod-54-blue-v1")
+    rod_128 = clean_part_library.get("rod-128-red-v1")
+
+    # clearance is 15.0 / 2 = 7.5
+    # 16mm rod: end1 at 0, end2 at 16, center at 8.
+    # min_x = 7.5, max_x = 8.5
+    # min_offset = 7.5 - 8 = -0.5, max_offset = 8.5 - 8 = 0.5
+    range_16 = get_slide_range(rod_16, "center_axial_1")
+    assert range_16 is not None
+    assert abs(range_16[0] - (-0.5)) < 1e-5
+    assert abs(range_16[1] - (0.5)) < 1e-5
+
+    # 54mm rod: end1 at 0, end2 at 54, center at 27.
+    # min_x = 7.5, max_x = 46.5
+    # min_offset = 7.5 - 27 = -19.5, max_offset = 46.5 - 27 = 19.5
+    range_54 = get_slide_range(rod_54, "center_axial_1")
+    assert range_54 is not None
+    assert abs(range_54[0] - (-19.5)) < 1e-5
+    assert abs(range_54[1] - (19.5)) < 1e-5
+
+    # 128mm rod: end1 at 0, end2 at 128, center at 64.
+    # min_x = 7.5, max_x = 120.5
+    # min_offset = 7.5 - 64 = -56.5, max_offset = 120.5 - 64 = 56.5
+    range_128 = get_slide_range(rod_128, "center_tangent_y_pos")
+    assert range_128 is not None
+    assert abs(range_128[0] - (-56.5)) < 1e-5
+    assert abs(range_128[1] - (56.5)) < 1e-5
+
+    # Non-slidable ports
+    assert get_slide_range(rod_128, "end1") is None
+    connector = clean_part_library.get("connector-3way-red-v1")
+    assert get_slide_range(connector, "A") is None

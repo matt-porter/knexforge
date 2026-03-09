@@ -11,6 +11,7 @@ export interface Port {
   mate_type: 'rod_end' | 'rod_hole' | 'tab' | 'clip' | 'rod_side' | 'slide_hole' | 'connector_slot' | 'rotational_hole' | 'slider_hole'
   accepts: ('rod_end' | 'rod_hole' | 'tab' | 'clip' | 'rod_side' | 'slide_hole' | 'connector_slot' | 'rotational_hole' | 'slider_hole')[]
   allowed_angles_deg: number[]
+  slide_clearance_mm?: number // Minimum spacing in mm required between this port's connector and adjacent slide connections on the same rod. Defaults to 15mm.
   is_active?: boolean // true for motorized/drive ports (e.g., motor drive axle)
   description?: string // human-readable description of the port's purpose
 }
@@ -46,6 +47,7 @@ export interface Connection {
   joint_type?: 'fixed' | 'revolute' | 'prismatic'
   twist_deg?: number // Optional roll/twist in degrees around the connection axis
   fixed_roll?: boolean // If true, the solver will not attempt to 'auto-flatten' this connection
+  slide_offset?: number // mm offset along rod axis from port default position
 }
 
 /** The complete state of a K'Nex build. */

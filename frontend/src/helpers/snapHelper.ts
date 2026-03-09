@@ -312,3 +312,32 @@ export function findNearestSnap(
     ghostRotation: [bestGhostQuat.x, bestGhostQuat.y, bestGhostQuat.z, bestGhostQuat.w],
   }
 }
+
+/**
+ * Return [min_offset, max_offset] in mm for a slidable port on a rod,
+ * or null if the port is not slidable or the part isn't a valid rod.
+ */
+export function getSlideRange(part: KnexPartDef, portId: string): [number, number] | null {
+  if (!portId.startsWith('center_axial') && !portId.startsWith('center_tangent')) {
+    return null
+  }
+
+  const port = part.ports.find((p) => p.id === portId)
+  if (!port) return null
+
+  const end1 = part.ports.find((p) => p.id === 'end1')
+  const end2 = part.ports.find((p) => p.id === 'end2')
+
+  if (!end1 || !end2) return null
+
+  const clearance = (port.slide_clearance_mm ?? 15.0) / 2.0
+
+  const minX = Math.min(end1.position[0], end2.position[0]) + clearance
+  const maxX = Math.max(end1.position[0], end2.position[0]) - clearance
+
+  if (minX > maxX) return [0, 0]
+
+  const centerX = port.position[0]
+
+  return [minX - centerX, maxX - centerX]
+}

@@ -110,6 +110,11 @@
             },
             "description": "Allowed rotation steps around the direction axis (e.g. [0, 90, 180, 270])"
           },
+          "slide_clearance_mm": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Minimum spacing in mm required between this port's connector and adjacent slide connections on the same rod. Defaults to 15mm for connectors."
+          },
           "tolerance_mm": {
             "type": "number",
             "default": 0.2

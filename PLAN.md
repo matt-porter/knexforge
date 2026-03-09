@@ -672,3 +672,79 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Note**: `isExpanded` state sync is still pending as a low-priority task.
 
 ---
+
+## Phase 14 — Sliding Connectors Along Rods
+
+**Goal**: Allow `center_axial` and `center_tangent` connections to slide to arbitrary positions along a rod's length, enabling multiple connectors on the same rod and user-controlled positioning.
+
+**Core concept**: A `slide_offset` field on `Connection` shifts the effective port position along the rod's local X axis from its default (midpoint) position. The offset is in mm, with positive = toward `end2` and negative = toward `end1`.
+
+### [x] Task 14.1: Add `slide_offset` to Connection Model & Part Schema
+- Add `slide_offset: float` (default 0.0) to Python `Connection` model and TypeScript `Connection` interface.
+- Add `slide_clearance_mm: float` (default 15.0) to `Port` model/schema (data-driven collision envelopes).
+- Add `get_slide_range()` utility to compute valid offset bounds per rod.
+- Update topology solver types to carry `slide_offset`.
+- **Files**: `src/core/parts/models.py`, `frontend/src/types/parts.ts`, `frontend/src/services/topologySolver.ts`, `schema/knex-part.json`
+- **Docs**: `docs/tasks/task-14-1-connection-model-slide-offset.md`
+
+### [ ] Task 14.2: Snapping Engine — Apply `slide_offset` to Port Positions
+- Modify `align_part_to_port` (Python) and `computeGhostTransform` (TS) to accept and apply `slide_offset`.
+- Add `_apply_slide_offset` and `_is_slidable_port` helpers.
+- Clamp out-of-range offsets to valid bounds.
+- **Files**: `src/core/snapping.py`, `frontend/src/helpers/snapHelper.ts`
+- **Docs**: `docs/tasks/task-14-2-snapping-with-slide-offset.md`
+
+### [ ] Task 14.3: File I/O & Serialization — Persist `slide_offset`
+- Serialize `slide_offset` in `.knx` / JSON (omit when 0).
+- Deserialize with default 0.0 for backward compatibility.
+- Unified `@ <twist>[!] slide=<offset>` annotation syntax in compact format (coexists with existing `@` twist/fixed_roll).
+- Update `ExportedBuildData` contract in `sidecarBridge.ts`, and `localModels.ts` / `cloudModels.ts` serialization.
+- **Files**: `src/core/file_io.py`, `frontend/src/services/topologyCompactFormat.ts`, `src/core/shorthand_parser.py`, `frontend/src/services/sidecarBridge.ts`, `frontend/src/services/localModels.ts`
+- **Docs**: `docs/tasks/task-14-3-file-io-slide-offset.md`
+
+### [ ] Task 14.4: Topology Solver — Place Parts with `slide_offset`
+- Apply offset in `buildPlacementCandidate()` and `connectionResidual()`.
+- Thread `slide_offset` through BFS placement and Jacobi refinement.
+- **Files**: `frontend/src/services/topologySolver.ts`
+- **Docs**: `docs/tasks/task-14-4-topology-solver-slide-offset.md`
+
+### [ ] Task 14.5: Allow Multiple Connectors on the Same Rod
+- Uniqueness key model: `(rod_instance, slide_family, slide_offset)` — same key = occupied slot.
+- Slide families: `axial`, `tangent_y`, `tangent_z`. Cross-family interference rules (axial blocks tangent at same offset; orthogonal tangents coexist).
+- New `slide_collision` error code for spacing violations. Data-driven spacing via `slide_clearance_mm`.
+- Update build store and topology solver validation, relax `PortIndicators` for slidable ports.
+- **Files**: `frontend/src/components/Viewer/PortIndicators.tsx`, `frontend/src/services/topologySolver.ts`, `frontend/src/stores/buildStore.ts`, `frontend/src/helpers/snapHelper.ts`
+- **Docs**: `docs/tasks/task-14-5-multiple-connectors-per-rod.md`
+
+### [ ] Task 14.6: UI — Slide Offset Controls During Placement
+- Add `slideOffset` / `slideRange` to interaction store.
+- Arrow keys / scroll wheel adjust offset during snap preview.
+- Ghost preview renders at offset position; SnapVariantHUD shows offset value.
+- Visual slide guide rendered on the rod.
+- **Files**: `frontend/src/stores/interactionStore.ts`, `frontend/src/components/Viewer/PortIndicators.tsx`, `frontend/src/components/Viewer/SnapVariantHUD.tsx`, `frontend/src/components/Viewer/SlideGuide.tsx` (NEW)
+- **Docs**: `docs/tasks/task-14-6-slide-ui-controls.md`
+
+### [ ] Task 14.7: UI — Post-Placement Slide Editing
+- Context menu "Slide Along Rod" for placed connectors with slidable connections.
+- Keyboard-driven repositioning with collision detection.
+- Undo/redo support (single undo action per slide edit session).
+- **Files**: `frontend/src/stores/buildStore.ts`, `frontend/src/stores/interactionStore.ts`, `frontend/src/components/Viewer/`
+- **Docs**: `docs/tasks/task-14-7-post-placement-slide-editing.md`
+
+### [ ] Task 14.8: Physics Engines — Cylindrical Joints for Axial, Fixed for Tangent
+- `center_axial` → **cylindrical joint** via compound dummy body (prismatic + revolute). Free rotation + free axial slide under gravity. `slide_offset` is initial position only.
+- `center_tangent` → **fixed joint** with offset anchor (friction-held, locked at `slide_offset`).
+- Motor-driven axial: motor torque drives the revolute half of the compound joint.
+- PyBullet: 2 P2P anchors **perpendicular** to rod axis for cylindrical; 3 P2P for fixed.
+- Physics-internal `physicsJointType()` (public `inferJointType` unchanged).
+- **Files**: `frontend/src/services/rapierSimulator.ts`, `src/core/physics/pybullet.py`
+- **Docs**: `docs/tasks/task-14-8-physics-slide-offset.md`
+
+### [ ] Task 14.9: Comprehensive Slide Offset Test Suite
+- 20+ integration tests across model, snapping, file I/O, solver, and physics.
+- Round-trip, multi-connector, loop-closure, and physics stability tests.
+- Manual testing checklist for UI.
+- **Files**: `src/core/tests/test_slide_offset.py` (NEW), `frontend/src/services/__tests__/slideOffset.test.ts` (NEW)
+- **Docs**: `docs/tasks/task-14-9-comprehensive-slide-tests.md`
+
+---

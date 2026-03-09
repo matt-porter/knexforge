@@ -14,6 +14,7 @@ export interface TopologyConnection {
   joint_type?: 'fixed' | 'revolute' | 'prismatic'
   twist_deg?: number
   fixed_roll?: boolean
+  slide_offset?: number
 }
 
 export interface TopologyModel {
@@ -86,6 +87,7 @@ interface ResolvedConnection {
   joint_type: 'fixed' | 'revolute' | 'prismatic'
   twist_deg: number
   fixed_roll: boolean
+  slide_offset: number
   key: string
 }
 
@@ -502,6 +504,7 @@ function validateAndResolveConnections(
       joint_type: inferred,
       twist_deg: connection.twist_deg ?? 0,
       fixed_roll: connection.fixed_roll ?? false,
+      slide_offset: connection.slide_offset ?? 0,
       key: duplicateKey,
     })
   }
@@ -535,6 +538,7 @@ export function canonicalizeTopology(model: TopologyModel): TopologyModel {
         joint_type: connection.joint_type,
         twist_deg: connection.twist_deg,
         fixed_roll: connection.fixed_roll,
+        slide_offset: connection.slide_offset,
       }
 
       const left = endpointRef(parsed.fromInstance, parsed.fromPort)
@@ -547,6 +551,7 @@ export function canonicalizeTopology(model: TopologyModel): TopologyModel {
         joint_type: normalized.joint_type,
         twist_deg: normalized.twist_deg,
         fixed_roll: normalized.fixed_roll,
+        slide_offset: normalized.slide_offset,
       }
     })
     .sort((a, b) => {
@@ -583,6 +588,7 @@ export function buildStateToTopology(
       joint_type: connection.joint_type,
       twist_deg: connection.twist_deg,
       fixed_roll: connection.fixed_roll,
+      slide_offset: connection.slide_offset,
     }))
 
   return canonicalizeTopology({
@@ -918,6 +924,7 @@ export function solveTopology(
     joint_type: connection.joint_type,
     twist_deg: connection.twist_deg,
     fixed_roll: connection.fixed_roll,
+    slide_offset: connection.slide_offset,
   }))
 
   return { parts, connections: solvedConnections, warnings }
