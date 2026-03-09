@@ -687,7 +687,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `src/core/parts/models.py`, `frontend/src/types/parts.ts`, `frontend/src/services/topologySolver.ts`, `schema/knex-part.json`
 - **Docs**: `docs/tasks/task-14-1-connection-model-slide-offset.md`
 
-### [ ] Task 14.2: Snapping Engine — Apply `slide_offset` to Port Positions
+### [x] Task 14.2: Snapping Engine — Apply `slide_offset` to Port Positions
 - Modify `align_part_to_port` (Python) and `computeGhostTransform` (TS) to accept and apply `slide_offset`.
 - Add `_apply_slide_offset` and `_is_slidable_port` helpers.
 - Clamp out-of-range offsets to valid bounds.

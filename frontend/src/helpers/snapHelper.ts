@@ -65,13 +65,42 @@ export function inferJointType(
 // Port math
 // ---------------------------------------------------------------------------
 
+export function isSlidablePort(portId: string): boolean {
+  return portId.startsWith('center_axial') || portId.startsWith('center_tangent')
+}
+
+export function applySlideOffset(partDef: KnexPartDef, portId: string, slideOffset: number): Port | null {
+  const port = partDef.ports.find(p => p.id === portId)
+  if (!port) return null
+  if (slideOffset === 0) return port
+
+  let clampedOffset = slideOffset
+  const range = getSlideRange(partDef, portId)
+  if (range) {
+    const [minOffset, maxOffset] = range
+    clampedOffset = Math.max(minOffset, Math.min(slideOffset, maxOffset))
+  }
+
+  return {
+    ...port,
+    position: [port.position[0] + clampedOffset, port.position[1], port.position[2]],
+  }
+}
+
 /**
  * Compute the world position and direction of a port on a part instance.
  */
 export function getPortWorldPose(
   instance: PartInstance,
   port: Port,
+  slideOffset: number = 0,
+  partDef?: KnexPartDef,
 ): { position: Vector3; direction: Vector3 } {
+  if (slideOffset !== 0 && isSlidablePort(port.id) && partDef) {
+    const adjustedPort = applySlideOffset(partDef, port.id, slideOffset)
+    if (adjustedPort) port = adjustedPort
+  }
+
   const q = new Quaternion(
     instance.rotation[0],
     instance.rotation[1],
@@ -116,7 +145,22 @@ export function computeGhostTransform(
   placingDef?: KnexPartDef,
   targetDef?: KnexPartDef,
   isPlacingRod?: boolean,
+  slideOffset: number = 0,
 ): { position: Vector3; rotation: Quaternion } {
+  if (slideOffset !== 0) {
+    if (isSlidablePort(placingPort.id) && placingDef) {
+      const adjustedPort = applySlideOffset(placingDef, placingPort.id, slideOffset)
+      if (adjustedPort) placingPort = adjustedPort
+    } else if (isSlidablePort(targetPort.id) && targetInstance && targetDef) {
+      const adjustedPort = applySlideOffset(targetDef, targetPort.id, slideOffset)
+      if (adjustedPort) {
+        targetPort = adjustedPort
+        const newPose = getPortWorldPose(targetInstance, targetPort, 0)
+        targetWorldPos = newPose.position
+      }
+    }
+  }
+
   const desiredDir = targetWorldDir.clone().normalize().negate()
   const placingLocalDir = new Vector3(
     placingPort.direction[0],
@@ -258,6 +302,8 @@ export function findNearestSnap(
       const { position: targetWorldPos, direction: targetWorldDir } = getPortWorldPose(
         instance,
         targetPort,
+        0,
+        targetDef
       )
 
       // For each port on the part being placed

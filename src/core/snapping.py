@@ -5,12 +5,36 @@ from __future__ import annotations
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-from .parts.models import PartInstance, Connection, Port
+from .parts.models import PartInstance, Connection, Port, get_slide_range
 
 
-def _port_world_pose(instance: PartInstance, port_id: str) -> tuple[np.ndarray, np.ndarray]:
-    """Return world position and direction vector of a port."""
+def _is_slidable_port(port_id: str) -> bool:
+    """Return True if this port supports sliding along the rod axis."""
+    return port_id.startswith("center_axial") or port_id.startswith("center_tangent")
+
+
+def _apply_slide_offset(instance: PartInstance, port_id: str, slide_offset: float) -> Port:
+    """Return a copy of the port with position shifted along the rod's local X axis and clamped."""
     port = instance.get_port(port_id)
+    if slide_offset == 0.0:
+        return port
+        
+    slide_range = get_slide_range(instance.part, port_id)
+    if slide_range:
+        min_offset, max_offset = slide_range
+        slide_offset = max(min_offset, min(slide_offset, max_offset))
+
+    new_pos = (port.position[0] + slide_offset, port.position[1], port.position[2])
+    return port.model_copy(update={"position": new_pos})
+
+
+def _port_world_pose(instance: PartInstance, port_id: str, slide_offset: float = 0.0) -> tuple[np.ndarray, np.ndarray]:
+    """Return world position and direction vector of a port."""
+    if slide_offset != 0.0 and _is_slidable_port(port_id):
+        port = _apply_slide_offset(instance, port_id, slide_offset)
+    else:
+        port = instance.get_port(port_id)
+    
     pos_local = np.array(port.position)
     dir_local = np.array(port.direction)
 
@@ -143,6 +167,7 @@ def snap_ports(
     to_instance: PartInstance,
     to_port_id: str,
     tolerance_mm: float = 0.2,
+    slide_offset: float = 0.0,
 ) -> Connection | None:
     """Attempt to snap two ports. Returns Connection on success, None otherwise.
 
@@ -158,9 +183,16 @@ def snap_ports(
     if not are_ports_compatible(from_port, to_port):
         return None
 
+    # Apply slide offset
+    if slide_offset != 0.0:
+        if _is_slidable_port(from_port_id):
+            from_port = _apply_slide_offset(from_instance, from_port_id, slide_offset)
+        elif _is_slidable_port(to_port_id):
+            to_port = _apply_slide_offset(to_instance, to_port_id, slide_offset)
+
     # World poses
-    from_pos, from_dir = _port_world_pose(from_instance, from_port_id)
-    to_pos, to_dir = _port_world_pose(to_instance, to_port_id)
+    from_pos, from_dir = _port_world_pose(from_instance, from_port_id, slide_offset=slide_offset if _is_slidable_port(from_port_id) else 0.0)
+    to_pos, to_dir = _port_world_pose(to_instance, to_port_id, slide_offset=slide_offset if _is_slidable_port(to_port_id) else 0.0)
 
     # Distance check
     dist = np.linalg.norm(from_pos - to_pos)
@@ -225,7 +257,8 @@ def snap_ports(
         to_port=to_port_id,
         joint_type=joint_type,
         twist_deg=twist_deg,
-        fixed_roll=True  # Manual snaps are always considered 'fixed' in their roll
+        fixed_roll=True,  # Manual snaps are always considered 'fixed' in their roll
+        slide_offset=slide_offset,
     )
 
 
@@ -375,6 +408,7 @@ def align_part_to_port(
     target_port_id: str,
     twist_deg: float = 0.0,
     fixed_roll: bool = False,
+    slide_offset: float = 0.0,
 ) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
     """Compute position + quaternion to align any port pair, with optional twist.
 
@@ -388,6 +422,8 @@ def align_part_to_port(
         target_instance: The existing part being attached to.
         target_port_id: Port ID on the target part.
         twist_deg: Rotation in degrees around the target port direction axis.
+        fixed_roll: If True, do not attempt to auto-flatten the connection.
+        slide_offset: Offset in mm along the rod's main axis.
 
     Returns:
         (position, quaternion) for the placing part's new world transform.
@@ -401,8 +437,15 @@ def align_part_to_port(
     placing_port = placing_instance.get_port(placing_port_id)
     target_port = target_instance.get_port(target_port_id)
 
+    # Apply slide offset
+    if slide_offset != 0.0:
+        if _is_slidable_port(placing_port_id):
+            placing_port = _apply_slide_offset(placing_instance, placing_port_id, slide_offset)
+        elif _is_slidable_port(target_port_id):
+            target_port = _apply_slide_offset(target_instance, target_port_id, slide_offset)
+
     # Target world pose
-    target_pos, target_dir = _port_world_pose(target_instance, target_port_id)
+    target_pos, target_dir = _port_world_pose(target_instance, target_port_id, slide_offset=slide_offset if _is_slidable_port(target_port_id) else 0.0)
 
     # The placing port direction should oppose the target port direction
     desired_dir = -np.array(target_dir)

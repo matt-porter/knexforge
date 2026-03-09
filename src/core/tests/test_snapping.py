@@ -309,3 +309,65 @@ def test_joint_type_determination(library):
     conn_prismatic = snap_ports(rod_inst2, "end1", conn_inst3, "A", 0.2)
     assert conn_prismatic is not None
     assert conn_prismatic.joint_type == "prismatic"
+
+# ---------------------------------------------------------------------------
+# Slide offset tests
+# ---------------------------------------------------------------------------
+
+def test_align_part_with_slide_offset(library):
+    from core.snapping import align_part_to_port
+    rod_part = library.get("rod-128-red-v1")
+    conn_part = library.get("connector-4way-green-v1")
+
+    rod_inst = PartInstance(instance_id="r1", part=rod_part, position=(0.0, 0.0, 0.0))
+    conn_temp = PartInstance(instance_id="c1", part=conn_part)
+
+    # 1. Zero offset (baseline)
+    pos_0, _ = align_part_to_port(conn_temp, "A", rod_inst, "center_axial_1", slide_offset=0.0)
+    
+    # 2. Positive offset (+20mm toward end2)
+    pos_pos, _ = align_part_to_port(conn_temp, "A", rod_inst, "center_axial_1", slide_offset=20.0)
+    assert np.allclose(np.array(pos_pos) - np.array(pos_0), [20.0, 0.0, 0.0], atol=1e-5)
+
+    # 3. Negative offset (-30mm toward end1)
+    pos_neg, _ = align_part_to_port(conn_temp, "A", rod_inst, "center_axial_1", slide_offset=-30.0)
+    assert np.allclose(np.array(pos_neg) - np.array(pos_0), [-30.0, 0.0, 0.0], atol=1e-5)
+
+def test_snap_ports_with_slide_offset(library):
+    from core.snapping import align_part_to_port
+    rod_part = library.get("rod-128-red-v1")
+    conn_part = library.get("connector-3way-red-v1")
+
+    rod_inst = PartInstance(instance_id="r1", part=rod_part, position=(0.0, 0.0, 0.0))
+    conn_temp = PartInstance(instance_id="c1", part=conn_part)
+
+    # Align at +25 offset
+    new_pos, new_quat = align_part_to_port(conn_temp, "A", rod_inst, "center_tangent_y_pos", slide_offset=25.0)
+    conn_inst = PartInstance(instance_id="c1", part=conn_part, position=new_pos, quaternion=new_quat)
+
+    # Snap should succeed
+    conn = snap_ports(conn_inst, "A", rod_inst, "center_tangent_y_pos", tolerance_mm=0.2, slide_offset=25.0)
+    assert conn is not None
+    assert conn.slide_offset == 25.0
+
+    # Snap should fail if wrong slide_offset is provided but positions match an offset
+    conn_fail = snap_ports(conn_inst, "A", rod_inst, "center_tangent_y_pos", tolerance_mm=0.2, slide_offset=0.0)
+    assert conn_fail is None
+
+def test_slide_offset_clamping(library):
+    from core.snapping import align_part_to_port
+    rod_part = library.get("rod-128-red-v1")
+    conn_part = library.get("connector-1way-grey-v1")
+
+    rod_inst = PartInstance(instance_id="r1", part=rod_part, position=(0.0, 0.0, 0.0))
+    conn_temp = PartInstance(instance_id="c1", part=conn_part)
+
+    # Try an extreme offset
+    pos_extreme, _ = align_part_to_port(conn_temp, "A", rod_inst, "center_axial_1", slide_offset=100.0)
+    
+    # 128mm rod, max offset is 56.5 (based on 15mm clearance / 2 = 7.5, 64 - 7.5 = 56.5)
+    # The port A local position might shift this, but let's check the position difference relative to 0 offset
+    pos_0, _ = align_part_to_port(conn_temp, "A", rod_inst, "center_axial_1", slide_offset=0.0)
+    
+    diff = np.array(pos_extreme) - np.array(pos_0)
+    assert np.allclose(diff, [56.5, 0.0, 0.0], atol=1e-5)
