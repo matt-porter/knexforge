@@ -116,8 +116,10 @@ export function useKeyboardShortcuts(): void {
         }
         if (e.key === 'Escape') {
             e.preventDefault()
-            // In a real app we'd revert the slide_offset here to its initial value,
-            // but for simplicity we'll just stop editing. A full implementation would pop the undo stack.
+            const snapshot = useInteractionStore.getState().slideEditInitialSnapshot
+            if (snapshot) {
+                useBuildStore.getState().revertSlideEdit(snapshot)
+            }
             useInteractionStore.getState().stopSlideEditing()
             return
         }

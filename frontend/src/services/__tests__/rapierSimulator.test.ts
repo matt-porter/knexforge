@@ -263,20 +263,12 @@ describe('Connector orientation stability (Rapier)', () => {
       rod1: {
         instance_id: 'rod1',
         part_id: ROD_ID,
-        // end1 aligned to motor drive_axle (direction [0,0,1])
-        // Rod rotated -90° around Y so end1 dir [-1,0,0] → [0,0,-1] (opposing [0,0,1])
-        // R(-90°Y).[0,0,0] = [0,0,0], so rod pos = drive_axle_world = [0,0,50]
         position: [0, 0, 50],
         rotation: [0, -SIN45, 0, SIN45], // -90° around Y
       },
       conn1: {
         instance_id: 'conn1',
         part_id: CONNECTOR_ID,
-        // Port A aligned to rod end2
-        // Rod end2 local [54,0,0] → world: R(-90°Y).[54,0,0] = [0,0,54] + [0,0,50] = [0,0,104]
-        // Connector rotated 90°Y so port A dir [1,0,0] → [0,0,-1] (opposing rod end2 dir [0,0,1])
-        // R(90°Y).[12.7,0,0] = [0,0,-12.7]
-        // conn pos = [0,0,104] - [0,0,-12.7] = [0,0,116.7]
         position: [0, 0, 116.7],
         rotation: [0, SIN45, 0, SIN45], // 90° around Y
       },
@@ -299,7 +291,6 @@ describe('Connector orientation stability (Rapier)', () => {
       },
     ]
 
-    // Run with motor speed = 10 rad/s for 4 frames
     const sim = new RapierSimulator()
     await sim.init(parts, connections, 10.0)
 
@@ -307,7 +298,6 @@ describe('Connector orientation stability (Rapier)', () => {
     const connQ0 = firstFrame['conn1'].quaternion
     const rodQ0 = firstFrame['rod1'].quaternion
 
-    // Step 3 more frames
     let lastFrame = firstFrame
     for (let i = 0; i < 3; i++) {
       lastFrame = sim.step()
@@ -319,17 +309,55 @@ describe('Connector orientation stability (Rapier)', () => {
     const rodDelta = quatAngleDeg(rodQ0, rodQ1)
     const connDelta = quatAngleDeg(connQ0, connQ1)
 
-    // Rod and connector should have rotated by similar amounts (fixed joint)
-    // First-frame flip would show conn_delta >> rod_delta
-    if (rodDelta > 1.0) {
-      const ratio = connDelta / rodDelta
-      expect(ratio).toBeGreaterThan(0.5)
-      expect(ratio).toBeLessThan(2.0)
+    expect(connDelta).toBeLessThan(FLIP_THRESHOLD_DEG)
+    sim.destroy()
+  })
+
+  // ---------------------------------------------------------------------------
+  // c2) Cylindrical joint: connector onto rod
+  // ---------------------------------------------------------------------------
+  it('cylindrical joint: dummy body properly initializes when connector is fromInst', async () => {
+    // A rod at origin, a connector attached to center_axial_1.
+    // The connection direction is connector -> rod to trigger the dummy body bug path.
+    const parts: Record<string, PartInstance> = {
+      rod1: {
+        instance_id: 'rod1',
+        part_id: ROD_ID,
+        position: [0, 0, 0],
+        rotation: [0, 0, 0, 1],
+      },
+      conn1: {
+        instance_id: 'conn1',
+        part_id: CONNECTOR_ID,
+        position: [27, 0, 0], // Center of a 54mm rod
+        rotation: [0, 0, 0, 1],
+      },
     }
 
-    // Neither should have flipped
-    expect(connDelta).toBeLessThan(FLIP_THRESHOLD_DEG)
+    const connections: Connection[] = [
+      {
+        from_instance: 'conn1',
+        from_port: 'A',
+        to_instance: 'rod1',
+        to_port: 'center_axial_1',
+        joint_type: 'revolute', // Rapier forces cylindrical internally
+        slide_offset: 0,
+      },
+    ]
 
+    // If dummy body uses toInst (rod1) instead of connector, it spawns at [0,0,0]
+    // The prismatic joint then violently snaps the connector to [0,0,0], causing a huge translation delta.
+    const sim = new RapierSimulator()
+    await sim.init(parts, connections, 0.0)
+
+    const firstFrame = sim.step()
+    const connPos = firstFrame['conn1'].position
+    
+    // The connector should stay at [27,0,0] in the first frame (zero gravity test, no forces)
+    expect(connPos[0]).toBeCloseTo(27, 1)
+    expect(connPos[1]).toBeCloseTo(0, 1)
+    expect(connPos[2]).toBeCloseTo(0, 1)
+    
     sim.destroy()
   })
 

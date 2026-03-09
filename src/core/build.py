@@ -124,6 +124,9 @@ class Build:
                 self.history.record(SnapAction(
                     from_port=f"{from_instance_id}.{from_port_id}",
                     to_port=f"{to_instance_id}.{to_port_id}",
+                    twist_deg=conn.twist_deg,
+                    fixed_roll=conn.fixed_roll,
+                    slide_offset=conn.slide_offset,
                 ))
         return conn
 
@@ -281,6 +284,9 @@ class Build:
             to_instance=to_inst,
             to_port=to_p,
             joint_type=joint_type,
+            twist_deg=action.twist_deg,
+            fixed_roll=action.fixed_roll,
+            slide_offset=action.slide_offset,
         )
 
         self.connections.add(conn)

@@ -96,6 +96,8 @@ export interface BuildStore {
   updateSlideOffset: (connectionIndex: number, newOffset: number, partDefs: Map<string, KnexPartDef>) => void
   /** End a slide edit operation and commit the undo snapshot. */
   commitSlideEdit: (beforeSnapshot: BuildSnapshot) => void
+  /** Revert a slide edit operation to the original snapshot. */
+  revertSlideEdit: (snapshot: BuildSnapshot) => void
 
   // --- Derived ---
   /** Get the number of placed parts. */
@@ -574,10 +576,33 @@ export const useBuildStore = create<BuildStore>()(
         const connPort = connDef.ports.find((p: any) => p.id === connPortId)
         if (!rodPort || !connPort) return
 
-        // Save state before modification if it's not a continuous drag (we batch undos elsewhere, but for now we just snapshot)
-        // We'll trust the interaction store to manage undo batches if needed, or just push a single state here.
-        // Actually, for continuous dragging, we should not spam undo stack.
-        // We will just update the state directly here, and the caller will handle undo snapshots.
+        // Check for collisions before accepting the new offset
+        const newFamily = getSlideFamily(rodPortId)!
+        const MIN_SPACING_MM = 15.0
+
+        const collision = state.connections.some((otherConn, idx) => {
+          if (idx === connectionIndex) return false // Skip self
+          const existingRodId = otherConn.from_instance === rodId ? otherConn.from_instance
+                              : otherConn.to_instance === rodId ? otherConn.to_instance : null
+          if (!existingRodId) return false
+          const existingPortId = otherConn.from_instance === rodId ? otherConn.from_port : otherConn.to_port
+          if (!isSlidablePort(existingPortId)) return false
+          const existingFamily = getSlideFamily(existingPortId)!
+          const existingOffset = otherConn.slide_offset ?? 0
+
+          if (existingFamily === newFamily && existingOffset === newOffset) return true
+          if (existingOffset === newOffset && familiesInterfere(newFamily, existingFamily)) return true
+          if (existingFamily === newFamily && Math.abs(existingOffset - newOffset) < MIN_SPACING_MM) return true
+          return false
+        })
+
+        if (collision) {
+          // Sync interaction store back to current valid state
+          window.dispatchEvent(new CustomEvent('knexforge:slide-edit-rejected', {
+            detail: { validOffset: conn.slide_offset ?? 0 }
+          }))
+          return
+        }
 
         conn.slide_offset = newOffset
         
@@ -608,6 +633,16 @@ export const useBuildStore = create<BuildStore>()(
         const after = createSnapshot(state)
         state.undoStack.push({ type: 'add_part', before: beforeSnapshot, after })
         state.redoStack = []
+      })
+      get().recalculateStability()
+    },
+
+    revertSlideEdit: (snapshot: BuildSnapshot) => {
+      set((state) => {
+        const partsDict: Record<string, PartInstance> = {}
+        snapshot.parts.forEach(p => { partsDict[p.instance_id] = p })
+        state.parts = partsDict
+        state.connections = snapshot.connections
       })
       get().recalculateStability()
     },

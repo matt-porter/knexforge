@@ -28,6 +28,9 @@ class SnapAction(BaseModel):
     action: Literal["snap"] = "snap"
     from_port: str  # dotted: "r1.end1"
     to_port: str    # dotted: "c1.A"
+    twist_deg: float = 0.0
+    fixed_roll: bool = False
+    slide_offset: float = 0.0
 
 
 class RemovePartAction(BaseModel):

@@ -311,6 +311,7 @@ export function findNearestSnap(
   partDefs: Map<string, KnexPartDef>,
   twistAngle: number = 0,
   snapRadius: number = 30,
+  slideOffset: number = 0,
 ): SnapResult {
   const cursor = new Vector3(cursorWorldPos[0], cursorWorldPos[1], cursorWorldPos[2])
 
@@ -347,7 +348,8 @@ export function findNearestSnap(
           instance,
           placingPartDef,
           targetDef,
-          isPlacingRod
+          isPlacingRod,
+          slideOffset
         )
 
         // Compute distance from cursor to the ghost's center position

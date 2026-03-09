@@ -291,9 +291,10 @@ export class RapierSimulator {
         
         // Compound joint for cylindrical:
         // 1. Create dummy body at connector's initial position
+        const connInst = isFromRod ? toInst : fromInst
         const dummyDesc = RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(toInst.position[0], toInst.position[1], toInst.position[2])
-          .setRotation(toRapierQuat(toInst.rotation))
+          .setTranslation(connInst.position[0], connInst.position[1], connInst.position[2])
+          .setRotation(toRapierQuat(connInst.rotation))
         const dummyBody = this.world.createRigidBody(dummyDesc)
 
         // 2. Prismatic: rod <-> dummy (axial slide)

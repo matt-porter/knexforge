@@ -102,7 +102,50 @@ def test_multiple_connectors_collision(clean_part_library):
     
     assert len(b.connections) == 2
 
-def test_physics_slide_vs_fixed(clean_part_library):
+def test_undo_redo_preserves_slide_metadata(clean_part_library):
+    """Category 6: Undo/redo action history preserves metadata"""
+    b = Build()
+    r1 = PartInstance(instance_id="r1", part=clean_part_library.get("rod-128-red-v1"))
+    c1 = PartInstance(instance_id="c1", part=clean_part_library.get("connector-1way-grey-v1"))
+    b.add_part(r1)
+    b.add_part(c1)
+    
+    # Snap with offset and twist
+    pos, q = align_part_to_port(c1, "A", r1, "center_axial_1", slide_offset=25.0, twist_deg=90.0, fixed_roll=True)
+    c1.position = pos
+    c1.quaternion = q
+    b.attempt_snap("c1", "A", "r1", "center_axial_1", slide_offset=25.0)
+    # attempt_snap doesn't take twist directly, we must modify the connection manually for the test
+    # or just use attempt_snap and modify the resulting connection inside the history
+    # Actually attempt_snap just calls snap_ports. In the real app, twist is applied to the part,
+    # and the connection captures it... wait, attempt_snap sets twist=0 by default!
+    # Let's manually inject a connection and record the action.
+    from core.parts.models import Connection
+    from core.action_history import SnapAction
+    b.connections.clear()
+    
+    conn = Connection(from_instance="c1", from_port="A", to_instance="r1", to_port="center_axial_1", joint_type="fixed", twist_deg=90.0, fixed_roll=True, slide_offset=25.0)
+    b.connections.add(conn)
+    b.history.record(SnapAction(
+        from_port="c1.A",
+        to_port="r1.center_axial_1",
+        twist_deg=90.0,
+        fixed_roll=True,
+        slide_offset=25.0
+    ))
+    
+    # Undo
+    b.undo()
+    assert len(b.connections) == 0
+    
+    # Redo
+    b.redo()
+    assert len(b.connections) == 1
+    
+    redone_conn = list(b.connections)[0]
+    assert redone_conn.slide_offset == 25.0
+    assert redone_conn.twist_deg == 90.0
+    assert redone_conn.fixed_roll is True
     """Category 5: Physics"""
     try:
         import pybullet as p

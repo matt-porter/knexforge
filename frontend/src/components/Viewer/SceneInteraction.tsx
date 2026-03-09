@@ -3,7 +3,7 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { Plane, Vector3, Raycaster, Vector2 } from 'three'
 import { useInteractionStore } from '../../stores/interactionStore'
 import { useBuildStore } from '../../stores/buildStore'
-import { findNearestSnap, inferJointType, isSlidablePort } from '../../helpers/snapHelper'
+import { findNearestSnap, inferJointType, isSlidablePort, getSlideRange } from '../../helpers/snapHelper'
 import type { KnexPartDef } from '../../types/parts'
 
 interface SceneInteractionProps {
@@ -65,8 +65,10 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
 
       // Try port snapping
       const placingDef = defs.get(placingPartId)
+      const currentSlideOffset = useInteractionStore.getState().slideOffset
+
       if (placingDef) {
-        const snapResult = findNearestSnap(gridPos, placingDef, parts, defs)
+        const snapResult = findNearestSnap(gridPos, placingDef, parts, defs, 0, 30, currentSlideOffset)
 
         if (snapResult.candidate && snapResult.ghostPosition && snapResult.ghostRotation) {
           useInteractionStore.getState().setGhostPosition(snapResult.ghostPosition)
@@ -76,6 +78,21 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
             snapResult.candidate.portId,
             snapResult.candidate.placingPortId,
           )
+
+          // Determine and set slide range for the active snap
+          const targetDef = defs.get(parts[snapResult.candidate.instanceId]?.part_id ?? '')
+          let range: [number, number] | null = null
+          if (isSlidablePort(snapResult.candidate.placingPortId)) {
+             range = getSlideRange(placingDef, snapResult.candidate.placingPortId)
+          } else if (targetDef && isSlidablePort(snapResult.candidate.portId)) {
+             range = getSlideRange(targetDef, snapResult.candidate.portId)
+          }
+          if (useInteractionStore.getState().slideRange === null && range !== null) {
+            useInteractionStore.getState().setSlideRange(range)
+          } else if (range === null && useInteractionStore.getState().slideRange !== null) {
+            useInteractionStore.getState().setSlideRange(null)
+          }
+
           return
         }
       }
@@ -83,6 +100,7 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
       // No snap — just grid position
       useInteractionStore.getState().setGhostPosition(gridPos)
       useInteractionStore.getState().setSnapTarget(null, null, null)
+      useInteractionStore.getState().setSlideRange(null)
     }
   })
 
@@ -110,6 +128,7 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
         snapTargetInstanceId,
         snapTargetPortId,
         snapPlacingPortId,
+        slideOffset,
       } = useInteractionStore.getState()
 
       if (!ghostPosition) return
@@ -138,6 +157,7 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
           to_instance: snapTargetInstanceId,
           to_port: snapTargetPortId,
           joint_type: placingPort && targetPort ? inferJointType(placingPort, targetPort) : 'fixed',
+          slide_offset: slideOffset,
         })
       }
       // Stay in place mode — allow placing more of the same part
@@ -181,11 +201,17 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
   // Bind events to the canvas element
   useEffect(() => {
     const el = gl.domElement
+    const handleSlideRejected = (e: Event) => {
+      const detail = (e as CustomEvent).detail
+      useInteractionStore.getState().setSlideOffset(detail.validOffset)
+    }
+    window.addEventListener('knexforge:slide-edit-rejected', handleSlideRejected)
     el.addEventListener('pointermove', handlePointerMove)
     el.addEventListener('click', handleClick)
     el.addEventListener('contextmenu', handleContextMenu)
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => {
+      window.removeEventListener('knexforge:slide-edit-rejected', handleSlideRejected)
       el.removeEventListener('pointermove', handlePointerMove)
       el.removeEventListener('click', handleClick)
       el.removeEventListener('contextmenu', handleContextMenu)

@@ -377,7 +377,21 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
             angleIndex: aIdx,
             totalAngles: side.variants.length,
         })
-    }, [activePortIndex, activeSideIndex, activeAngleIndex, hoveredPortId, matchTargetId, indicators])
+        
+        // NEW: Update slide range dynamically when cycling variants
+        const placingDef = defs.get(placingPartId!)
+        const targetInstance = parts[matchTargetId]
+        const targetDef = targetInstance ? defs.get(targetInstance.part_id) : undefined
+        
+        let range: [number, number] | null = null
+        if (isSlidablePort(variant.placingPortId) && placingDef) {
+            range = getSlideRange(placingDef, variant.placingPortId)
+        } else if (isSlidablePort(variant.targetPortId) && targetDef) {
+            range = getSlideRange(targetDef, variant.targetPortId)
+        }
+        useInteractionStore.getState().setSlideRange(range)
+        
+    }, [activePortIndex, activeSideIndex, activeAngleIndex, hoveredPortId, matchTargetId, indicators, placingPartId, parts, defs])
 
     const handlePointerOver = useCallback(
         (e: ThreeEvent<PointerEvent>, ind: PortIndicator) => {
