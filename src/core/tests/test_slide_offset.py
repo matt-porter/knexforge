@@ -112,17 +112,12 @@ def test_undo_redo_preserves_slide_metadata(clean_part_library):
     
     # Snap with offset and twist
     pos, q = align_part_to_port(c1, "A", r1, "center_axial_1", slide_offset=25.0, twist_deg=90.0, fixed_roll=True)
-    c1.position = pos
-    c1.quaternion = q
-    b.attempt_snap("c1", "A", "r1", "center_axial_1", slide_offset=25.0)
-    # attempt_snap doesn't take twist directly, we must modify the connection manually for the test
-    # or just use attempt_snap and modify the resulting connection inside the history
-    # Actually attempt_snap just calls snap_ports. In the real app, twist is applied to the part,
-    # and the connection captures it... wait, attempt_snap sets twist=0 by default!
-    # Let's manually inject a connection and record the action.
+    c1 = c1.model_copy(update={"position": pos, "quaternion": q})
+    b.parts["c1"] = c1
+    b.connections.clear()
+    
     from core.parts.models import Connection
     from core.action_history import SnapAction
-    b.connections.clear()
     
     conn = Connection(from_instance="c1", from_port="A", to_instance="r1", to_port="center_axial_1", joint_type="fixed", twist_deg=90.0, fixed_roll=True, slide_offset=25.0)
     b.connections.add(conn)

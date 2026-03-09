@@ -87,11 +87,7 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
           } else if (targetDef && isSlidablePort(snapResult.candidate.portId)) {
              range = getSlideRange(targetDef, snapResult.candidate.portId)
           }
-          if (useInteractionStore.getState().slideRange === null && range !== null) {
-            useInteractionStore.getState().setSlideRange(range)
-          } else if (range === null && useInteractionStore.getState().slideRange !== null) {
-            useInteractionStore.getState().setSlideRange(null)
-          }
+          useInteractionStore.getState().setSlideRange(range)
 
           return
         }
