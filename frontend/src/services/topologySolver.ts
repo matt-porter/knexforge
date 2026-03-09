@@ -153,6 +153,18 @@ function arePortsCompatible(a: Port, b: Port): boolean {
   return a.accepts.includes(b.mate_type) && b.accepts.includes(a.mate_type)
 }
 
+function isSlidablePort(portId: string): boolean {
+  return portId.startsWith('center_axial') || portId.startsWith('center_tangent')
+}
+
+function applySlideOffset(port: Port, slideOffset: number): Port {
+  if (slideOffset === 0) return port
+  return {
+    ...port,
+    position: [port.position[0] + slideOffset, port.position[1], port.position[2]],
+  }
+}
+
 function getWorldPortPose(transform: Transform, port: Port): { position: Vector3; direction: Vector3 } {
   const localPosition = new Vector3(port.position[0], port.position[1], port.position[2])
   const localDirection = new Vector3(port.direction[0], port.direction[1], port.direction[2])
@@ -182,8 +194,20 @@ function buildPlacementCandidate(
   twistDeg: number,
   anchorDef: KnexPartDef,
   placingDef: KnexPartDef,
-  _fixedRoll = false
+  _fixedRoll = false,
+  slideOffset = 0,
 ): Transform {
+  const isPlacingRod = placingDef.category === 'rod'
+  const isAnchorRod = anchorDef.category === 'rod'
+
+  if (slideOffset !== 0) {
+    if (isPlacingRod && isSlidablePort(placingPort.id)) {
+      placingPort = applySlideOffset(placingPort, slideOffset)
+    } else if (isAnchorRod && isSlidablePort(anchorPort.id)) {
+      anchorPort = applySlideOffset(anchorPort, slideOffset)
+    }
+  }
+
   const anchorPose = getWorldPortPose(anchor, anchorPort)
   const desiredDirection = anchorPose.direction.clone().negate()
 
@@ -216,8 +240,6 @@ function buildPlacementCandidate(
   }
 
   // Step 2: Deterministic Side-Clip Orientation
-  const isPlacingRod = placingDef.category === 'rod'
-  const isAnchorRod = anchorDef.category === 'rod'
   const isRodConnectorSide = (
     (isPlacingRod && placingPort.mate_type === 'rod_side') ||
     (isAnchorRod && anchorPort.mate_type === 'rod_side')
@@ -349,10 +371,18 @@ function connectionResidual(
     throw new TopologySolveError(`Missing part definition while checking connection ${connection.key}`)
   }
 
-  const fromPort = getPartPort(fromPart, connection.from_port)
-  const toPort = getPartPort(toPart, connection.to_port)
+  let fromPort = getPartPort(fromPart, connection.from_port)
+  let toPort = getPartPort(toPart, connection.to_port)
   if (!fromPort || !toPort) {
     throw new TopologySolveError(`Missing port while checking connection ${connection.key}`)
+  }
+
+  if (connection.slide_offset && connection.slide_offset !== 0) {
+    if (fromPart.category === 'rod' && isSlidablePort(fromPort.id)) {
+      fromPort = applySlideOffset(fromPort, connection.slide_offset)
+    } else if (toPart.category === 'rod' && isSlidablePort(toPort.id)) {
+      toPort = applySlideOffset(toPort, connection.slide_offset)
+    }
   }
 
   const fromPose = getWorldPortPose(fromTransform, fromPort)
@@ -749,7 +779,8 @@ export function solveTopology(
             angle,
             currentPartDef,
             neighborPartDef,
-            edge.fixed_roll
+            edge.fixed_roll,
+            edge.slide_offset
           )
 
           if (

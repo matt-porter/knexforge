@@ -702,7 +702,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `src/core/file_io.py`, `frontend/src/services/topologyCompactFormat.ts`, `src/core/shorthand_parser.py`, `frontend/src/services/sidecarBridge.ts`, `frontend/src/services/localModels.ts`
 - **Docs**: `docs/tasks/task-14-3-file-io-slide-offset.md`
 
-### [ ] Task 14.4: Topology Solver — Place Parts with `slide_offset`
+### [x] Task 14.4: Topology Solver — Place Parts with `slide_offset`
 - Apply offset in `buildPlacementCandidate()` and `connectionResidual()`.
 - Thread `slide_offset` through BFS placement and Jacobi refinement.
 - **Files**: `frontend/src/services/topologySolver.ts`

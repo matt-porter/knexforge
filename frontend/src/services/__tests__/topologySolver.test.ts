@@ -253,3 +253,97 @@ describe('topologySolver rotation', () => {
     expect(r1.rotation).toBeDefined()
   })
 })
+
+describe('topologySolver slide_offset', () => {
+  const partDefsById = new Map<string, any>()
+  
+  partDefsById.set('connector-1way-grey-v1', {
+    id: 'connector-1way-grey-v1',
+    category: 'connector' as const,
+    ports: [
+      {
+        id: 'A',
+        position: [12.7, 0.0, 0.0],
+        direction: [1.0, 0.0, 0.0],
+        mate_type: 'rod_hole' as const,
+        accepts: ['rod_end', 'rod_side'],
+        allowed_angles_deg: [0, 90, 180, 270],
+        tolerance_mm: 0.2,
+      },
+    ],
+  })
+
+  partDefsById.set('rod-128-red-v1', {
+    id: 'rod-128-red-v1',
+    category: 'rod' as const,
+    ports: [
+      {
+        id: 'end1',
+        position: [0.0, 0.0, 0.0],
+        direction: [-1.0, 0.0, 0.0],
+        mate_type: 'rod_end' as const,
+        accepts: ['rod_hole', 'rotational_hole', 'slider_hole'],
+        allowed_angles_deg: [0],
+        tolerance_mm: 0.2,
+      },
+      {
+        id: 'end2',
+        position: [128.0, 0.0, 0.0],
+        direction: [1.0, 0.0, 0.0],
+        mate_type: 'rod_end' as const,
+        accepts: ['rod_hole', 'rotational_hole', 'slider_hole'],
+        allowed_angles_deg: [0],
+        tolerance_mm: 0.2,
+      },
+      {
+        id: 'center_axial_1',
+        position: [64.0, 0.0, 0.0],
+        direction: [-1.0, 0.0, 0.0],
+        mate_type: 'rod_end' as const,
+        accepts: ['rod_hole', 'rotational_hole', 'slider_hole'],
+        allowed_angles_deg: [0],
+        tolerance_mm: 0.2,
+        slide_clearance_mm: 15.0,
+      },
+    ],
+  })
+
+  it('shifts connector correctly when placed at an offset', () => {
+    const model: TopologyModel = {
+      format_version: 'topology-v1',
+      parts: [
+        { instance_id: 'r1', part_id: 'rod-128-red-v1' },
+        { instance_id: 'c1', part_id: 'connector-1way-grey-v1' },
+      ],
+      connections: [
+        { from: 'r1.center_axial_1', to: 'c1.A', joint_type: 'revolute', slide_offset: 20.0 },
+      ],
+    }
+
+    const result = solveTopology(model, partDefsById)
+    
+    const r1 = result.parts.find((p) => p.instance_id === 'r1')!
+    const c1 = result.parts.find((p) => p.instance_id === 'c1')!
+    
+    // We expect the distance from c1.A (which is at local 12.7, 0, 0 relative to c1 center)
+    // to r1.end1 to be 64 + 20 = 84mm.
+    
+    // Simple verification: The distance between the parts centers should be shifted.
+    // Given the solver aligns the ports, we can just check the raw distance between part origins.
+    // The rod origin is at end1 (0,0,0). The port center_axial_1 is at 64.
+    // The connector origin is (0,0,0) and its port A is at 12.7.
+    // r1 center_axial_1 offset by 20mm is at 84mm.
+    // So c1's port A must end up exactly at rod's 84mm mark.
+    
+    // c1 will be positioned such that c1 port A is at r1 center_axial_1 + 20.
+    // rod is pointing +X or similar.
+    // Wait, the solver might orient the rod arbitrarily relative to ground,
+    // but the relative distance between c1 origin and r1 origin should be predictable.
+    // c1 origin is 12.7mm away from the port.
+    // So the distance is either 84 + 12.7 or 84 - 12.7 depending on orientation.
+    // Since center_axial_1 direction is -1, 0, 0.
+    const dist = new Vector3(...c1.position).distanceTo(new Vector3(...r1.position))
+    
+    expect(dist).toBeCloseTo(84 - 12.7, 1) // 71.3
+  })
+})
