@@ -9,7 +9,7 @@ import { GhostPreview } from './GhostPreview'
 import { SceneInteraction } from './SceneInteraction'
 import { PortIndicators } from './PortIndicators'
 import { SlideGuide } from './SlideGuide'
-import { getPortWorldPose } from '../../helpers/snapHelper'
+import { getPortWorldPose, getSlideRange } from '../../helpers/snapHelper'
 import { useDatasetStore } from '../../stores/datasetStore'
 import { datasetEntryToBuild } from '../../hooks/useDataset'
 import { getLastModelId, loadLocalModelData, parseExportedBuildData, getLocalModelsIndex } from '../../services/localModels'
@@ -233,6 +233,43 @@ export function BuildScene({ loadDemoWhenEmpty = true }: BuildSceneProps) {
 
         triggerInitialLoad()
     }, [loadDemoWhenEmpty, defs.size, loadBuild, loadDataset, setCurrentModelMeta])
+
+    // Listen for slide edit events from ContextMenu
+    useEffect(() => {
+        const handleStartSlideEdit = (e: Event) => {
+            const detail = (e as CustomEvent).detail
+            const rodInst = useBuildStore.getState().parts[detail.rodId]
+            const rodDef = rodInst ? defs.get(rodInst.part_id) : undefined
+            if (rodDef) {
+                const range = getSlideRange(rodDef, detail.portId)
+                if (range) {
+                    const snapshot = useBuildStore.getState().getSnapshot()
+                    useInteractionStore.setState({ slideEditInitialSnapshot: snapshot })
+                    
+                    useInteractionStore.getState().startSlideEditing(
+                        detail.instanceId,
+                        detail.connIndex,
+                        detail.rodId,
+                        detail.portId,
+                        detail.initialOffset,
+                        range
+                    )
+                }
+            }
+        }
+        const handleApplySlideEdit = () => {
+            const { isSlideEditing, slideEditConnectionIndex, slideOffset } = useInteractionStore.getState()
+            if (isSlideEditing && slideEditConnectionIndex !== null) {
+                useBuildStore.getState().updateSlideOffset(slideEditConnectionIndex, slideOffset, defs)
+            }
+        }
+        window.addEventListener('knexforge:start-slide-edit', handleStartSlideEdit)
+        window.addEventListener('knexforge:apply-slide-edit', handleApplySlideEdit)
+        return () => {
+            window.removeEventListener('knexforge:start-slide-edit', handleStartSlideEdit)
+            window.removeEventListener('knexforge:apply-slide-edit', handleApplySlideEdit)
+        }
+    }, [defs])
 
     // Build the parts list from the store
     const partsList = useMemo(() => Object.values(storeParts), [storeParts])

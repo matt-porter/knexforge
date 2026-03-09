@@ -8,9 +8,9 @@
 
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
-import type { PartInstance, Connection } from '../types/parts'
+import type { PartInstance, Connection, KnexPartDef } from '../types/parts'
 import { sidecarBridge } from '../services/sidecarBridge'
-import { isSlidablePort, getSlideFamily, familiesInterfere } from '../helpers/snapHelper'
+import { isSlidablePort, getSlideFamily, familiesInterfere, computeGhostTransform, getPortWorldPose } from '../helpers/snapHelper'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -92,6 +92,10 @@ export interface BuildStore {
   setSidecarConnected: (connected: boolean) => void
   /** Update current model metadata */
   setCurrentModelMeta: (id: string | null, title?: string) => void
+  /** Update the slide offset of an existing connection and reposition the attached part. */
+  updateSlideOffset: (connectionIndex: number, newOffset: number, partDefs: Map<string, KnexPartDef>) => void
+  /** End a slide edit operation and commit the undo snapshot. */
+  commitSlideEdit: (beforeSnapshot: BuildSnapshot) => void
 
   // --- Derived ---
   /** Get the number of placed parts. */
@@ -540,6 +544,72 @@ export const useBuildStore = create<BuildStore>()(
           state.currentModelTitle = title
         }
       })
+    },
+
+    updateSlideOffset: (connectionIndex: number, newOffset: number, partDefs: Map<string, KnexPartDef>) => {
+      set((state) => {
+        const conn = state.connections[connectionIndex]
+        if (!conn) return
+        
+        // Find which part is the slidable rod and which is the connector
+        const isFromSlidable = isSlidablePort(conn.from_port)
+        const isToSlidable = isSlidablePort(conn.to_port)
+        
+        if (!isFromSlidable && !isToSlidable) return
+        
+        const rodId = isFromSlidable ? conn.from_instance : conn.to_instance
+        const rodPortId = isFromSlidable ? conn.from_port : conn.to_port
+        const connId = isFromSlidable ? conn.to_instance : conn.from_instance
+        const connPortId = isFromSlidable ? conn.to_port : conn.from_port
+        
+        const rodInst = state.parts[rodId]
+        const connInst = state.parts[connId]
+        if (!rodInst || !connInst) return
+        
+        const rodDef = partDefs.get(rodInst.part_id)
+        const connDef = partDefs.get(connInst.part_id)
+        if (!rodDef || !connDef) return
+        
+        const rodPort = rodDef.ports.find((p: any) => p.id === rodPortId)
+        const connPort = connDef.ports.find((p: any) => p.id === connPortId)
+        if (!rodPort || !connPort) return
+
+        // Save state before modification if it's not a continuous drag (we batch undos elsewhere, but for now we just snapshot)
+        // We'll trust the interaction store to manage undo batches if needed, or just push a single state here.
+        // Actually, for continuous dragging, we should not spam undo stack.
+        // We will just update the state directly here, and the caller will handle undo snapshots.
+
+        conn.slide_offset = newOffset
+        
+        // We need the rod's world pos and dir without any slide offset to base the new computation on
+        // But wait, computeGhostTransform expects the targetWorldPos and Dir.
+        const { position: rodWorldPos, direction: rodWorldDir } = getPortWorldPose(rodInst, rodPort, 0)
+        
+        const { position, rotation } = computeGhostTransform(
+          connPort,
+          rodPort,
+          rodWorldPos,
+          rodWorldDir,
+          conn.twist_deg ?? 0,
+          rodInst,
+          connDef,
+          rodDef,
+          false, // assume connector is being placed on rod
+          newOffset
+        )
+        
+        connInst.position = [position.x, position.y, position.z]
+        connInst.rotation = [rotation.x, rotation.y, rotation.z, rotation.w]
+      })
+    },
+
+    commitSlideEdit: (beforeSnapshot: BuildSnapshot) => {
+      set((state) => {
+        const after = createSnapshot(state)
+        state.undoStack.push({ type: 'add_part', before: beforeSnapshot, after })
+        state.redoStack = []
+      })
+      get().recalculateStability()
     },
 
     // --- Derived ---

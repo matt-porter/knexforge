@@ -58,6 +58,15 @@ export interface InteractionStore {
   slideOffset: number
   /** Valid range for the current slide offset [min, max], or null if not slidable. */
   slideRange: [number, number] | null
+  
+  // --- Slide Editing State ---
+  isSlideEditing: boolean
+  slideEditInstanceId: string | null
+  slideEditConnectionIndex: number | null
+  slideEditRodInstanceId: string | null
+  slideEditPortId: string | null
+  slideEditInitialSnapshot: any | null
+
   /** Metadata for the snap variant HUD (written by PortIndicators). */
   snapVariantInfo: SnapVariantInfo | null
   /** Hovered part instance ID. */
@@ -101,6 +110,12 @@ export interface InteractionStore {
   resetSlideOffset: () => void
   /** Set the allowable slide range. */
   setSlideRange: (range: [number, number] | null) => void
+  
+  /** Start slide editing mode for a specific placed part. */
+  startSlideEditing: (instanceId: string, connectionIndex: number, rodInstanceId: string, portId: string, initialOffset: number, range: [number, number]) => void
+  /** End slide editing mode. */
+  stopSlideEditing: () => void
+  
   /** Set snap variant HUD metadata (called by PortIndicators). */
   setSnapVariantInfo: (info: SnapVariantInfo | null) => void
   
@@ -161,6 +176,12 @@ export const useInteractionStore = create<InteractionStore>()(
     activeSideIndex: 0,
     slideOffset: 0,
     slideRange: null,
+    isSlideEditing: false,
+    slideEditInstanceId: null,
+    slideEditConnectionIndex: null,
+    slideEditRodInstanceId: null,
+    slideEditPortId: null,
+    slideEditInitialSnapshot: null,
     snapVariantInfo: null,
     hoveredPartId: null,
     isSimulating: false,
@@ -309,6 +330,29 @@ export const useInteractionStore = create<InteractionStore>()(
     setSlideRange: (range: [number, number] | null) => {
       set((state) => {
         state.slideRange = range
+      })
+    },
+
+    startSlideEditing: (instanceId: string, connectionIndex: number, rodInstanceId: string, portId: string, initialOffset: number, range: [number, number]) => {
+      set((state) => {
+        state.mode = 'select'
+        state.isSlideEditing = true
+        state.slideEditInstanceId = instanceId
+        state.slideEditConnectionIndex = connectionIndex
+        state.slideEditRodInstanceId = rodInstanceId
+        state.slideEditPortId = portId
+        state.slideOffset = initialOffset
+        state.slideRange = range
+      })
+    },
+
+    stopSlideEditing: () => {
+      set((state) => {
+        state.isSlideEditing = false
+        state.slideEditInstanceId = null
+        state.slideEditConnectionIndex = null
+        state.slideEditRodInstanceId = null
+        state.slideEditPortId = null
       })
     },
 

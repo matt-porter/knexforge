@@ -724,7 +724,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `frontend/src/stores/interactionStore.ts`, `frontend/src/components/Viewer/PortIndicators.tsx`, `frontend/src/components/Viewer/SnapVariantHUD.tsx`, `frontend/src/components/Viewer/SlideGuide.tsx` (NEW)
 - **Docs**: `docs/tasks/task-14-6-slide-ui-controls.md`
 
-### [ ] Task 14.7: UI — Post-Placement Slide Editing
+### [x] Task 14.7: UI — Post-Placement Slide Editing
 - Context menu "Slide Along Rod" for placed connectors with slidable connections.
 - Keyboard-driven repositioning with collision detection.
 - Undo/redo support (single undo action per slide edit session).

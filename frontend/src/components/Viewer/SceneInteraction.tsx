@@ -55,6 +55,8 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
     // We yield control to it if we are currently snapped to a port.
     if (matchTargetId && useInteractionStore.getState().isSnapped) return
 
+    if (useInteractionStore.getState().isSlideEditing) return
+
     raycaster.current.setFromCamera(mouse.current, camera)
 
     if (raycaster.current.ray.intersectPlane(GROUND_PLANE, intersection.current)) {
@@ -153,7 +155,7 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
 
   // Wheel adjusts slide offset
   const handleWheel = useCallback((e: WheelEvent) => {
-    const { mode, isSnapped, snapPlacingPortId, snapTargetPortId } = useInteractionStore.getState()
+    const { mode, isSnapped, snapPlacingPortId, snapTargetPortId, isSlideEditing, slideEditConnectionIndex } = useInteractionStore.getState()
     if (mode === 'place' && isSnapped) {
       if (isSlidablePort(snapPlacingPortId ?? '') || isSlidablePort(snapTargetPortId ?? '')) {
         const step = e.shiftKey ? 1 : 5
@@ -162,8 +164,19 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
         e.preventDefault()
         e.stopPropagation()
       }
+    } else if (isSlideEditing && slideEditConnectionIndex !== null) {
+        const step = e.shiftKey ? 1 : 5
+        const delta = e.deltaY > 0 ? -step : step
+        useInteractionStore.getState().adjustSlideOffset(delta)
+        
+        // Immediately push the new offset to the connection
+        const newOffset = useInteractionStore.getState().slideOffset
+        useBuildStore.getState().updateSlideOffset(slideEditConnectionIndex, newOffset, defs)
+        
+        e.preventDefault()
+        e.stopPropagation()
     }
-  }, [])
+  }, [defs])
 
   // Bind events to the canvas element
   useEffect(() => {

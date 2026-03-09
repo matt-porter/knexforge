@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react'
 import { useInteractionStore } from '../../stores/interactionStore'
 import { useBuildStore } from '../../stores/buildStore'
+import { isSlidablePort } from '../../helpers/snapHelper'
 
 const COLORS = {
   bg: '#1a1a3e',
@@ -40,6 +41,29 @@ export function ContextMenu() {
 
   const isPinned = part.is_pinned
 
+  // Check for slidable connection
+  let slidableConnIndex = -1
+  let slidableRodId = ''
+  let slidablePortId = ''
+  
+  // Find a connection where this part is connected to a slidable port on a rod
+  const { connections } = useBuildStore.getState()
+  for (let i = 0; i < connections.length; i++) {
+    const c = connections[i]
+    if (c.from_instance === part.instance_id && isSlidablePort(c.to_port)) {
+        slidableConnIndex = i
+        slidableRodId = c.to_instance
+        slidablePortId = c.to_port
+        break
+    }
+    if (c.to_instance === part.instance_id && isSlidablePort(c.from_port)) {
+        slidableConnIndex = i
+        slidableRodId = c.from_instance
+        slidablePortId = c.from_port
+        break
+    }
+  }
+
   return (
     <div
       ref={menuRef}
@@ -62,6 +86,30 @@ export function ContextMenu() {
       <div style={{ padding: '6px 14px', fontSize: 11, color: '#666', borderBottom: `1px solid ${COLORS.border}`, marginBottom: 4 }}>
         Part: {part.instance_id.split('-')[0]}
       </div>
+
+      {slidableConnIndex !== -1 && (
+        <MenuButton onClick={() => handleAction(() => {
+            const rodInst = parts[slidableRodId]
+            if (!rodInst) return
+            
+            // We need part definitions to get slide range
+            // We could just pass defs down, or fire an event. For simplicity, we can fetch defs from the global scope or store.
+            // Actually ContextMenu doesn't have defs. Let's just dispatch an event and let BuildScene handle it,
+            // OR fetch defs from the datasetStore / rely on the caller setting it.
+            // Since we don't have defs directly, we can use a custom event or a store callback.
+            window.dispatchEvent(new CustomEvent('knexforge:start-slide-edit', { 
+                detail: { 
+                    instanceId: part.instance_id, 
+                    connIndex: slidableConnIndex,
+                    rodId: slidableRodId,
+                    portId: slidablePortId,
+                    initialOffset: connections[slidableConnIndex].slide_offset ?? 0
+                } 
+            }))
+        })}>
+          ↔️ Slide Along Rod
+        </MenuButton>
+      )}
 
       <MenuButton onClick={() => handleAction(() => togglePinPart(part.instance_id))}>
         {isPinned ? '📍 Unpin from World' : '📌 Pin to World'}

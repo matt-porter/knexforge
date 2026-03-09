@@ -14,26 +14,36 @@ interface SlideGuideProps {
  * and the current slide offset position.
  */
 export function SlideGuide({ defs }: SlideGuideProps) {
-    const { mode, isSnapped, snapTargetInstanceId, snapTargetPortId, slideOffset, slideRange } = useInteractionStore()
+    const { mode, isSnapped, snapTargetInstanceId, snapTargetPortId, slideOffset, slideRange, isSlideEditing, slideEditRodInstanceId, slideEditPortId } = useInteractionStore()
     const parts = useBuildStore((s) => s.parts)
 
     const guideData = useMemo(() => {
-        if (mode !== 'place' || !isSnapped || !slideRange || !snapTargetInstanceId || !snapTargetPortId) {
+        let rodInstanceId = snapTargetInstanceId
+        let portId = snapTargetPortId
+        
+        if (isSlideEditing) {
+            rodInstanceId = slideEditRodInstanceId
+            portId = slideEditPortId
+        } else if (mode !== 'place' || !isSnapped) {
             return null
         }
 
-        const instance = parts[snapTargetInstanceId]
+        if (!slideRange || !rodInstanceId || !portId) {
+            return null
+        }
+
+        const instance = parts[rodInstanceId]
         const def = instance ? defs.get(instance.part_id) : undefined
         if (!instance || !def || def.category !== 'rod') return null
 
         // Need the base pose of the port without offset applied to draw the line relative to it
-        const port = def.ports.find((p) => p.id === snapTargetPortId)
+        const port = def.ports.find((p) => p.id === portId)
         if (!port) return null
 
         const { position, direction } = getPortWorldPose(instance, port, 0)
 
         return { position, direction, range: slideRange, offset: slideOffset }
-    }, [mode, isSnapped, slideRange, slideOffset, snapTargetInstanceId, snapTargetPortId, parts, defs])
+    }, [mode, isSnapped, slideRange, slideOffset, snapTargetInstanceId, snapTargetPortId, isSlideEditing, slideEditRodInstanceId, slideEditPortId, parts, defs])
 
     if (!guideData) return null
 

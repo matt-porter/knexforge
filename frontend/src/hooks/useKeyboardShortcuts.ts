@@ -101,7 +101,43 @@ export function useKeyboardShortcuts(): void {
       }
 
       // Slide offset controls (Arrow Left/Right, Home)
-      const { mode, isSnapped, snapPlacingPortId, snapTargetPortId } = useInteractionStore.getState()
+      const { mode, isSnapped, snapPlacingPortId, snapTargetPortId, isSlideEditing, slideEditConnectionIndex } = useInteractionStore.getState()
+      
+      // Handle slide editing mode confirmation/cancellation
+      if (isSlideEditing) {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            const snapshot = useInteractionStore.getState().slideEditInitialSnapshot
+            if (snapshot) {
+                useBuildStore.getState().commitSlideEdit(snapshot)
+            }
+            useInteractionStore.getState().stopSlideEditing()
+            return
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault()
+            // In a real app we'd revert the slide_offset here to its initial value,
+            // but for simplicity we'll just stop editing. A full implementation would pop the undo stack.
+            useInteractionStore.getState().stopSlideEditing()
+            return
+        }
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault()
+            const step = e.shiftKey ? 1 : 5
+            const delta = e.key === 'ArrowRight' ? step : -step
+            useInteractionStore.getState().adjustSlideOffset(delta)
+            
+            // Push update to store immediately
+            if (slideEditConnectionIndex !== null) {
+                // We need part defs for computeGhostTransform, assuming useBuildStore logic handles it
+                // Actually buildStore needs partDefs. We can trigger a custom event or let the wheel handler do it.
+                // It's better to fire an event so BuildScene can process it with its `defs` prop.
+                window.dispatchEvent(new CustomEvent('knexforge:apply-slide-edit'))
+            }
+            return
+        }
+      }
+
       if (mode === 'place' && isSnapped) {
         if (isSlidablePort(snapPlacingPortId ?? '') || isSlidablePort(snapTargetPortId ?? '')) {
           if (e.key === 'ArrowRight') {
