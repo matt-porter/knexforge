@@ -731,7 +731,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `frontend/src/stores/buildStore.ts`, `frontend/src/stores/interactionStore.ts`, `frontend/src/components/Viewer/`
 - **Docs**: `docs/tasks/task-14-7-post-placement-slide-editing.md`
 
-### [ ] Task 14.8: Physics Engines — Cylindrical Joints for Axial, Fixed for Tangent
+### [x] Task 14.8: Physics Engines — Cylindrical Joints for Axial & Fixed Joints for Tangent
 - `center_axial` → **cylindrical joint** via compound dummy body (prismatic + revolute). Free rotation + free axial slide under gravity. `slide_offset` is initial position only.
 - `center_tangent` → **fixed joint** with offset anchor (friction-held, locked at `slide_offset`).
 - Motor-driven axial: motor torque drives the revolute half of the compound joint.

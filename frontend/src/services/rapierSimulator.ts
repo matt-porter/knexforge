@@ -80,12 +80,14 @@ function fromRapierQuat(r: { w: number; x: number; y: number; z: number }): Quat
 // Joint type inference (mirrors Python src/core/snapping.py::infer_joint_type)
 // ---------------------------------------------------------------------------
 
-function inferJointType(fromPort: Port, toPort: Port): string {
+function physicsJointType(
+  fromPort: Port, toPort: Port
+): 'fixed' | 'revolute' | 'cylindrical' {
+  if (fromPort.id.startsWith('center_axial') || toPort.id.startsWith('center_axial')) {
+    return 'cylindrical'
+  }
   const mateTypes = new Set([fromPort.mate_type, toPort.mate_type])
   if (mateTypes.has('rotational_hole')) return 'revolute'
-  if (mateTypes.has('slider_hole')) return 'prismatic'
-  if (fromPort.id.startsWith('center_axial') || toPort.id.startsWith('center_axial'))
-    return 'revolute'
   return 'fixed'
 }
 
@@ -236,14 +238,32 @@ export class RapierSimulator {
       const toPort = toDef.ports.find((p) => p.id === conn.to_port)
       if (!fromPort || !toPort) continue
 
-      const jointType = inferJointType(fromPort, toPort)
+      const physicsType = physicsJointType(fromPort, toPort)
+
+      // Apply slide offset to the anchor position
+      let offset1 = 0
+      let offset2 = 0
+      if (physicsType === 'fixed') {
+          // If it's fixed (like center_tangent), the slide_offset determines the fixed position
+          if (fromPort.id.startsWith('center_tangent')) offset1 = conn.slide_offset ?? 0
+          if (toPort.id.startsWith('center_tangent')) offset2 = conn.slide_offset ?? 0
+      } else if (physicsType === 'cylindrical') {
+          // For cylindrical, slide_offset determines the initial prismatic offset
+          if (fromPort.id.startsWith('center_axial')) offset1 = conn.slide_offset ?? 0
+          if (toPort.id.startsWith('center_axial')) offset2 = conn.slide_offset ?? 0
+      }
+      
+      const fromPos = [...fromPort.position] as Vec3
+      const toPos = [...toPort.position] as Vec3
+      fromPos[0] += offset1
+      toPos[0] += offset2
 
       // Compute pivot in world space (midpoint of the two port positions)
       const fromPortWorld = vecAdd(
         fromInst.position,
-        quatApply(fromInst.rotation, fromPort.position),
+        quatApply(fromInst.rotation, fromPos),
       )
-      const toPortWorld = vecAdd(toInst.position, quatApply(toInst.rotation, toPort.position))
+      const toPortWorld = vecAdd(toInst.position, quatApply(toInst.rotation, toPos))
       const pivotWorld = vecScale(vecAdd(fromPortWorld, toPortWorld), 0.5)
 
       // Convert pivot to each body's local frame
@@ -258,7 +278,45 @@ export class RapierSimulator {
         (motorIds.includes(conn.from_instance) || motorIds.includes(conn.to_instance)) &&
         (fromPort.mate_type === 'rotational_hole' || toPort.mate_type === 'rotational_hole')
 
-      if (jointType === 'revolute') {
+      if (physicsType === 'cylindrical') {
+        const isFromRod = fromDef.category === 'rod'
+        const rodDef = isFromRod ? fromDef : toDef
+        const rodBody = isFromRod ? fromBody : toBody
+        const connBody = isFromRod ? toBody : fromBody
+        
+        const rodAnchor = isFromRod ? a1 : a2
+        const connAnchor = isFromRod ? a2 : a1
+        
+        const rodLocalX = { x: 1, y: 0, z: 0 }
+        
+        // Compound joint for cylindrical:
+        // 1. Create dummy body at connector's initial position
+        const dummyDesc = RAPIER.RigidBodyDesc.dynamic()
+          .setTranslation(toInst.position[0], toInst.position[1], toInst.position[2])
+          .setRotation(toRapierQuat(toInst.rotation))
+        const dummyBody = this.world.createRigidBody(dummyDesc)
+
+        // 2. Prismatic: rod <-> dummy (axial slide)
+        const prismaticParams = RAPIER.JointData.prismatic(rodAnchor, connAnchor, rodLocalX)
+        const prismaticJoint = this.world.createImpulseJoint(prismaticParams, rodBody, dummyBody, true) as RAPIER.PrismaticImpulseJoint
+        
+        // Compute clearance and limits
+        const rodHalfLength = rodDef.ports.find((p) => p.id === 'end2')?.position[0]! / 2
+        const clearance = 7.5 // 15mm clearance / 2
+        prismaticJoint.setLimits(-rodHalfLength + clearance, rodHalfLength - clearance)
+        prismaticJoint.setContactsEnabled(false)
+
+        // 3. Revolute: dummy <-> connector (spin around rod axis)
+        const revoluteParams = RAPIER.JointData.revolute(connAnchor, connAnchor, rodLocalX)
+        const revoluteJoint = this.world.createImpulseJoint(revoluteParams, dummyBody, connBody, true)
+        revoluteJoint.setContactsEnabled(false)
+
+        if (isMotorConn) {
+          const revolute = revoluteJoint as RAPIER.RevoluteImpulseJoint
+          revolute.configureMotorVelocity(motorSpeed, 50)
+          this.motorJoints.push(revolute)
+        }
+      } else if (physicsType === 'revolute') {
         // Determine rotation axis from the rotational_hole port
         let axisPortDir: Vec3 = fromPort.direction
         let axisRot: Quat = fromInst.rotation
