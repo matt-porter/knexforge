@@ -67,3 +67,38 @@ def test_stringify_deterministic():
     # Parts should be sorted
     assert text.index("part c1") < text.index("part r1")
     assert "r1.end1 -- c1.A @ 45!" in text
+
+def test_parse_with_slide_offset():
+    # Only slide offset
+    text1 = "part r1 rr\npart c1 gc4\nr1.center_axial_1 -- c1.A @ 0 slide=20.5"
+    model1 = parse_compact_topology(text1)
+    assert model1.connections[0].slide_offset == 20.5
+    assert model1.connections[0].twist_deg == 0.0
+
+    # Negative slide offset
+    text2 = "part r1 rr\npart c1 gc4\nr1.center_axial_1 -- c1.A @ 0 slide=-15"
+    model2 = parse_compact_topology(text2)
+    assert model2.connections[0].slide_offset == -15.0
+    
+    # Twist + fixed_roll + slide offset
+    text3 = "part r1 rr\npart c1 gc4\nr1.center_axial_1 -- c1.A @ 90! slide=+20"
+    model3 = parse_compact_topology(text3)
+    assert model3.connections[0].slide_offset == 20.0
+    assert model3.connections[0].twist_deg == 90.0
+    assert model3.connections[0].fixed_roll is True
+
+def test_stringify_with_slide_offset():
+    model = TopologyModel(
+        parts=[{"instance_id": "r1", "part_id": "rr"}, {"instance_id": "c1", "part_id": "gc4"}],
+        connections=[
+            {"from": "r1.center", "to": "c1.A", "joint_type": "fixed", "twist_deg": 0.0, "fixed_roll": False, "slide_offset": 25.0}
+        ]
+    )
+    text = stringify_compact_topology(model)
+    assert "@ 0 slide=+25" in text
+
+    model.connections[0].twist_deg = 90.0
+    model.connections[0].fixed_roll = True
+    model.connections[0].slide_offset = -10.5
+    text2 = stringify_compact_topology(model)
+    assert "@ 90! slide=-10.5" in text2

@@ -694,7 +694,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `src/core/snapping.py`, `frontend/src/helpers/snapHelper.ts`
 - **Docs**: `docs/tasks/task-14-2-snapping-with-slide-offset.md`
 
-### [ ] Task 14.3: File I/O & Serialization — Persist `slide_offset`
+### [x] Task 14.3: File I/O & Serialization — Persist `slide_offset`
 - Serialize `slide_offset` in `.knx` / JSON (omit when 0).
 - Deserialize with default 0.0 for backward compatibility.
 - Unified `@ <twist>[!] slide=<offset>` annotation syntax in compact format (coexists with existing `@` twist/fixed_roll).

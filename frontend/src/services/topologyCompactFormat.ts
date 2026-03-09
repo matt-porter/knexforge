@@ -102,16 +102,17 @@ export function parseCompactTopology(text: string): TopologyModel {
       return
     }
 
-    const edgeMatch = line.match(/^([A-Za-z0-9_.-]+)\s*(--|~~|=>)\s*([A-Za-z0-9_.-]+)(?:\s*@\s*(-?\d+(?:\.\d+)?)(!)?)?$/)
+    const edgeMatch = line.match(/^([A-Za-z0-9_.-]+)\s*(--|~~|=>)\s*([A-Za-z0-9_.-]+)(?:\s*@\s*(-?\d+(?:\.\d+)?)(!)?(?:\s+slide=([+-]?\d+(?:\.\d+)?))?)?$/)
     if (!edgeMatch) {
       throw new Error(`Line ${index + 1}: invalid compact syntax '${raw.trim()}'`)
     }
 
-    const [, fromRef, operator, toRef, twistStr, fixedRollMark] = edgeMatch
+    const [, fromRef, operator, toRef, twistStr, fixedRollMark, slideStr] = edgeMatch
     const from = parseEndpoint(fromRef)
     const to = parseEndpoint(toRef)
     const twist_deg = twistStr ? parseFloat(twistStr) : undefined
     const fixed_roll = fixedRollMark === '!'
+    const slide_offset = slideStr ? parseFloat(slideStr) : 0
     discoveredInstances.add(from.instance_id)
     discoveredInstances.add(to.instance_id)
 
@@ -121,6 +122,7 @@ export function parseCompactTopology(text: string): TopologyModel {
       joint_type: JOINT_OPERATOR_TO_TYPE[operator as keyof typeof JOINT_OPERATOR_TO_TYPE],
       twist_deg: twist_deg ?? 0,
       fixed_roll: fixed_roll ?? false,
+      slide_offset,
     })
   })
 
@@ -156,9 +158,13 @@ export function stringifyCompactTopology(model: TopologyModel): string {
   for (const connection of canonical.connections) {
     const operator = JOINT_TYPE_TO_OPERATOR[connection.joint_type ?? 'fixed'] ?? '--'
     let line = `${connection.from} ${operator} ${connection.to}`
-    if (connection.twist_deg || connection.fixed_roll) {
-      line += ` @ ${connection.twist_deg}${connection.fixed_roll ? '!' : ''}`
+    
+    if (connection.slide_offset) {
+      line += ` @ ${connection.twist_deg ?? 0}${connection.fixed_roll ? '!' : ''} slide=${connection.slide_offset > 0 ? '+' : ''}${connection.slide_offset}`
+    } else if (connection.twist_deg || connection.fixed_roll) {
+      line += ` @ ${connection.twist_deg ?? 0}${connection.fixed_roll ? '!' : ''}`
     }
+    
     lines.push(line)
   }
 

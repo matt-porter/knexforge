@@ -283,6 +283,10 @@ def validate_connection_entry(conn: dict, index: int) -> list[str]:
     if "to" in conn and "." not in str(conn["to"]):
         errors.append(f"Connection {index}: 'to' must be in format 'instance_id.port_name'")
 
+    if "slide_offset" in conn:
+        if not isinstance(conn["slide_offset"], (int, float)):
+            errors.append(f"Connection {index}: 'slide_offset' must be a number")
+
     return errors
 
 
@@ -364,6 +368,8 @@ def _build_to_model_json(build: Build, library: PartLibrary) -> dict:
             c_dict["twist_deg"] = conn.twist_deg
         if hasattr(conn, 'fixed_roll') and conn.fixed_roll:
             c_dict["fixed_roll"] = True
+        if hasattr(conn, 'slide_offset') and conn.slide_offset != 0.0:
+            c_dict["slide_offset"] = conn.slide_offset
         connections.append(c_dict)
 
     return {"parts": parts, "connections": connections}
@@ -415,6 +421,7 @@ def _model_json_to_build(data: dict, library: PartLibrary) -> Build:
             joint_type=c_dict.get("joint_type", "fixed"),
             twist_deg=c_dict.get("twist_deg", 0.0),
             fixed_roll=c_dict.get("fixed_roll", False),
+            slide_offset=c_dict.get("slide_offset", 0.0),
         )
         build.connections.add(conn)
         build._graph.add_edge(from_instance, to_instance, joint_type=conn.joint_type)

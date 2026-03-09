@@ -24,6 +24,7 @@ class TopologyConnection(BaseModel):
     joint_type: Literal["fixed", "revolute", "prismatic"] = "fixed"
     twist_deg: float = 0.0
     fixed_roll: bool = False
+    slide_offset: float = 0.0
 
 class TopologyModel(BaseModel):
     format_version: Literal["topology-v1"] = "topology-v1"
@@ -115,12 +116,16 @@ def parse_compact_topology(text: str) -> TopologyModel:
             discovered_instances.add(instance_id)
             continue
 
-        # 3. Connection: <inst>.<port> <op> <inst>.<port> [@ <twist>[!]]
-        edge_match = re.match(r"^([A-Za-z0-9_.-]+)\s*(--|~~|=>)\s*([A-Za-z0-9_.-]+)(?:\s*@\s*(-?\d+(?:\.\d+)?)(!)?)?$", line)
+        # 3. Connection: <inst>.<port> <op> <inst>.<port> [@ <twist>[!] [slide=<offset>]]
+        edge_match = re.match(
+            r"^([A-Za-z0-9_.-]+)\s*(--|~~|=>)\s*([A-Za-z0-9_.-]+)"
+            r"(?:\s*@\s*(-?\d+(?:\.\d+)?)(!)?(?:\s+slide=([+-]?\d+(?:\.\d+)?))?)?$",
+            line
+        )
         if not edge_match:
             raise ParseError("Invalid compact syntax", line_num, raw.strip())
 
-        from_ref, operator, to_ref, twist_str, fixed_roll_mark = edge_match.groups()
+        from_ref, operator, to_ref, twist_str, fixed_roll_mark, slide_str = edge_match.groups()
         
         # Verify ref format
         if "." not in from_ref or "." not in to_ref:
@@ -137,7 +142,8 @@ def parse_compact_topology(text: str) -> TopologyModel:
                 "to": to_ref,
                 "joint_type": JOINT_OPERATOR_TO_TYPE[operator],
                 "twist_deg": float(twist_str) if twist_str else 0.0,
-                "fixed_roll": fixed_roll_mark == "!"
+                "fixed_roll": fixed_roll_mark == "!",
+                "slide_offset": float(slide_str) if slide_str else 0.0,
             }
         ))
 
@@ -174,10 +180,16 @@ def stringify_compact_topology(model: TopologyModel) -> str:
     for conn in sorted_conns:
         op = JOINT_TYPE_TO_OPERATOR.get(conn.joint_type, "--")
         line = f"{conn.from_ref} {op} {conn.to_ref}"
-        if conn.twist_deg != 0:
-            # Format float nicely (strip .0)
+        
+        slide_val = getattr(conn, 'slide_offset', 0.0) or 0.0
+        if slide_val != 0.0:
+            twist_val = f"{conn.twist_deg:g}"
+            slide_fmt = f"+{slide_val:g}" if slide_val > 0 else f"{slide_val:g}"
+            line += f" @ {twist_val}{'!' if conn.fixed_roll else ''} slide={slide_fmt}"
+        elif conn.twist_deg != 0 or conn.fixed_roll:
             twist_val = f"{conn.twist_deg:g}"
             line += f" @ {twist_val}{'!' if conn.fixed_roll else ''}"
+            
         lines.append(line)
         
     return "\n".join(lines)

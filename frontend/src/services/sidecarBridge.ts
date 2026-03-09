@@ -85,6 +85,9 @@ export interface ExportedBuildData {
       from: string
       to: string
       joint_type: string
+      twist_deg?: number
+      fixed_roll?: boolean
+      slide_offset?: number
     }>
   }
 }

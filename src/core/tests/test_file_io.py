@@ -156,3 +156,47 @@ def test_manifest_defaults():
     assert m.app_version == "0.1.0"
     assert m.created_at is not None
     assert m.ai_prompt is None
+
+def test_save_load_slide_offset(sample_build, library, tmp_path):
+    # Set slide_offset on the only connection
+    conn = next(iter(sample_build.connections))
+    
+    # We must replace the connection in the frozen set (we have to rebuild it because it's a frozen pydantic model)
+    sample_build.connections.remove(conn)
+    new_conn = Connection(
+        from_instance=conn.from_instance,
+        from_port=conn.from_port,
+        to_instance=conn.to_instance,
+        to_port=conn.to_port,
+        joint_type=conn.joint_type,
+        twist_deg=conn.twist_deg,
+        fixed_roll=conn.fixed_roll,
+        slide_offset=25.0,
+    )
+    sample_build.connections.add(new_conn)
+
+    out = tmp_path / "slide.knx"
+    save_knx(sample_build, out)
+
+    with zipfile.ZipFile(out, "r") as zf:
+        model = json.loads(zf.read("model.json"))
+        c_dict = model["connections"][0]
+        assert c_dict["slide_offset"] == 25.0
+
+    loaded_build, _ = load_knx(out, library)
+    loaded_conn = next(iter(loaded_build.connections))
+    assert loaded_conn.slide_offset == 25.0
+
+def test_save_omits_zero_slide_offset(sample_build, library, tmp_path):
+    # Ensure the connection has 0 slide offset
+    conn = next(iter(sample_build.connections))
+    assert conn.slide_offset == 0.0
+
+    out = tmp_path / "slide_zero.knx"
+    save_knx(sample_build, out)
+
+    with zipfile.ZipFile(out, "r") as zf:
+        model = json.loads(zf.read("model.json"))
+        c_dict = model["connections"][0]
+        # Should be omitted to save space
+        assert "slide_offset" not in c_dict

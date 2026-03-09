@@ -108,6 +108,9 @@ export function parseExportedBuildData(data: ExportedBuildData): {
       to_instance: c.to.substring(0, toLastDot),
       to_port: normalizeLegacyRodSidePortId(c.to.substring(toLastDot + 1)),
       joint_type: (c.joint_type as 'fixed' | 'revolute' | 'prismatic') || 'fixed',
+      twist_deg: c.twist_deg ?? 0,
+      fixed_roll: c.fixed_roll ?? false,
+      slide_offset: c.slide_offset ?? 0,
     }
   })
 
@@ -137,7 +140,10 @@ export function createExportData(parts: PartInstance[], connections: Connection[
       connections: connections.map(c => ({
         from: `${c.from_instance}.${c.from_port}`,
         to: `${c.to_instance}.${c.to_port}`,
-        joint_type: c.joint_type || 'fixed'
+        joint_type: c.joint_type || 'fixed',
+        ...(c.twist_deg ? { twist_deg: c.twist_deg } : {}),
+        ...(c.fixed_roll ? { fixed_roll: c.fixed_roll } : {}),
+        ...(c.slide_offset ? { slide_offset: c.slide_offset } : {}),
       }))
     }
   }
