@@ -609,13 +609,14 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `frontend/src/services/topologySolver.ts` (only)
 - **Docs**: `docs/tasks/task-13-4-joint-type-aware-constraints.md`
 
-### [ ] Task 13.5: Comprehensive Loop Solver Test Suite
+### [x] Task 13.5: Comprehensive Loop Solver Test Suite
 - 15+ new test cases across 6 categories: valid loops, order-independence, infeasible geometry, mixed joints, open-chain regression, edge cases.
 - Shared part definition fixtures in `__tests__/partFixtures.ts`.
 - Geometry assertion helpers (residual checks, equivalence checks).
 - All tests deterministic, each <100ms.
 - **Files**: `frontend/src/services/__tests__/topologySolver.test.ts`, `frontend/src/services/__tests__/partFixtures.ts`
 - **Docs**: `docs/tasks/task-13-5-comprehensive-loop-solver-tests.md`
+- **Status (2026-03-09)**: Added `frontend/src/services/__tests__/loopSolver.test.ts` with 16 deterministic Phase 13 cases across 6 categories, backed by shared synthetic + real fixtures in `frontend/src/services/__tests__/partFixtures.ts`. The suite now includes residual/equivalence helpers, passes alongside `octagon.test.ts`, and frontend `npm run type-check` is clean.
 
 ### [ ] Task 13.6: Performance Optimization and Warm-Start Caching
 - Explicit skip of refinement for tree-only components.

@@ -2,15 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { Quaternion, Vector3 } from 'three'
 import { parseCompactTopology } from '../topologyCompactFormat'
 import { solveTopology } from '../topologySolver'
-import { PartLoader } from '../../core/parts/loader' // Wait, this is TS, I need to mock or use the JS part data
 
-// Since we're in Vitest, we can't easily import the Python PartLoader.
-// I'll create a mock part library with just the needed parts.
 import red3Way from '../../../../parts/connector-3way-red-v1.json'
 import yellow5Way from '../../../../parts/connector-5way-yellow-v1.json'
 import redRod128 from '../../../../parts/rod-128-red-v1.json'
 import yellowRod86 from '../../../../parts/rod-86-yellow-v1.json'
-import { KnexPartDef } from '../types/parts'
+import type { KnexPartDef } from '../../types/parts'
 
 const partDefsById = new Map<string, KnexPartDef>([
   ['connector-3way-red-v1', red3Way as any],
