@@ -8,6 +8,7 @@ import { InstancedParts } from './InstancedParts'
 import { GhostPreview } from './GhostPreview'
 import { SceneInteraction } from './SceneInteraction'
 import { PortIndicators } from './PortIndicators'
+import { SlideGuide } from './SlideGuide'
 import { getPortWorldPose } from '../../helpers/snapHelper'
 import { useDatasetStore } from '../../stores/datasetStore'
 import { datasetEntryToBuild } from '../../hooks/useDataset'
@@ -254,6 +255,8 @@ export function BuildScene({ loadDemoWhenEmpty = true }: BuildSceneProps) {
       <BuildSceneInner parts={partsList} defs={defs} selectedPartId={selectedPartId} />
       <ConnectionLines connections={storeConnections} parts={storeParts} defs={defs} />
       <GhostLayer defs={defs} />
+      {/* Visual slide range guide */}
+      <SlideGuide defs={defs} />
       {/* Target points for port matching mode */}
       <PortIndicators defs={defs} />
       <SceneInteraction defs={defs} />

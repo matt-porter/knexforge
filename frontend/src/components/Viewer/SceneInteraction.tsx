@@ -3,7 +3,7 @@ import { useThree, useFrame } from '@react-three/fiber'
 import { Plane, Vector3, Raycaster, Vector2 } from 'three'
 import { useInteractionStore } from '../../stores/interactionStore'
 import { useBuildStore } from '../../stores/buildStore'
-import { findNearestSnap, inferJointType } from '../../helpers/snapHelper'
+import { findNearestSnap, inferJointType, isSlidablePort } from '../../helpers/snapHelper'
 import type { KnexPartDef } from '../../types/parts'
 
 interface SceneInteractionProps {
@@ -151,18 +151,34 @@ export function SceneInteraction({ defs }: SceneInteractionProps) {
     }
   }, [])
 
+  // Wheel adjusts slide offset
+  const handleWheel = useCallback((e: WheelEvent) => {
+    const { mode, isSnapped, snapPlacingPortId, snapTargetPortId } = useInteractionStore.getState()
+    if (mode === 'place' && isSnapped) {
+      if (isSlidablePort(snapPlacingPortId ?? '') || isSlidablePort(snapTargetPortId ?? '')) {
+        const step = e.shiftKey ? 1 : 5
+        const delta = e.deltaY > 0 ? -step : step
+        useInteractionStore.getState().adjustSlideOffset(delta)
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+  }, [])
+
   // Bind events to the canvas element
   useEffect(() => {
     const el = gl.domElement
     el.addEventListener('pointermove', handlePointerMove)
     el.addEventListener('click', handleClick)
     el.addEventListener('contextmenu', handleContextMenu)
+    el.addEventListener('wheel', handleWheel, { passive: false })
     return () => {
       el.removeEventListener('pointermove', handlePointerMove)
       el.removeEventListener('click', handleClick)
       el.removeEventListener('contextmenu', handleContextMenu)
+      el.removeEventListener('wheel', handleWheel)
     }
-  }, [gl, handlePointerMove, handleClick, handleContextMenu])
+  }, [gl, handlePointerMove, handleClick, handleContextMenu, handleWheel])
 
   return null
 }

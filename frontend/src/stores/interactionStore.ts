@@ -54,6 +54,10 @@ export interface InteractionStore {
   activeAngleIndex: number
   /** Index of the active rod-side choice within the current port group (X cycles this). */
   activeSideIndex: number
+  /** Current slide offset in mm (0 = center). */
+  slideOffset: number
+  /** Valid range for the current slide offset [min, max], or null if not slidable. */
+  slideRange: [number, number] | null
   /** Metadata for the snap variant HUD (written by PortIndicators). */
   snapVariantInfo: SnapVariantInfo | null
   /** Hovered part instance ID. */
@@ -89,6 +93,14 @@ export interface InteractionStore {
   cycleAngle: () => void
   /** Cycle to the next rod-side option within the current port group (X key when snapped). */
   cycleSide: () => void
+  /** Set the exact slide offset. */
+  setSlideOffset: (offset: number) => void
+  /** Adjust the slide offset by a delta, clamping to range. */
+  adjustSlideOffset: (delta: number) => void
+  /** Reset slide offset to 0. */
+  resetSlideOffset: () => void
+  /** Set the allowable slide range. */
+  setSlideRange: (range: [number, number] | null) => void
   /** Set snap variant HUD metadata (called by PortIndicators). */
   setSnapVariantInfo: (info: SnapVariantInfo | null) => void
   
@@ -147,6 +159,8 @@ export const useInteractionStore = create<InteractionStore>()(
     activePortIndex: 0,
     activeAngleIndex: 0,
     activeSideIndex: 0,
+    slideOffset: 0,
+    slideRange: null,
     snapVariantInfo: null,
     hoveredPartId: null,
     isSimulating: false,
@@ -168,6 +182,8 @@ export const useInteractionStore = create<InteractionStore>()(
         state.activePortIndex = 0
         state.activeAngleIndex = 0
         state.activeSideIndex = 0
+        state.slideOffset = 0
+        state.slideRange = null
         ;(state as any)._lastCycleTime = 0
         state.snapVariantInfo = null
       })
@@ -187,6 +203,8 @@ export const useInteractionStore = create<InteractionStore>()(
         state.activePortIndex = 0
         state.activeAngleIndex = 0
         state.activeSideIndex = 0
+        state.slideOffset = 0
+        state.slideRange = null
         ;(state as any)._lastCycleTime = 0
         state.snapVariantInfo = null
       })
@@ -211,6 +229,8 @@ export const useInteractionStore = create<InteractionStore>()(
           state.activePortIndex = 0
           state.activeAngleIndex = 0
           state.activeSideIndex = 0
+          state.slideOffset = 0
+          state.slideRange = null
           state.snapVariantInfo = null
         }
         state.snapTargetInstanceId = instanceId
@@ -247,6 +267,7 @@ export const useInteractionStore = create<InteractionStore>()(
         state.activePortIndex += 1
         state.activeSideIndex = 0
         state.activeAngleIndex = 0
+        state.slideOffset = 0
         ;(state as any)._lastCycleTime = now
       })
     },
@@ -255,12 +276,39 @@ export const useInteractionStore = create<InteractionStore>()(
       set((state) => {
         state.activeSideIndex += 1
         state.activeAngleIndex = 0
+        // We DO NOT reset slideOffset when cycling sides, as the position along the rod is preserved.
       })
     },
 
     cycleAngle: () => {
       set((state) => {
         state.activeAngleIndex += 1
+      })
+    },
+
+    setSlideOffset: (offset: number) => {
+      set((state) => {
+        state.slideOffset = offset
+      })
+    },
+
+    adjustSlideOffset: (delta: number) => {
+      set((state) => {
+        if (!state.slideRange) return
+        const [min, max] = state.slideRange
+        state.slideOffset = Math.max(min, Math.min(state.slideOffset + delta, max))
+      })
+    },
+
+    resetSlideOffset: () => {
+      set((state) => {
+        state.slideOffset = 0
+      })
+    },
+
+    setSlideRange: (range: [number, number] | null) => {
+      set((state) => {
+        state.slideRange = range
       })
     },
 

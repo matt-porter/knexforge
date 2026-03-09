@@ -15,6 +15,7 @@
 import { useEffect } from 'react'
 import { useBuildStore } from '../stores/buildStore'
 import { useInteractionStore } from '../stores/interactionStore'
+import { isSlidablePort } from '../helpers/snapHelper'
 
 export function useKeyboardShortcuts(): void {
   useEffect(() => {
@@ -96,6 +97,30 @@ export function useKeyboardShortcuts(): void {
           e.preventDefault()
           useInteractionStore.getState().cycleSide()
           return
+        }
+      }
+
+      // Slide offset controls (Arrow Left/Right, Home)
+      const { mode, isSnapped, snapPlacingPortId, snapTargetPortId } = useInteractionStore.getState()
+      if (mode === 'place' && isSnapped) {
+        if (isSlidablePort(snapPlacingPortId ?? '') || isSlidablePort(snapTargetPortId ?? '')) {
+          if (e.key === 'ArrowRight') {
+            e.preventDefault()
+            const step = e.shiftKey ? 1 : 5
+            useInteractionStore.getState().adjustSlideOffset(step)
+            return
+          }
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault()
+            const step = e.shiftKey ? 1 : 5
+            useInteractionStore.getState().adjustSlideOffset(-step)
+            return
+          }
+          if (e.key === 'Home') {
+            e.preventDefault()
+            useInteractionStore.getState().resetSlideOffset()
+            return
+          }
         }
       }
 

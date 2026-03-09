@@ -3,7 +3,7 @@ import { type ThreeEvent } from '@react-three/fiber'
 import { Quaternion, Vector3 } from 'three'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
-import { getPortWorldPose, inferJointType, computeGhostTransform, isSlidablePort } from '../../helpers/snapHelper'
+import { getPortWorldPose, inferJointType, computeGhostTransform, isSlidablePort, getSlideRange } from '../../helpers/snapHelper'
 import type { KnexPartDef, Port } from '../../types/parts'
 
 interface PortIndicatorsProps {
@@ -172,6 +172,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
 
                 for (const angle of angles) {
                     const isPlacingRod = placingDef.category === 'rod'
+                    const offset = useInteractionStore.getState().slideOffset
                     const { position: ghostPos, rotation: ghostQuat } = computeGhostTransform(
                         placingPort,
                         targetPort,
@@ -181,7 +182,8 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                         targetInstance,
                         placingDef,
                         targetDef,
-                        isPlacingRod
+                        isPlacingRod,
+                        offset,
                     )
 
                     // --- Physical Constraints ---
@@ -333,7 +335,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
         }
 
         return result
-    }, [mode, placingPartId, matchTargetId, parts, connections, defs])
+    }, [mode, placingPartId, matchTargetId, parts, connections, defs, useInteractionStore.getState().slideOffset])
 
     const activePortIndex = useInteractionStore((s) => s.activePortIndex)
     const activeSideIndex = useInteractionStore((s) => s.activeSideIndex)
@@ -383,12 +385,28 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
 
             const prevHovered = hoveredPortIdRef.current
             if (prevHovered !== ind.positionKey) {
-                useInteractionStore.setState({ activePortIndex: 0, activeSideIndex: 0, activeAngleIndex: 0 })
+                useInteractionStore.setState({ activePortIndex: 0, activeSideIndex: 0, activeAngleIndex: 0, slideOffset: 0 })
+                
+                // Determine slide range
+                const targetInstance = parts[matchTargetId!]
+                const placingDef = defs.get(placingPartId!)
+                const targetDef = targetInstance ? defs.get(targetInstance.part_id) : undefined
+                
+                let range: [number, number] | null = null
+                if (ind.portGroups.length > 0 && ind.portGroups[0].sideGroups.length > 0 && ind.portGroups[0].sideGroups[0].variants.length > 0) {
+                    const variant = ind.portGroups[0].sideGroups[0].variants[0]
+                    if (isSlidablePort(variant.placingPortId) && placingDef) {
+                        range = getSlideRange(placingDef, variant.placingPortId)
+                    } else if (isSlidablePort(variant.targetPortId) && targetDef) {
+                        range = getSlideRange(targetDef, variant.targetPortId)
+                    }
+                }
+                useInteractionStore.getState().setSlideRange(range)
             }
             hoveredPortIdRef.current = ind.positionKey
             setHoveredPortId(ind.positionKey)
         },
-        []
+        [matchTargetId, placingPartId, parts, defs]
     )
 
     const handlePointerOut = useCallback((e: ThreeEvent<PointerEvent>) => {
@@ -432,6 +450,7 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
                 joint_type: variant.joint_type,
                 twist_deg: variant.angle,
                 fixed_roll: variant.fixed_roll,
+                slide_offset: useInteractionStore.getState().slideOffset,
             })
 
             useBuildStore.getState().selectPart(instanceId)

@@ -67,12 +67,14 @@ const HUD_STYLES = {
  * Shows all available ports as dots so the user can see exactly which port is active.
  */
 export function SnapVariantHUD() {
-  const { mode, placingPartId, matchTargetId, isSnapped, snapVariantInfo } = useInteractionStore()
+  const { mode, placingPartId, matchTargetId, isSnapped, snapVariantInfo, slideOffset, slideRange } = useInteractionStore()
 
   if (mode !== 'place' || !placingPartId) return null
 
   // When snapped and hovering a port indicator, show the full port/rotation picker
   if (matchTargetId && isSnapped && snapVariantInfo) {
+    const isSlidable = slideRange !== null
+
     return (
       <div style={HUD_STYLES.container}>
         {/* Port section with dots */}
@@ -150,6 +152,18 @@ export function SnapVariantHUD() {
           </div>
         </div>
 
+        {isSlidable && (
+          <>
+            <div style={HUD_STYLES.divider} />
+            <div style={HUD_STYLES.section}>
+              <span style={HUD_STYLES.label}>Slide</span>
+              <span style={HUD_STYLES.value}>
+                {slideOffset > 0 ? '+' : ''}{slideOffset.toFixed(0)} mm
+              </span>
+            </div>
+          </>
+        )}
+
         <div style={HUD_STYLES.divider} />
 
         {/* Keyboard hints */}
@@ -163,6 +177,11 @@ export function SnapVariantHUD() {
           <span style={HUD_STYLES.hint}>
             <span style={HUD_STYLES.kbd}>R</span> rotate
           </span>
+          {isSlidable && (
+            <span style={HUD_STYLES.hint}>
+              <span style={HUD_STYLES.kbd}>←→</span> slide
+            </span>
+          )}
         </div>
       </div>
     )
