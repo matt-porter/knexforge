@@ -3,7 +3,7 @@ import { type ThreeEvent } from '@react-three/fiber'
 import { Quaternion, Vector3 } from 'three'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
-import { getPortWorldPose, inferJointType, computeGhostTransform } from '../../helpers/snapHelper'
+import { getPortWorldPose, inferJointType, computeGhostTransform, isSlidablePort } from '../../helpers/snapHelper'
 import type { KnexPartDef, Port } from '../../types/parts'
 
 interface PortIndicatorsProps {
@@ -143,11 +143,13 @@ export function PortIndicators({ defs }: PortIndicatorsProps) {
             if (skipLegacyTargetSide && targetPort.id === LEGACY_ROD_SIDE_PORT_ID) continue
 
             // Find if this specific port on the target instance is already occupied
-            const isOccupied = connections.some(conn => 
-                (conn.from_instance === matchTargetId && conn.from_port === targetPort.id) ||
-                (conn.to_instance === matchTargetId && conn.to_port === targetPort.id)
-            )
-            if (isOccupied) continue
+            if (!isSlidablePort(targetPort.id)) {
+                const isOccupied = connections.some(conn => 
+                    (conn.from_instance === matchTargetId && conn.from_port === targetPort.id) ||
+                    (conn.to_instance === matchTargetId && conn.to_port === targetPort.id)
+                )
+                if (isOccupied) continue
+            }
 
             const { position: targetWorldPos, direction: targetWorldDir } = getPortWorldPose(
                 targetInstance,

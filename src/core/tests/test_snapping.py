@@ -371,3 +371,24 @@ def test_slide_offset_clamping(library):
     
     diff = np.array(pos_extreme) - np.array(pos_0)
     assert np.allclose(diff, [56.5, 0.0, 0.0], atol=1e-5)
+
+def test_get_slide_family():
+    from core.snapping import get_slide_family
+    assert get_slide_family("center_axial_1") == "axial"
+    assert get_slide_family("center_tangent_y_pos") == "tangent_y"
+    assert get_slide_family("center_tangent_z_neg") == "tangent_z"
+    assert get_slide_family("end1") is None
+
+def test_families_interfere():
+    from core.snapping import families_interfere
+    # Same family interferes
+    assert families_interfere("tangent_y", "tangent_y") is True
+    assert families_interfere("axial", "axial") is True
+    
+    # Orthogonal tangents don't interfere
+    assert families_interfere("tangent_y", "tangent_z") is False
+    assert families_interfere("tangent_z", "tangent_y") is False
+    
+    # Axial blocks all
+    assert families_interfere("axial", "tangent_y") is True
+    assert families_interfere("tangent_z", "axial") is True

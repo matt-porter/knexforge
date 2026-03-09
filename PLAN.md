@@ -708,7 +708,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `frontend/src/services/topologySolver.ts`
 - **Docs**: `docs/tasks/task-14-4-topology-solver-slide-offset.md`
 
-### [ ] Task 14.5: Allow Multiple Connectors on the Same Rod
+### [x] Task 14.5: Allow Multiple Connectors on the Same Rod
 - Uniqueness key model: `(rod_instance, slide_family, slide_offset)` — same key = occupied slot.
 - Slide families: `axial`, `tangent_y`, `tangent_z`. Cross-family interference rules (axial blocks tangent at same offset; orthogonal tangents coexist).
 - New `slide_collision` error code for spacing violations. Data-driven spacing via `slide_clearance_mm`.

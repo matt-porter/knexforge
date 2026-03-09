@@ -10,6 +10,7 @@ import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import type { PartInstance, Connection } from '../types/parts'
 import { sidecarBridge } from '../services/sidecarBridge'
+import { isSlidablePort, getSlideFamily, familiesInterfere } from '../helpers/snapHelper'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -221,6 +222,41 @@ export const useBuildStore = create<BuildStore>()(
             c.to_port === normalizedConnection.to_port,
         )
         if (exists) return
+
+        if (isSlidablePort(normalizedConnection.from_port) || isSlidablePort(normalizedConnection.to_port)) {
+          const rodId = isSlidablePort(normalizedConnection.from_port)
+            ? normalizedConnection.from_instance
+            : normalizedConnection.to_instance
+          const portId = isSlidablePort(normalizedConnection.from_port)
+            ? normalizedConnection.from_port
+            : normalizedConnection.to_port
+          const newFamily = getSlideFamily(portId)!
+          const newOffset = normalizedConnection.slide_offset ?? 0
+          const MIN_SPACING_MM = 15.0
+
+          const collision = state.connections.some(conn => {
+            const existingRodId = conn.from_instance === rodId ? conn.from_instance
+                                : conn.to_instance === rodId ? conn.to_instance : null
+            if (!existingRodId) return false
+            const existingPortId = conn.from_instance === rodId ? conn.from_port : conn.to_port
+            if (!isSlidablePort(existingPortId)) return false
+            const existingFamily = getSlideFamily(existingPortId)!
+            const existingOffset = conn.slide_offset ?? 0
+
+            // Same family, same offset -> duplicate
+            if (existingFamily === newFamily && existingOffset === newOffset) return true
+            // Axial/tangent interference at same offset
+            if (existingOffset === newOffset && familiesInterfere(newFamily, existingFamily)) return true
+            // Same family, too close
+            if (existingFamily === newFamily && Math.abs(existingOffset - newOffset) < MIN_SPACING_MM) return true
+            return false
+          })
+
+          if (collision) {
+            console.warn('Slide collision on rod — placement rejected')
+            return
+          }
+        }
 
         const before = createSnapshot(state)
         state.connections.push(normalizedConnection)

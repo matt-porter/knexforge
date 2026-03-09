@@ -12,6 +12,16 @@ def _is_slidable_port(port_id: str) -> bool:
     """Return True if this port supports sliding along the rod axis."""
     return port_id.startswith("center_axial") or port_id.startswith("center_tangent")
 
+def get_slide_family(port_id: str) -> str | None:
+    if port_id.startswith("center_axial"): return "axial"
+    if port_id.startswith("center_tangent_y"): return "tangent_y"
+    if port_id.startswith("center_tangent_z"): return "tangent_z"
+    return None
+
+def families_interfere(a: str, b: str) -> bool:
+    if a == b: return True
+    if a == "axial" or b == "axial": return True
+    return False
 
 def _apply_slide_offset(instance: PartInstance, port_id: str, slide_offset: float) -> Port:
     """Return a copy of the port with position shifted along the rod's local X axis and clamped."""

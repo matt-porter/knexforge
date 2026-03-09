@@ -438,8 +438,20 @@ function validateAndResolveConnections(
   }
 
   const usedPorts = new Set<string>()
+  const slideOccupancy = new Map<string, { family: string, offset: number }[]>()
   const seenConnections = new Set<string>()
   const resolvedConnections: ResolvedConnection[] = []
+
+  // Note: familiesInterfere inline equivalent to avoid circular dependency
+  const checkInterfere = (a: string, b: string) => a === b || a === 'axial' || b === 'axial'
+
+  // helper to get family
+  const getFamily = (p: string) => {
+    if (p.startsWith('center_axial')) return 'axial'
+    if (p.startsWith('center_tangent_y')) return 'tangent_y'
+    if (p.startsWith('center_tangent_z')) return 'tangent_z'
+    return null
+  }
 
   for (const connection of model.connections) {
     const endpoints = parseConnectionEndpoints(connection)
@@ -504,14 +516,107 @@ function validateAndResolveConnections(
       continue
     }
 
-    if (usedPorts.has(fromEndpoint) || usedPorts.has(toEndpoint)) {
-      issues.push({
-        code: 'port_reused',
-        message: `Each port can only be used once (${connection.from} -> ${connection.to})`,
-        item: `${connection.from}|${connection.to}`,
-      })
-      continue
+    let portCollision = false
+
+    // Check fromPort
+    if (!isSlidablePort(endpoints.fromPort)) {
+      if (usedPorts.has(fromEndpoint)) {
+        issues.push({
+          code: 'port_reused',
+          message: `Each port can only be used once (${connection.from} -> ${connection.to})`,
+          item: `${connection.from}|${connection.to}`,
+        })
+        portCollision = true
+      } else {
+        usedPorts.add(fromEndpoint)
+      }
+    } else {
+      const family = getFamily(endpoints.fromPort)!
+      const offset = connection.slide_offset ?? 0
+      const rodKey = endpoints.fromInstance
+      const existing = slideOccupancy.get(rodKey) ?? []
+
+      if (existing.some(e => e.family === family && e.offset === offset)) {
+        issues.push({
+          code: 'port_reused',
+          message: `Duplicate connector at same slide offset (${connection.from} -> ${connection.to})`,
+          item: `${connection.from}|${connection.to}`,
+        })
+        portCollision = true
+      } else if (existing.some(e => e.offset === offset && checkInterfere(family, e.family))) {
+        issues.push({
+          code: 'slide_collision',
+          message: `Axial/tangent interference at same offset (${connection.from} -> ${connection.to})`,
+          item: `${connection.from}|${connection.to}`,
+        })
+        portCollision = true
+      } else if (existing.some(e => e.family === family && Math.abs(e.offset - offset) < 15.0)) {
+        issues.push({
+          code: 'slide_collision',
+          message: `Connectors too close on same axis (${connection.from} -> ${connection.to})`,
+          item: `${connection.from}|${connection.to}`,
+        })
+        portCollision = true
+      } else {
+        if (!slideOccupancy.has(rodKey)) slideOccupancy.set(rodKey, [])
+        slideOccupancy.get(rodKey)!.push({ family, offset })
+      }
     }
+
+    // Check toPort
+    if (!isSlidablePort(endpoints.toPort)) {
+      if (usedPorts.has(toEndpoint)) {
+        if (!portCollision) {
+          issues.push({
+            code: 'port_reused',
+            message: `Each port can only be used once (${connection.from} -> ${connection.to})`,
+            item: `${connection.from}|${connection.to}`,
+          })
+          portCollision = true
+        }
+      } else {
+        usedPorts.add(toEndpoint)
+      }
+    } else {
+      const family = getFamily(endpoints.toPort)!
+      const offset = connection.slide_offset ?? 0
+      const rodKey = endpoints.toInstance
+      const existing = slideOccupancy.get(rodKey) ?? []
+
+      if (existing.some(e => e.family === family && e.offset === offset)) {
+        if (!portCollision) {
+          issues.push({
+            code: 'port_reused',
+            message: `Duplicate connector at same slide offset (${connection.from} -> ${connection.to})`,
+            item: `${connection.from}|${connection.to}`,
+          })
+          portCollision = true
+        }
+      } else if (existing.some(e => e.offset === offset && checkInterfere(family, e.family))) {
+        if (!portCollision) {
+          issues.push({
+            code: 'slide_collision',
+            message: `Axial/tangent interference at same offset (${connection.from} -> ${connection.to})`,
+            item: `${connection.from}|${connection.to}`,
+          })
+          portCollision = true
+        }
+      } else if (existing.some(e => e.family === family && Math.abs(e.offset - offset) < 15.0)) {
+        if (!portCollision) {
+          issues.push({
+            code: 'slide_collision',
+            message: `Connectors too close on same axis (${connection.from} -> ${connection.to})`,
+            item: `${connection.from}|${connection.to}`,
+          })
+          portCollision = true
+        }
+      } else {
+        if (!slideOccupancy.has(rodKey)) slideOccupancy.set(rodKey, [])
+        slideOccupancy.get(rodKey)!.push({ family, offset })
+      }
+    }
+
+    if (portCollision) continue
 
     const inferred = inferJointType(fromPort, toPort)
     if (connection.joint_type && connection.joint_type !== inferred) {

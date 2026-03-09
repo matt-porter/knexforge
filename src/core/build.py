@@ -66,7 +66,7 @@ class Build:
         from_inst = self.parts[from_instance_id]
         to_inst = self.parts[to_instance_id]
 
-        from .snapping import snap_ports
+        from .snapping import snap_ports, _is_slidable_port, get_slide_family, families_interfere
 
         conn = snap_ports(
             from_instance=from_inst,
@@ -77,6 +77,44 @@ class Build:
         )
 
         if conn is not None:
+            # Check for slide collisions
+            if _is_slidable_port(conn.from_port) or _is_slidable_port(conn.to_port):
+                rod_id = conn.from_instance if _is_slidable_port(conn.from_port) else conn.to_instance
+                port_id = conn.from_port if _is_slidable_port(conn.from_port) else conn.to_port
+                new_family = get_slide_family(port_id)
+                new_offset = conn.slide_offset
+                MIN_SPACING_MM = 15.0
+                
+                collision = False
+                for c in self.connections:
+                    existing_rod_id = None
+                    existing_port_id = None
+                    if c.from_instance == rod_id and _is_slidable_port(c.from_port):
+                        existing_rod_id = c.from_instance
+                        existing_port_id = c.from_port
+                    elif c.to_instance == rod_id and _is_slidable_port(c.to_port):
+                        existing_rod_id = c.to_instance
+                        existing_port_id = c.to_port
+                        
+                    if not existing_rod_id or not existing_port_id:
+                        continue
+                        
+                    existing_family = get_slide_family(existing_port_id)
+                    existing_offset = c.slide_offset
+                    
+                    if existing_family == new_family and existing_offset == new_offset:
+                        collision = True
+                        break
+                    if existing_offset == new_offset and families_interfere(new_family, existing_family):
+                        collision = True
+                        break
+                    if existing_family == new_family and abs(existing_offset - new_offset) < MIN_SPACING_MM:
+                        collision = True
+                        break
+                        
+                if collision:
+                    return None
+
             self.connections.add(conn)
             self._graph.add_edge(from_instance_id, to_instance_id, joint_type=conn.joint_type)
             self._update_stability()

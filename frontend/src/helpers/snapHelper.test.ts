@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { Quaternion, Vector3 } from 'three'
-import { getPortWorldPose, findNearestSnap, computeGhostTransform } from '../helpers/snapHelper'
+import { getPortWorldPose, findNearestSnap, computeGhostTransform, getSlideFamily, familiesInterfere } from '../helpers/snapHelper'
 import type { KnexPartDef, PartInstance, Port } from '../types/parts'
 
 // ---------------------------------------------------------------------------
@@ -412,5 +412,19 @@ describe('computeGhostTransform', () => {
     expect(localY.y).toBeCloseTo(1)
     expect(localY.z).toBeCloseTo(0)
 
+  })
+})
+
+describe('Slide Families', () => {
+  it('getSlideFamily maps ports correctly', () => {
+    expect(getSlideFamily('center_axial_1')).toBe('axial')
+    expect(getSlideFamily('center_tangent_y_pos')).toBe('tangent_y')
+    expect(getSlideFamily('end_1')).toBeNull()
+  })
+
+  it('familiesInterfere correctly identifies collisions', () => {
+    expect(familiesInterfere('tangent_y', 'tangent_z')).toBe(false)
+    expect(familiesInterfere('axial', 'tangent_y')).toBe(true)
+    expect(familiesInterfere('tangent_y', 'tangent_y')).toBe(true)
   })
 })

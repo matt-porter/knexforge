@@ -69,6 +69,33 @@ export function isSlidablePort(portId: string): boolean {
   return portId.startsWith('center_axial') || portId.startsWith('center_tangent')
 }
 
+export type SlideFamily = 'axial' | 'tangent_y' | 'tangent_z'
+
+export function getSlideFamily(portId: string): SlideFamily | null {
+  if (portId.startsWith('center_axial')) return 'axial'
+  if (portId.startsWith('center_tangent_y')) return 'tangent_y'
+  if (portId.startsWith('center_tangent_z')) return 'tangent_z'
+  return null
+}
+
+/** Uniqueness key: same key = same physical slot on the rod. */
+export function slideKey(instanceId: string, portId: string, slideOffset: number): string {
+  const family = getSlideFamily(portId) ?? portId
+  return `${instanceId}:${family}:${slideOffset}`
+}
+
+/**
+ * Returns true if two slide families physically interfere at the same offset.
+ * - Same family -> always interferes (identical slot)
+ * - Axial + any tangent -> interferes (axial goes through the hole)
+ * - tangent_y + tangent_z -> no interference (orthogonal clip directions)
+ */
+export function familiesInterfere(a: SlideFamily, b: SlideFamily): boolean {
+  if (a === b) return true
+  if (a === 'axial' || b === 'axial') return true
+  return false
+}
+
 export function applySlideOffset(partDef: KnexPartDef, portId: string, slideOffset: number): Port | null {
   const port = partDef.ports.find(p => p.id === portId)
   if (!port) return null
