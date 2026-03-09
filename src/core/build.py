@@ -56,8 +56,8 @@ class Build:
         to_instance_id: str,
         to_port_id: str,
         tolerance_mm: float = 0.2,
-        *,
         record: bool = True,
+        slide_offset: float = 0.0,
     ) -> Connection | None:
         """Attempt to snap two existing parts. Returns Connection on success."""
         if from_instance_id not in self.parts or to_instance_id not in self.parts:
@@ -74,6 +74,7 @@ class Build:
             to_instance=to_inst,
             to_port_id=to_port_id,
             tolerance_mm=tolerance_mm,
+            slide_offset=slide_offset,
         )
 
         if conn is not None:

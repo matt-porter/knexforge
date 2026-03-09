@@ -98,8 +98,10 @@ class PyBulletSimulator:
                 p.GEOM_BOX, halfExtents=[5, 5, 5], physicsClientId=self.client,
             )
         
+        mass = 0.0 if getattr(part_instance, "is_pinned", False) else (part_instance.part.mass_grams / 1000.0 if hasattr(part_instance.part, 'mass_grams') else 1.0)
+        
         body_id = p.createMultiBody(
-            baseMass=part_instance.part.mass_grams / 1000.0 if hasattr(part_instance.part, 'mass_grams') else 1.0,
+            baseMass=mass,
             baseCollisionShapeIndex=collision_shape,
             basePosition=part_instance.position,
             baseOrientation=part_instance.quaternion,

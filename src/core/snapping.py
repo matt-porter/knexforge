@@ -193,13 +193,6 @@ def snap_ports(
     if not are_ports_compatible(from_port, to_port):
         return None
 
-    # Apply slide offset
-    if slide_offset != 0.0:
-        if _is_slidable_port(from_port_id):
-            from_port = _apply_slide_offset(from_instance, from_port_id, slide_offset)
-        elif _is_slidable_port(to_port_id):
-            to_port = _apply_slide_offset(to_instance, to_port_id, slide_offset)
-
     # World poses
     from_pos, from_dir = _port_world_pose(from_instance, from_port_id, slide_offset=slide_offset if _is_slidable_port(from_port_id) else 0.0)
     to_pos, to_dir = _port_world_pose(to_instance, to_port_id, slide_offset=slide_offset if _is_slidable_port(to_port_id) else 0.0)

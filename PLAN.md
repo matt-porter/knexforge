@@ -740,7 +740,7 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Files**: `frontend/src/services/rapierSimulator.ts`, `src/core/physics/pybullet.py`
 - **Docs**: `docs/tasks/task-14-8-physics-slide-offset.md`
 
-### [ ] Task 14.9: Comprehensive Slide Offset Test Suite
+### [x] Task 14.9: Comprehensive Slide Offset Test Suite
 - 20+ integration tests across model, snapping, file I/O, solver, and physics.
 - Round-trip, multi-connector, loop-closure, and physics stability tests.
 - Manual testing checklist for UI.
