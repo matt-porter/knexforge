@@ -281,34 +281,50 @@ export class RapierSimulator {
       if (physicsType === 'cylindrical') {
         const isFromRod = fromDef.category === 'rod'
         const rodDef = isFromRod ? fromDef : toDef
+        const rodInst = isFromRod ? fromInst : toInst
+        const connInst = isFromRod ? toInst : fromInst
         const rodBody = isFromRod ? fromBody : toBody
         const connBody = isFromRod ? toBody : fromBody
         
         const rodAnchor = isFromRod ? a1 : a2
         const connAnchor = isFromRod ? a2 : a1
         
+        // Rod's local axis for sliding
         const rodLocalX = { x: 1, y: 0, z: 0 }
         
-        // Compound joint for cylindrical:
-        // 1. Create dummy body at connector's initial position
-        const connInst = isFromRod ? toInst : fromInst
+        // 1. Create dummy body co-located with the connector
         const dummyDesc = RAPIER.RigidBodyDesc.dynamic()
           .setTranslation(connInst.position[0], connInst.position[1], connInst.position[2])
           .setRotation(toRapierQuat(connInst.rotation))
         const dummyBody = this.world.createRigidBody(dummyDesc)
 
-        // 2. Prismatic: rod <-> dummy (axial slide)
+        // Give the dummy body mass/inertia
+        const he = getColliderHalfExtents(isFromRod ? toDef : fromDef)
+        const density = (isFromRod ? toDef.mass_grams : fromDef.mass_grams) / (8 * he[0] * he[1] * he[2])
+        const dummyCollider = RAPIER.ColliderDesc.cuboid(he[0], he[1], he[2])
+          .setDensity(density)
+          .setSensor(true)
+        this.world.createCollider(dummyCollider, dummyBody)
+
+        // 2. Prismatic: rod <-> dummy (axial slide along rod's X)
+        // Axis must be in body1's frame (the rod)
         const prismaticParams = RAPIER.JointData.prismatic(rodAnchor, connAnchor, rodLocalX)
         const prismaticJoint = this.world.createImpulseJoint(prismaticParams, rodBody, dummyBody, true) as RAPIER.PrismaticImpulseJoint
         
-        // Compute clearance and limits
-        const rodHalfLength = rodDef.ports.find((p) => p.id === 'end2')?.position[0]! / 2
-        const clearance = 7.5 // 15mm clearance / 2
+        const end2 = rodDef.ports.find((p) => p.id === 'end2')
+        const rodLength = end2 ? end2.position[0] : 54
+        const rodHalfLength = rodLength / 2
+        const clearance = 7.5
         prismaticJoint.setLimits(-rodHalfLength + clearance, rodHalfLength - clearance)
         prismaticJoint.setContactsEnabled(false)
 
-        // 3. Revolute: dummy <-> connector (spin around rod axis)
-        const revoluteParams = RAPIER.JointData.revolute(connAnchor, connAnchor, rodLocalX)
+        // 3. Revolute: dummy <-> connector (spin around rod's world X)
+        // Since dummy and connector start with same rotation, we just need rod's X in connector frame
+        const rodWorldX = quatApply(rodInst.rotation, [1, 0, 0])
+        const axisInConn = quatApply(quatConj(connInst.rotation), rodWorldX)
+        const revoluteParams = RAPIER.JointData.revolute(connAnchor, connAnchor, {
+            x: axisInConn[0], y: axisInConn[1], z: axisInConn[2]
+        })
         const revoluteJoint = this.world.createImpulseJoint(revoluteParams, dummyBody, connBody, true)
         revoluteJoint.setContactsEnabled(false)
 

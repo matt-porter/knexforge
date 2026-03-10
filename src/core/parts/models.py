@@ -75,6 +75,7 @@ class PartInstance(BaseModel):
     position: tuple[float, float, float] = Field(default=(0.0, 0.0, 0.0))
     quaternion: tuple[float, float, float, float] = Field(default=(0.0, 0.0, 0.0, 1.0))
     color: Optional[str] = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    is_pinned: bool = Field(default=False)
 
     model_config = ConfigDict(frozen=True)
 

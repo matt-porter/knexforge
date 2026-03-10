@@ -169,36 +169,11 @@ class PyBulletSimulator:
             # (constraint_force × arm = resistive_torque).
             ARM_MM = 30.0
 
-            if is_cylindrical:
-                # Cylindrical: 2 P2P perpendicular to rotation axis
-                # This locks off-axis translation and tilt
-                # but allows rotation AND axial sliding
-                axis_inst = from_inst
-                axis_port = from_port
-                if from_port.mate_type != "rotational_hole" and to_port.mate_type == "rotational_hole":
-                    axis_inst = to_inst
-                    axis_port = to_port
-                axis_world = R.from_quat(axis_inst.quaternion).apply(np.array(axis_port.direction, dtype=float))
-                axis_norm = np.linalg.norm(axis_world)
-                if axis_norm > 1e-8:
-                    axis_world = axis_world / axis_norm
-                else:
-                    axis_world = np.array([0.0, 0.0, 1.0])
-                    
-                perp1 = np.cross(axis_world, [0, 1, 0])
-                if np.linalg.norm(perp1) < 1e-6:
-                    perp1 = np.cross(axis_world, [1, 0, 0])
-                perp1 = perp1 / np.linalg.norm(perp1)
-                perp2 = np.cross(axis_world, perp1)
-                perp2 = perp2 / np.linalg.norm(perp2)
-                
-                anchors_world = [
-                    pivot_world + perp1 * ARM_MM,
-                    pivot_world + perp2 * ARM_MM,
-                ]
-            elif joint_type == "revolute":
-                # Revolute: 2 P2P along rotation axis — allows rotation around
+            if is_cylindrical or joint_type == "revolute":
+                # Revolute/Cylindrical: 2 P2P along rotation axis — allows rotation around
                 # that axis but locks translation + off-axis rotation.
+                # For stability simulation, we treat cylindrical joints (rods in holes)
+                # as revolute at their current slide_offset.
                 axis_inst = from_inst
                 axis_port = from_port
                 if from_port.mate_type != "rotational_hole" and to_port.mate_type == "rotational_hole":
@@ -213,6 +188,7 @@ class PyBulletSimulator:
 
                 anchors_world = [pivot_world, pivot_world + axis_world * ARM_MM]
             else:
+
                 # Fixed/prismatic: 3 P2P at non-collinear points to lock all 6 DOF
                 direction = from_rot.apply(np.array(from_port.direction, dtype=float))
                 d_norm = np.linalg.norm(direction)

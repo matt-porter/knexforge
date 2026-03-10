@@ -58,6 +58,8 @@ export function inferJointType(
   const mateTypes = new Set([placingPort.mate_type, targetPort.mate_type])
   if (mateTypes.has('rotational_hole')) return 'revolute'
   if (mateTypes.has('slider_hole')) return 'prismatic'
+  if (placingPort.id.startsWith('center_axial') || targetPort.id.startsWith('center_axial'))
+    return 'revolute'
   return 'fixed'
 }
 

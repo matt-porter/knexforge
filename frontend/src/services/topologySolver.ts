@@ -398,8 +398,9 @@ function connectionResidual(
 function validateAndResolveConnections(
   model: TopologyModel,
   partDefsById: Map<string, KnexPartDef>,
-): { partsByInstance: Map<string, KnexPartDef>; connections: ResolvedConnection[] } {
+): { partsByInstance: Map<string, KnexPartDef>; connections: ResolvedConnection[]; warnings: TopologyIssue[] } {
   const issues: TopologyIssue[] = []
+  const warnings: TopologyIssue[] = []
 
   if (model.format_version !== 'topology-v1') {
     issues.push({
@@ -620,12 +621,12 @@ function validateAndResolveConnections(
 
     const inferred = inferJointType(fromPort, toPort)
     if (connection.joint_type && connection.joint_type !== inferred) {
-      issues.push({
+      warnings.push({
         code: 'joint_type_mismatch',
         message: `joint_type '${connection.joint_type}' does not match inferred '${inferred}' for ${connection.from} -> ${connection.to}`,
         item: `${connection.from}|${connection.to}`,
+        severity: 'warning',
       })
-      continue
     }
 
     seenConnections.add(duplicateKey)
@@ -656,7 +657,7 @@ function validateAndResolveConnections(
     }))
   model.parts = normalizedParts
 
-  return { partsByInstance, connections: resolvedConnections }
+  return { partsByInstance, connections: resolvedConnections, warnings }
 }
 
 export function canonicalizeTopology(model: TopologyModel): TopologyModel {
@@ -752,7 +753,7 @@ export function solveTopology(
   const groundOffsetMm = options.groundOffsetMm ?? 50
 
   const canonical = canonicalizeTopology(model)
-  const { partsByInstance, connections } = validateAndResolveConnections(canonical, partDefsById)
+  const { partsByInstance, connections, warnings: validationWarnings } = validateAndResolveConnections(canonical, partDefsById)
 
   const adjacency = new Map<string, ResolvedConnection[]>()
   for (const instanceId of partsByInstance.keys()) {
@@ -806,7 +807,7 @@ export function solveTopology(
   }
 
   const transforms = new Map<string, Transform>()
-  const warnings: TopologyIssue[] = []
+  const warnings: TopologyIssue[] = [...validationWarnings]
 
   for (const root of sortedInstances) {
     if (transforms.has(root)) continue
