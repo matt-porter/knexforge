@@ -15,9 +15,15 @@ export const motorChainTemplate: SynthesisTemplate = {
 
     // 2. Motor
     parts.push({ instance_id: 'motor', part_id: 'motor-v1' })
+    parts.push({ instance_id: 'base_mount_rod', part_id: 'rod-16-green-v1' })
     connections.push({
-      from: 'motor.mount_1',
-      to: 'base_mount.center',
+      from: 'base_mount.center',
+      to: 'base_mount_rod.end1',
+      joint_type: 'fixed'
+    })
+    connections.push({
+      from: 'base_mount_rod.end2',
+      to: 'motor.mount_1',
       joint_type: 'fixed'
     })
 
