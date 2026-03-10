@@ -442,9 +442,13 @@ export const useBuildStore = create<BuildStore>()(
         const partsList = Object.values(state.parts)
         if (partsList.length === 0) return
 
-        // Calculate bounding box
+        // Calculate bounding box in world space
         let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity
         let minY = Infinity
+
+        // Use a 50mm buffer or similar if we want it strictly on ground.
+        // Actually, the solver uses groundOffsetMm=50.
+        // We just need the center of the build at X=0, Z=0.
 
         for (const part of partsList) {
           const [x, y, z] = part.position
@@ -455,20 +459,23 @@ export const useBuildStore = create<BuildStore>()(
           minY = Math.min(minY, y)
         }
 
-        // Calculate offsets to center horizontally and lift base to ground level + offset
-        const centerX = -(minX + maxX) / 2
-        const centerZ = -(minZ + maxZ) / 2
-        const groundOffsetMM = 50 // Lift so base sits on ground, not in it
-        const offsetY = groundOffsetMM - minY
+        const centerX = (minX + maxX) / 2
+        const centerZ = (minZ + maxZ) / 2
+        
+        // Offset needed to move current center to origin
+        const dx = -centerX
+        const dz = -centerZ
+        
+        // solver places first part at y=50.
+        // If we want the *lowest* point at y=50:
+        const groundOffsetMM = 50
+        const dy = groundOffsetMM - minY
 
-        // Create snapshot for undo before modifying parts
         const before = createSnapshot(state)
-
-        // Apply offsets to all parts
         for (const part of partsList) {
-          part.position[0] += centerX
-          part.position[1] += offsetY
-          part.position[2] += centerZ
+          part.position[0] += dx
+          part.position[1] += dy
+          part.position[2] += dz
         }
 
         const after = createSnapshot(state)

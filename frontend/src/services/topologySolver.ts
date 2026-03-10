@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from 'three'
+import { Quaternion, Vector3, Euler, MathUtils } from 'three'
 
 import type { Connection, KnexPartDef, PartInstance, Port } from '../types/parts'
 
@@ -21,7 +21,11 @@ export interface TopologyModel {
   format_version: 'topology-v1'
   parts: TopologyPart[]
   connections: TopologyConnection[]
-  metadata?: Record<string, unknown>
+  metadata?: {
+    title?: string
+    world_rotation?: [number, number, number] // Euler angles in degrees
+    [key: string]: unknown
+  }
 }
 
 export interface SolveTopologyOptions {
@@ -815,9 +819,19 @@ export function solveTopology(
     const loopClosingEdges: ResolvedConnection[] = []
 
     const componentIndex = componentIdByInstance.get(root) ?? 0
+    const [rx, ry, rz] = model.metadata?.world_rotation ?? [0, 0, 0]
+    const modelRotation = new Quaternion().setFromEuler(
+      new Euler(
+        MathUtils.degToRad(rx),
+        MathUtils.degToRad(ry),
+        MathUtils.degToRad(rz),
+        'XYZ'
+      )
+    )
+
     transforms.set(root, {
       position: new Vector3(componentIndex * componentSpacingMm, groundOffsetMm, 0),
-      rotation: new Quaternion(0, 0, 0, 1),
+      rotation: modelRotation,
     })
 
     const queue = [root]

@@ -159,6 +159,10 @@ export function getCompactAutocomplete(
     suggestions.push({ label: 'part', insertText: 'part ', detail: 'declare instance part_id' })
   }
 
+  if ('orient'.startsWith(token)) {
+    suggestions.push({ label: 'orient', insertText: 'orient 0 0 0', detail: 'set model world rotation' })
+  }
+
   if (suggestions.length === 0) {
     return null
   }

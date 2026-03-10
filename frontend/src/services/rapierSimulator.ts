@@ -282,6 +282,7 @@ export class RapierSimulator {
         const isFromRod = fromDef.category === 'rod'
         const rodDef = isFromRod ? fromDef : toDef
         const rodInst = isFromRod ? fromInst : toInst
+        const connDef = isFromRod ? toDef : fromDef
         const connInst = isFromRod ? toInst : fromInst
         const rodBody = isFromRod ? fromBody : toBody
         const connBody = isFromRod ? toBody : fromBody
@@ -289,27 +290,25 @@ export class RapierSimulator {
         const rodAnchor = isFromRod ? a1 : a2
         const connAnchor = isFromRod ? a2 : a1
         
-        // Rod's local axis for sliding
-        const rodLocalX = { x: 1, y: 0, z: 0 }
-        
-        // 1. Create dummy body co-located with the connector
-        const dummyDesc = RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(connInst.position[0], connInst.position[1], connInst.position[2])
-          .setRotation(toRapierQuat(connInst.rotation))
-        const dummyBody = this.world.createRigidBody(dummyDesc)
+        // --- 1. dummyP: Prismatic dummy co-aligned with the ROD ---
+        // This dummy handles the sliding and follows the rod's rotation perfectly.
+        const dummyPDesc = RAPIER.RigidBodyDesc.dynamic()
+          .setTranslation(pivotWorld[0], pivotWorld[1], pivotWorld[2])
+          .setRotation(toRapierQuat(rodInst.rotation))
+          .setLinearDamping(0.5)
+          .setAngularDamping(0.5)
+        const dummyP = this.world.createRigidBody(dummyPDesc)
 
-        // Give the dummy body mass/inertia
-        const he = getColliderHalfExtents(isFromRod ? toDef : fromDef)
-        const density = (isFromRod ? toDef.mass_grams : fromDef.mass_grams) / (8 * he[0] * he[1] * he[2])
-        const dummyCollider = RAPIER.ColliderDesc.cuboid(he[0], he[1], he[2])
-          .setDensity(density)
+        const heRod = getColliderHalfExtents(rodDef)
+        const densityRod = rodDef.mass_grams / (8 * heRod[0] * heRod[1] * heRod[2])
+        const dummyPCollider = RAPIER.ColliderDesc.cuboid(heRod[0]/4, 1, 1) // small but with mass
+          .setDensity(densityRod)
           .setSensor(true)
-        this.world.createCollider(dummyCollider, dummyBody)
+        this.world.createCollider(dummyPCollider, dummyP)
 
-        // 2. Prismatic: rod <-> dummy (axial slide along rod's X)
-        // Axis must be in body1's frame (the rod)
-        const prismaticParams = RAPIER.JointData.prismatic(rodAnchor, connAnchor, rodLocalX)
-        const prismaticJoint = this.world.createImpulseJoint(prismaticParams, rodBody, dummyBody, true) as RAPIER.PrismaticImpulseJoint
+        // Prismatic: rod <-> dummyP (identity frames since they are co-aligned)
+        const prismaticParams = RAPIER.JointData.prismatic(rodAnchor, {x:0, y:0, z:0}, {x:1, y:0, z:0})
+        const prismaticJoint = this.world.createImpulseJoint(prismaticParams, rodBody, dummyP, true) as RAPIER.PrismaticImpulseJoint
         
         const end2 = rodDef.ports.find((p) => p.id === 'end2')
         const rodLength = end2 ? end2.position[0] : 54
@@ -318,14 +317,42 @@ export class RapierSimulator {
         prismaticJoint.setLimits(-rodHalfLength + clearance, rodHalfLength - clearance)
         prismaticJoint.setContactsEnabled(false)
 
-        // 3. Revolute: dummy <-> connector (spin around rod's world X)
-        // Since dummy and connector start with same rotation, we just need rod's X in connector frame
+        // --- 2. dummyR: Revolute dummy co-aligned with the CONNECTOR ---
+        // This dummy handles the arbitrary relative orientation between rod and connector.
+        const dummyRDesc = RAPIER.RigidBodyDesc.dynamic()
+          .setTranslation(pivotWorld[0], pivotWorld[1], pivotWorld[2])
+          .setRotation(toRapierQuat(connInst.rotation))
+          .setLinearDamping(0.5)
+          .setAngularDamping(0.5)
+        const dummyR = this.world.createRigidBody(dummyRDesc)
+
+        const heConn = getColliderHalfExtents(connDef)
+        const densityConn = connDef.mass_grams / (8 * heConn[0] * heConn[1] * heConn[2])
+        const dummyRCollider = RAPIER.ColliderDesc.cuboid(heConn[0]/4, 1, 1)
+          .setDensity(densityConn)
+          .setSensor(true)
+        this.world.createCollider(dummyRCollider, dummyR)
+
+        // Fixed: dummyP <<->> dummyR (handles the relative rotation)
+        const relativeRot = quatMul(quatConj(rodInst.rotation), connInst.rotation)
+        const fixedParams = RAPIER.JointData.fixed(
+          {x:0, y:0, z:0}, {w:1, x:0, y:0, z:0}, // identity in dummyP (rod-aligned)
+          {x:0, y:0, z:0}, toRapierQuat(relativeRot) // relativeRot in dummyR (connector-aligned)
+        )
+        const fixedJoint = this.world.createImpulseJoint(fixedParams, dummyP, dummyR, true)
+        fixedJoint.setContactsEnabled(false)
+
+        // --- 3. dummyR <-> Connector (Revolute) ---
+        // dummyR is aligned with the connector. 
+        // We want to spin around the ROD's local X axis.
+        // We compute the rod's X axis in the connector's local frame.
         const rodWorldX = quatApply(rodInst.rotation, [1, 0, 0])
-        const axisInConn = quatApply(quatConj(connInst.rotation), rodWorldX)
-        const revoluteParams = RAPIER.JointData.revolute(connAnchor, connAnchor, {
-            x: axisInConn[0], y: axisInConn[1], z: axisInConn[2]
+        const rodXInConn = quatApply(quatConj(connInst.rotation), rodWorldX)
+        
+        const revoluteParams = RAPIER.JointData.revolute({x:0, y:0, z:0}, connAnchor, {
+            x: rodXInConn[0], y: rodXInConn[1], z: rodXInConn[2]
         })
-        const revoluteJoint = this.world.createImpulseJoint(revoluteParams, dummyBody, connBody, true)
+        const revoluteJoint = this.world.createImpulseJoint(revoluteParams, dummyR, connBody, true)
         revoluteJoint.setContactsEnabled(false)
 
         if (isMotorConn) {

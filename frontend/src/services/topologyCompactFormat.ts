@@ -80,11 +80,22 @@ export function parseCompactTopology(text: string): TopologyModel {
   const explicitParts = new Map<string, string>()
   const discoveredInstances = new Set<string>()
   const connections: TopologyConnection[] = []
+  let world_rotation: [number, number, number] | undefined = undefined
 
   const lines = text.split(/\r?\n/)
   lines.forEach((raw, index) => {
     const line = stripComments(raw)
     if (!line) return
+
+    const orientMatch = line.match(/^orient\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)$/i)
+    if (orientMatch) {
+      world_rotation = [
+        parseFloat(orientMatch[1]),
+        parseFloat(orientMatch[2]),
+        parseFloat(orientMatch[3])
+      ]
+      return
+    }
 
     const partMatch = line.match(/^part\s+([A-Za-z0-9_-]+)\s+([A-Za-z0-9._-]+)$/i)
     if (partMatch) {
@@ -137,6 +148,7 @@ export function parseCompactTopology(text: string): TopologyModel {
     format_version: 'topology-v1',
     parts,
     connections,
+    metadata: world_rotation ? { world_rotation } : undefined,
   })
 }
 
@@ -146,6 +158,11 @@ export function stringifyCompactTopology(model: TopologyModel): string {
   lines.push('# compact topology format')
   lines.push('# part <instance_id> <part_id>')
   lines.push('')
+
+  if (model.metadata?.world_rotation) {
+    const [rx, ry, rz] = model.metadata.world_rotation
+    lines.push(`orient ${rx} ${ry} ${rz}`)
+  }
 
   for (const part of canonical.parts) {
     lines.push(`part ${part.instance_id} ${part.part_id}`)

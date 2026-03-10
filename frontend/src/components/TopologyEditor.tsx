@@ -229,13 +229,49 @@ export function TopologyEditor() {
   }
 
   const handleUseCurrentBuild = () => {
-    const topology = buildStateToTopology(Object.values(parts), connections)
+    // Preserve current metadata (including rotation) when pulling from build
+    let currentMetadata: Record<string, any> | undefined = undefined
+    try {
+      const model = parseEditorText(text, format)
+      currentMetadata = model.metadata
+    } catch (e) {
+      // ignore if current text is unparseable
+    }
+
+    const topology = buildStateToTopology(Object.values(parts), connections, currentMetadata)
     setText(serializeEditorText(topology, format))
     setStatus('Loaded current build into topology editor')
   }
 
   const handleManualApply = () => {
     applyText(text)
+  }
+
+  const handleRotate = (axis: 'x' | 'y' | 'z') => {
+    try {
+      const model = parseEditorText(text, format)
+      const currentRotation = model.metadata?.world_rotation ?? [0, 0, 0]
+      const nextRotation: [number, number, number] = [...currentRotation]
+      
+      const idx = axis === 'x' ? 0 : axis === 'y' ? 1 : 2
+      nextRotation[idx] = (nextRotation[idx] + 90) % 360
+      
+      const nextModel = {
+        ...model,
+        metadata: {
+          ...model.metadata,
+          world_rotation: nextRotation
+        }
+      }
+      
+      const nextText = serializeEditorText(nextModel, format)
+      setText(nextText)
+      hasUserEditedRef.current = true
+      // Apply immediately after rotation
+      applyText(nextText)
+    } catch (err) {
+      console.error('Failed to rotate model:', err)
+    }
   }
 
   const refreshAutocomplete = (rawText: string, cursor: number) => {
@@ -491,7 +527,29 @@ export function TopologyEditor() {
               >
                 {isApplying ? 'Applying...' : 'Text -> Model'}
               </button>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#bfdbfe', fontSize: 11 }}>
+              <div style={{ display: 'flex', gap: 2, alignItems: 'center', marginLeft: 4 }}>
+                <span style={{ fontSize: 10, color: '#94a3b8', marginRight: 2 }}>Rotate:</span>
+                {(['x', 'y', 'z'] as const).map(axis => (
+                  <button
+                    key={axis}
+                    onClick={() => handleRotate(axis)}
+                    style={{
+                      border: '1px solid #334155',
+                      background: '#1e293b',
+                      color: '#93c5fd',
+                      borderRadius: 4,
+                      padding: '2px 6px',
+                      fontSize: 10,
+                      cursor: 'pointer',
+                      fontWeight: 700,
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    {axis}
+                  </button>
+                ))}
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#bfdbfe', fontSize: 11, marginLeft: 'auto' }}>
                 <input
                   type="checkbox"
                   checked={isAutoApply}
