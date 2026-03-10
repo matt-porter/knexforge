@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { SynthesisGoal, SynthesisObjective, SynthesisConstraintSet } from '../types/synthesis'
+import type { SynthesisGoal, SynthesisObjective, SynthesisConstraintSet, SynthesisCandidate } from '../types/synthesis'
 
 export interface SynthesisState {
   // Goal authoring
@@ -9,6 +9,10 @@ export interface SynthesisState {
   candidateCount: number
   isGenerating: boolean
   
+  // Results
+  candidates: SynthesisCandidate[]
+  selectedCandidateId: string | null
+  
   // Actions
   setPrompt: (prompt: string) => void
   toggleObjective: (objective: SynthesisObjective) => void
@@ -16,6 +20,8 @@ export interface SynthesisState {
   setCandidateCount: (count: number) => void
   startGeneration: () => void
   stopGeneration: () => void
+  setCandidates: (candidates: SynthesisCandidate[]) => void
+  setSelectedCandidate: (id: string | null) => void
   
   // Helpers
   getGoal: () => SynthesisGoal
@@ -30,6 +36,8 @@ export const useSynthesisStore = create<SynthesisState>((set, get) => ({
   },
   candidateCount: 3,
   isGenerating: false,
+  candidates: [],
+  selectedCandidateId: null,
 
   setPrompt: (prompt) => set({ prompt }),
   
@@ -55,6 +63,9 @@ export const useSynthesisStore = create<SynthesisState>((set, get) => ({
 
   startGeneration: () => set({ isGenerating: true }),
   stopGeneration: () => set({ isGenerating: false }),
+  
+  setCandidates: (candidates) => set({ candidates, selectedCandidateId: null }),
+  setSelectedCandidate: (id) => set({ selectedCandidateId: id }),
 
   getGoal: () => {
     const state = get()
