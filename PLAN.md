@@ -814,13 +814,15 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-10)**: Implemented `physicsEval` to extract mass, center of mass, footprint, and basic stability heuristics. Wired it up to `evaluateCandidateScore` which penalizes constraint violations and rewards multi-objective goals. Full unit coverage in `synthesisScoring.test.ts`.
 - **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
-### [ ] Task 15.6: Goal-Aware Candidate Generator and Mutation Engine
+### [x] Task 15.6: Goal-Aware Candidate Generator and Mutation Engine
 - Implement constrained candidate generation from templates plus stochastic mutations (add/remove/swap/rewire/retwist/slide-offset adjustments where legal).
 - Enforce hard constraints early (part budget, envelope bounds, required joints, motor presence).
 - Wire generator loop to the Task 15.4/15.5 oracle stack for accept/reject/score decisions.
 - Add deterministic replay via `(goal, seed)` for reproducible debugging.
 - **Files**: `frontend/src/services/synthesis/generator.ts` (NEW), `frontend/src/services/synthesis/mutations.ts` (NEW), `frontend/src/services/__tests__/synthesisGenerator.test.ts` (NEW).
 - **Completion Criteria (task is not done until all are true)**: typed generator/mutation implementation is complete and documented; comprehensive tests include deterministic replay, hard-constraint enforcement, and mutation regression coverage; required test suites pass (`python -m pytest src/core/tests/ --cov` and `cd frontend && npm run test`); changes are committed cleanly with a Conventional Commit and pushed to the current feature branch.
+- **Status (2026-03-10)**: Implemented deterministic PRNG, mutations (retwist, slide offset), and candidate generator. Handled deep cloning of templates, oracle integration, and score-based rejection filtering. Full unit coverage in `synthesisGenerator.test.ts`.
+- **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
 ### [ ] Task 15.7: Candidate Persistence, Deduplication, and Replayability
 - Persist generated candidates, intermediate diagnostics, and final rankings for inspection and replay.
