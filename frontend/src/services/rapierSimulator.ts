@@ -203,9 +203,10 @@ export class RapierSimulator {
           .setTranslation(offset[0], offset[1], offset[2])
           .setFriction(0.5)
           .setRestitution(0.1)
-          // Collision groups: membership in group 0, filter group 1 (ground)
-          // 0x00010002 -> Member of group 0 (bit 0), interacts with group 1 (bit 1)
-          .setCollisionGroups(0x00010002)
+          // Collision groups: membership in group 0 (0x0001), 
+          // filter group 0 and 1 (0x0003). 
+          // This allows parts to collide with each other (0-0) and ground (0-1).
+          .setCollisionGroups(0x00010003)
 
         this.world.createCollider(colliderDesc, body)
       }
@@ -220,6 +221,19 @@ export class RapierSimulator {
         groundCollider.setCollisionGroups(0x00020001)
     }
 
+    // --- Pre-calculate rod occupancy for prismatic limits ---
+    const rodOccupancy = new Map<string, number>()
+    
+    // Initialize with rod ends for all rods in the build
+    for (const inst of Object.values(parts)) {
+      const def = partDefs.get(inst.part_id)
+      if (def?.category === 'rod') {
+        const end2 = def.ports.find(p => p.id === 'end2')
+        const length = end2 ? end2.position[0] : 54
+        rodOccupancy.set(inst.instance_id, length)
+      }
+    }
+    
     // --- Create joints ---
     for (const conn of connections) {
       const fromBody = this.bodies.get(conn.from_instance)
@@ -299,22 +313,27 @@ export class RapierSimulator {
           .setAngularDamping(0.5)
         const dummyP = this.world.createRigidBody(dummyPDesc)
 
-        const heRod = getColliderHalfExtents(rodDef)
-        const densityRod = rodDef.mass_grams / (8 * heRod[0] * heRod[1] * heRod[2])
-        const dummyPCollider = RAPIER.ColliderDesc.cuboid(heRod[0]/4, 1, 1) // small but with mass
-          .setDensity(densityRod)
+        // Give dummies enough mass to be stable
+        const dummyPCollider = RAPIER.ColliderDesc.cuboid(2, 2, 2)
+          .setDensity(0.1)
           .setSensor(true)
         this.world.createCollider(dummyPCollider, dummyP)
 
-        // Prismatic: rod <-> dummyP (identity frames since they are co-aligned)
+        // Prismatic: rod <-> dummyP (both rod-aligned)
         const prismaticParams = RAPIER.JointData.prismatic(rodAnchor, {x:0, y:0, z:0}, {x:1, y:0, z:0})
         const prismaticJoint = this.world.createImpulseJoint(prismaticParams, rodBody, dummyP, true) as RAPIER.PrismaticImpulseJoint
         
-        const end2 = rodDef.ports.find((p) => p.id === 'end2')
-        const rodLength = end2 ? end2.position[0] : 54
-        const rodHalfLength = rodLength / 2
-        const clearance = 7.5
-        prismaticJoint.setLimits(-rodHalfLength + clearance, rodHalfLength - clearance)
+        // --- Calculate prismatic boundaries (rod ends only) ---
+        const rodId = isFromRod ? conn.from_instance : conn.to_instance
+        const rodPort = isFromRod ? fromPort : toPort
+        const x_current = rodPort.position[0] + (conn.slide_offset ?? 0)
+        const rodLength = rodOccupancy.get(rodId) ?? 54
+        
+        const halfWidth = 7.5
+        const limit_min = halfWidth - x_current
+        const limit_max = (rodLength - halfWidth) - x_current
+        
+        prismaticJoint.setLimits(Math.min(limit_min, 0), Math.max(limit_max, 0))
         prismaticJoint.setContactsEnabled(false)
 
         // --- 2. dummyR: Revolute dummy co-aligned with the CONNECTOR ---
@@ -326,32 +345,32 @@ export class RapierSimulator {
           .setAngularDamping(0.5)
         const dummyR = this.world.createRigidBody(dummyRDesc)
 
-        const heConn = getColliderHalfExtents(connDef)
-        const densityConn = connDef.mass_grams / (8 * heConn[0] * heConn[1] * heConn[2])
-        const dummyRCollider = RAPIER.ColliderDesc.cuboid(heConn[0]/4, 1, 1)
-          .setDensity(densityConn)
+        const dummyRCollider = RAPIER.ColliderDesc.cuboid(2, 2, 2)
+          .setDensity(0.1)
           .setSensor(true)
         this.world.createCollider(dummyRCollider, dummyR)
 
-        // Fixed: dummyP <<->> dummyR (handles the relative rotation)
-        const relativeRot = quatMul(quatConj(rodInst.rotation), connInst.rotation)
+        // Fixed: dummyP <<->> dummyR (locks relative orientation)
+        // We want: dummyP.rotation * identity = dummyR.rotation * frame2
+        // Initially: rodInst.rotation = connInst.rotation * frame2
+        // So: frame2 = connInst.rotation^-1 * rodInst.rotation
+        const frame2 = quatMul(quatConj(connInst.rotation), rodInst.rotation)
         const fixedParams = RAPIER.JointData.fixed(
-          {x:0, y:0, z:0}, {w:1, x:0, y:0, z:0}, // identity in dummyP (rod-aligned)
-          {x:0, y:0, z:0}, toRapierQuat(relativeRot) // relativeRot in dummyR (connector-aligned)
+          {x:0, y:0, z:0}, {w:1, x:0, y:0, z:0},
+          {x:0, y:0, z:0}, toRapierQuat(frame2)
         )
         const fixedJoint = this.world.createImpulseJoint(fixedParams, dummyP, dummyR, true)
         fixedJoint.setContactsEnabled(false)
 
         // --- 3. dummyR <-> Connector (Revolute) ---
-        // dummyR is aligned with the connector. 
-        // We want to spin around the ROD's local X axis.
-        // We compute the rod's X axis in the connector's local frame.
+        // Both are co-aligned with the connector, so we spin around the rod's axis 
+        // as expressed in the connector's local frame.
         const rodWorldX = quatApply(rodInst.rotation, [1, 0, 0])
         const rodXInConn = quatApply(quatConj(connInst.rotation), rodWorldX)
+        const mag = Math.sqrt(rodXInConn[0]**2 + rodXInConn[1]**2 + rodXInConn[2]**2)
+        const axis = mag > 1e-6 ? { x: rodXInConn[0]/mag, y: rodXInConn[1]/mag, z: rodXInConn[2]/mag } : { x: 1, y: 0, z: 0 }
         
-        const revoluteParams = RAPIER.JointData.revolute({x:0, y:0, z:0}, connAnchor, {
-            x: rodXInConn[0], y: rodXInConn[1], z: rodXInConn[2]
-        })
+        const revoluteParams = RAPIER.JointData.revolute({x:0, y:0, z:0}, connAnchor, axis)
         const revoluteJoint = this.world.createImpulseJoint(revoluteParams, dummyR, connBody, true)
         revoluteJoint.setContactsEnabled(false)
 
