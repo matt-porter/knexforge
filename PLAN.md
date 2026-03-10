@@ -833,12 +833,14 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-10)**: Implemented `CandidateRepository` and `getTopologyFingerprint` utilizing Web Crypto API (`SHA-256`) to fingerprint canonicalized topologies. Candidates are deduped by structure and retrievable across all persisted jobs. Full coverage in `synthesisPersistence.test.ts`.
 - **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
-### [ ] Task 15.8: Frontend Synthesis Panel and Goal Authoring UX
+### [x] Task 15.8: Frontend Synthesis Panel and Goal Authoring UX
 - Add a dedicated synthesis UI for entering goal intent, constraints, optimization priorities, and generation seed.
 - Include inline validation and presets so users can author valid goals quickly.
 - Display live job status/progress and graceful error states.
-- **Files**: `frontend/src/components/Synthesis/SynthesisPanel.tsx` (NEW), `frontend/src/stores/synthesisStore.ts` (NEW), `frontend/src/components/__tests__/SynthesisPanel.test.tsx` (NEW).
+- **Files**: `frontend/src/components/Synthesis/SynthesisPanel.tsx` (NEW), `frontend/src/stores/synthesisStore.ts` (NEW), `frontend/src/components/Synthesis/__tests__/SynthesisPanel.test.tsx` (NEW).
 - **Completion Criteria (task is not done until all are true)**: typed UI/store implementation is complete and documented; comprehensive tests include input validation, state transitions, and regression coverage for prior editor/builder workflows; required test suites pass (`python -m pytest src/core/tests/ --cov` and `cd frontend && npm run test`); changes are committed cleanly with a Conventional Commit and pushed to the current feature branch.
+- **Status (2026-03-10)**: Created `useSynthesisStore` using Zustand to manage generation goals and constraints. Built `SynthesisPanel.tsx` UI to accept user prompt, constraints, and objective weights with integrated validation states. Fully tested with React Testing Library.
+- **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
 ### [ ] Task 15.9: Ranked Candidate Explorer and One-Click Import
 - Build candidate cards with score/rationale, key metrics, and quick comparisons.
