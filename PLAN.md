@@ -787,12 +787,14 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-10)**: Implemented worker lifecycle scaffold, app-thread runtime orchestration, hybrid memory+IndexedDB job store, and lifecycle regression tests; added task spec doc `docs/tasks/task-15-2-worker-runtime-and-lifecycle.md`.
 - **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures (`frontend`: `repro_user_bug.test.ts`, `topologyCompactFormat.test.ts`; `core`: `test_slide_offset.py::test_undo_redo_preserves_slide_metadata`) and missing `pytest-cov` plugin for `--cov` in this environment.
 
-### [ ] Task 15.3: Template Library for Mechanism Families
+### [x] Task 15.3: Template Library for Mechanism Families
 - Build a reusable template catalog for baseline mechanism families (spinner, crank-slider, linkage loop, motor chain).
 - Templates must be topology-first blueprints (no absolute transforms) with parameter hooks.
 - Add guardrails so only valid part IDs/ports from the part library are emitted.
 - **Files**: `frontend/src/services/synthesis/templates.ts` (NEW), `frontend/src/services/synthesis/templateCatalog/` (NEW), `frontend/src/services/__tests__/synthesisTemplates.test.ts` (NEW).
 - **Completion Criteria (task is not done until all are true)**: typed template implementation is complete and documented; comprehensive tests include template validity, port compatibility, and regression fixtures per family; required test suites pass (`python -m pytest src/core/tests/ --cov` and `cd frontend && npm run test`); changes are committed cleanly with a Conventional Commit and pushed to the current feature branch.
+- **Status (2026-03-10)**: Implemented base interfaces, runtime validation guardrails, and baseline catalog (spinner, crank-slider, linkage-loop, motor-chain) using proper part library structures. Comprehensive tests cover template constraints.
+- **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
 ### [ ] Task 15.4: Topology Validation and Deterministic Solve Oracle (TS)
 - Build a synthesis oracle adapter that runs candidate topologies through canonicalization, validation, and deterministic solve using existing frontend solver pathways.
