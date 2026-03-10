@@ -101,16 +101,21 @@ function getColliderHalfExtents(def: KnexPartDef): Vec3 {
     const length = end2 ? end2.position[0] : 54
     return [length / 2, 2, 2]
   }
-  // Connectors/motors: compute from port positions with minimum padding
-  let maxX = 5,
-    maxY = 2.5,
-    maxZ = 2.5
+  
+  // Connectors/motors: compute bounding box from all port positions
+  let minX = -2, minY = -2, minZ = -2
+  let maxX = 2, maxY = 2, maxZ = 2
+  
   for (const port of def.ports) {
-    maxX = Math.max(maxX, Math.abs(port.position[0]) + 2)
-    maxY = Math.max(maxY, Math.abs(port.position[1]) + 2)
-    maxZ = Math.max(maxZ, Math.abs(port.position[2]) + 2)
+    minX = Math.min(minX, port.position[0] - 5)
+    maxX = Math.max(maxX, port.position[0] + 5)
+    minY = Math.min(minY, port.position[1] - 5)
+    maxY = Math.max(maxY, port.position[1] + 5)
+    minZ = Math.min(minZ, port.position[2] - 5)
+    maxZ = Math.max(maxZ, port.position[2] + 5)
   }
-  return [maxX, maxY, maxZ]
+  
+  return [(maxX - minX) / 2, (maxY - minY) / 2, (maxZ - minZ) / 2]
 }
 
 function getColliderOffset(def: KnexPartDef): Vec3 {
@@ -119,7 +124,21 @@ function getColliderOffset(def: KnexPartDef): Vec3 {
     const length = end2 ? end2.position[0] : 54
     return [length / 2, 0, 0]
   }
-  return [0, 0, 0]
+
+  // Connectors: offset to the center of the port-based bounding box
+  let minX = -2, minY = -2, minZ = -2
+  let maxX = 2, maxY = 2, maxZ = 2
+  
+  for (const port of def.ports) {
+    minX = Math.min(minX, port.position[0] - 5)
+    maxX = Math.max(maxX, port.position[0] + 5)
+    minY = Math.min(minY, port.position[1] - 5)
+    maxY = Math.max(maxY, port.position[1] + 5)
+    minZ = Math.min(minZ, port.position[2] - 5)
+    maxZ = Math.max(maxZ, port.position[2] + 5)
+  }
+
+  return [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2]
 }
 
 // ---------------------------------------------------------------------------
@@ -154,11 +173,15 @@ export class RapierSimulator {
     // Earth gravity in mm/s² (positions are in mm)
     this.world = new RAPIER.World({ x: 0, y: -9810, z: 0 })
     this.world.timestep = 1 / 240 // 4 sub-steps at 60fps
+    
+    // Increase solver iterations for stiffer, more stable constraints/collisions
+    this.world.integrationParameters.numSolverIterations = 12
+    this.world.integrationParameters.prediction = 0.5 // Higher prediction for small-scale stability
 
-    // --- Create static ground plane at Y=0 ---
-    const groundDesc = RAPIER.RigidBodyDesc.fixed()
+    // --- Create static ground plane (thicker to prevent tunneling) ---
+    const groundDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(0, -50, 0)
     const groundBody = this.world.createRigidBody(groundDesc)
-    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(10000, 0.1, 10000)
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(10000, 50, 10000)
     this.world.createCollider(groundColliderDesc, groundBody)
 
     // --- Create rigid bodies ---
@@ -311,6 +334,7 @@ export class RapierSimulator {
           .setRotation(toRapierQuat(rodInst.rotation))
           .setLinearDamping(0.5)
           .setAngularDamping(0.5)
+          .setGravityScale(0) // Don't let the dummy pull the joint down
         const dummyP = this.world.createRigidBody(dummyPDesc)
 
         // Give dummies enough mass to be stable
@@ -343,6 +367,7 @@ export class RapierSimulator {
           .setRotation(toRapierQuat(connInst.rotation))
           .setLinearDamping(0.5)
           .setAngularDamping(0.5)
+          .setGravityScale(0) // No gravity for rotation dummy
         const dummyR = this.world.createRigidBody(dummyRDesc)
 
         const dummyRCollider = RAPIER.ColliderDesc.cuboid(2, 2, 2)
@@ -400,6 +425,7 @@ export class RapierSimulator {
         const dummyDesc = RAPIER.RigidBodyDesc.dynamic()
           .setTranslation(toInst.position[0], toInst.position[1], toInst.position[2])
           .setRotation(toRapierQuat(toInst.rotation))
+          .setGravityScale(0)
         const dummyBody = this.world.createRigidBody(dummyDesc)
 
         // Give the dummy body a mass and inertia comparable to the real part
