@@ -824,12 +824,14 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-10)**: Implemented deterministic PRNG, mutations (retwist, slide offset), and candidate generator. Handled deep cloning of templates, oracle integration, and score-based rejection filtering. Full unit coverage in `synthesisGenerator.test.ts`.
 - **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
-### [ ] Task 15.7: Candidate Persistence, Deduplication, and Replayability
+### [x] Task 15.7: Candidate Persistence, Deduplication, and Replayability
 - Persist generated candidates, intermediate diagnostics, and final rankings for inspection and replay.
 - Implement topology-hash deduplication across iterations and across jobs with identical goals/seeds.
 - Add replay utilities that reconstruct candidates exactly from stored artifacts.
 - **Files**: `frontend/src/services/synthesis/repository.ts` (NEW), `frontend/src/services/synthesis/jobStore.ts`, `frontend/src/services/__tests__/synthesisPersistence.test.ts` (NEW).
 - **Completion Criteria (task is not done until all are true)**: typed persistence/replay implementation is complete and documented; comprehensive tests include dedupe, replay integrity, and storage-format regression coverage; required test suites pass (`python -m pytest src/core/tests/ --cov` and `cd frontend && npm run test`); changes are committed cleanly with a Conventional Commit and pushed to the current feature branch.
+- **Status (2026-03-10)**: Implemented `CandidateRepository` and `getTopologyFingerprint` utilizing Web Crypto API (`SHA-256`) to fingerprint canonicalized topologies. Candidates are deduped by structure and retrievable across all persisted jobs. Full coverage in `synthesisPersistence.test.ts`.
+- **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
 ### [ ] Task 15.8: Frontend Synthesis Panel and Goal Authoring UX
 - Add a dedicated synthesis UI for entering goal intent, constraints, optimization priorities, and generation seed.
