@@ -778,12 +778,14 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-10)**: Implemented shared synthesis type models, worker/persistence contracts with legacy normalization, and regression tests in `frontend/src/services/__tests__/synthesisContracts.test.ts`; added task spec doc `docs/tasks/task-15-1-synthesis-contract.md`.
 - **Blockers (2026-03-10)**: Full-suite completion gate is currently blocked by existing unrelated failures (`frontend`: `repro_user_bug.test.ts`, `topologyCompactFormat.test.ts`; `core`: `test_slide_offset.py::test_undo_redo_preserves_slide_metadata`) and missing `pytest-cov` plugin for `--cov` in this environment.
 
-### [ ] Task 15.2: Web Worker Runtime and Async Job Lifecycle
+### [~] Task 15.2: Web Worker Runtime and Async Job Lifecycle
 - Implement worker-based job orchestration with deterministic seeds, timeout handling, cancellation, and structured failure states.
 - Use lightweight browser primitives only: `Worker`, `MessageChannel`, `AbortController`, and in-memory + IndexedDB job persistence.
 - Expose progress telemetry states (`queued`, `generating`, `validating`, `scoring`, `complete`, `failed`, `cancelled`).
 - **Files**: `frontend/src/workers/synthesisWorker.ts` (NEW), `frontend/src/services/synthesis/runtime.ts` (NEW), `frontend/src/services/synthesis/jobStore.ts` (NEW), `frontend/src/services/__tests__/synthesisRuntime.test.ts` (NEW).
 - **Completion Criteria (task is not done until all are true)**: typed runtime implementation is complete and documented; comprehensive tests include async lifecycle, cancellation, timeout, and worker-bridge regression coverage; required test suites pass (`python -m pytest src/core/tests/ --cov` and `cd frontend && npm run test`); changes are committed cleanly with a Conventional Commit and pushed to the current feature branch.
+- **Status (2026-03-10)**: Implemented worker lifecycle scaffold, app-thread runtime orchestration, hybrid memory+IndexedDB job store, and lifecycle regression tests; added task spec doc `docs/tasks/task-15-2-worker-runtime-and-lifecycle.md`.
+- **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures (`frontend`: `repro_user_bug.test.ts`, `topologyCompactFormat.test.ts`; `core`: `test_slide_offset.py::test_undo_redo_preserves_slide_metadata`) and missing `pytest-cov` plugin for `--cov` in this environment.
 
 ### [ ] Task 15.3: Template Library for Mechanism Families
 - Build a reusable template catalog for baseline mechanism families (spinner, crank-slider, linkage loop, motor chain).

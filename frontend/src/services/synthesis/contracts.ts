@@ -1,9 +1,13 @@
 import type {
   SynthesisCandidate,
+  SynthesisCandidateRejection,
   SynthesisCandidateMetrics,
   SynthesisConstraintSet,
   SynthesisDiagnostic,
   SynthesisGoal,
+  SynthesisJobError,
+  SynthesisJobStage,
+  SynthesisJobState,
   SynthesisJobStatus,
   SynthesisObjective,
   SynthesisScoreBreakdown,
@@ -27,6 +31,17 @@ const SYNTHESIS_OBJECTIVES: SynthesisObjective[] = [
 ]
 
 const JOINT_TYPES = ['fixed', 'revolute', 'prismatic'] as const
+const JOB_STATES: SynthesisJobState[] = ['queued', 'running', 'complete', 'failed', 'cancelled']
+const JOB_STAGES: SynthesisJobStage[] = [
+  'queued',
+  'generating',
+  'validating',
+  'scoring',
+  'ranking',
+  'complete',
+  'failed',
+  'cancelled',
+]
 
 export interface SynthesisWorkerGenerateRequest {
   type: 'synthesis.generate'
@@ -326,6 +341,78 @@ function normalizeISODate(value: unknown, fieldName: string): string {
   throw new Error(`Expected ISO date string for ${fieldName}`)
 }
 
+function normalizeJobState(value: unknown): SynthesisJobState {
+  if (typeof value === 'string' && JOB_STATES.includes(value as SynthesisJobState)) {
+    return value as SynthesisJobState
+  }
+  return 'queued'
+}
+
+function normalizeJobStage(value: unknown): SynthesisJobStage {
+  if (typeof value === 'string' && JOB_STAGES.includes(value as SynthesisJobStage)) {
+    return value as SynthesisJobStage
+  }
+  return 'queued'
+}
+
+function normalizeProgress(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 0
+  }
+  return Math.max(0, Math.min(1, value))
+}
+
+function normalizeRejections(value: unknown): SynthesisCandidateRejection[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .filter(isRecord)
+    .map((rejection) => ({
+      candidate_id: asString(rejection.candidate_id ?? rejection.id ?? 'unknown', 'rejections[].candidate_id'),
+      reason_code: asString(rejection.reason_code ?? rejection.code ?? 'unknown_reason', 'rejections[].reason_code'),
+      reason_message: asString(
+        rejection.reason_message ?? rejection.message ?? 'No reason provided',
+        'rejections[].reason_message',
+      ),
+      diagnostics: normalizeDiagnostics(rejection.diagnostics),
+    }))
+}
+
+function normalizeJobError(value: unknown): SynthesisJobError | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  return {
+    code: asString(value.code ?? 'runtime_error', 'error.code'),
+    message: asString(value.message ?? 'Synthesis runtime error', 'error.message'),
+    retriable: typeof value.retriable === 'boolean' ? value.retriable : false,
+  }
+}
+
+export function parseSynthesisJobStatus(value: unknown): SynthesisJobStatus {
+  if (!isRecord(value)) {
+    throw new Error('Expected synthesis job status object')
+  }
+
+  return {
+    job_id: asString(value.job_id, 'status.job_id'),
+    goal: parseSynthesisGoal(value.goal),
+    state: normalizeJobState(value.state),
+    stage: normalizeJobStage(value.stage),
+    progress: normalizeProgress(value.progress),
+    created_at: normalizeISODate(value.created_at, 'status.created_at'),
+    updated_at: normalizeISODate(value.updated_at, 'status.updated_at'),
+    candidates: Array.isArray(value.candidates)
+      ? value.candidates.map((candidate) => normalizeCandidate(candidate))
+      : [],
+    rejections: normalizeRejections(value.rejections),
+    error: normalizeJobError(value.error),
+  }
+}
+
 export function parseSynthesisGoal(value: unknown): SynthesisGoal {
   if (!isRecord(value)) {
     throw new Error('Expected synthesis goal object')
@@ -379,6 +466,43 @@ export function parseSynthesisWorkerRequest(value: unknown): SynthesisWorkerRequ
   }
 
   throw new Error(`Unsupported synthesis worker request type: ${type}`)
+}
+
+export function parseSynthesisWorkerResponse(value: unknown): SynthesisWorkerResponse {
+  if (!isRecord(value)) {
+    throw new Error('Expected synthesis worker response object')
+  }
+
+  const type = asString(value.type, 'response.type')
+  const requestId = asString(value.request_id, 'response.request_id')
+  const contractVersion = asFiniteNumber(value.contract_version, 'response.contract_version')
+
+  if (contractVersion !== SYNTHESIS_WORKER_CONTRACT_VERSION) {
+    throw new Error(
+      `Unsupported worker contract version ${String(contractVersion)}. Expected ${SYNTHESIS_WORKER_CONTRACT_VERSION}`,
+    )
+  }
+
+  if (type === 'synthesis.progress' || type === 'synthesis.result') {
+    return {
+      type,
+      contract_version: SYNTHESIS_WORKER_CONTRACT_VERSION,
+      request_id: requestId,
+      status: parseSynthesisJobStatus(value.status),
+    }
+  }
+
+  if (type === 'synthesis.error') {
+    return {
+      type,
+      contract_version: SYNTHESIS_WORKER_CONTRACT_VERSION,
+      request_id: requestId,
+      code: asString(value.code, 'response.code'),
+      message: asString(value.message, 'response.message'),
+    }
+  }
+
+  throw new Error(`Unsupported synthesis worker response type: ${type}`)
 }
 
 export function parsePersistedSynthesisCandidateRecord(
