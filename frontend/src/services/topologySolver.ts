@@ -260,19 +260,19 @@ function buildPlacementCandidate(
       // For 3D edge: Connector's local Z (normal) should align with Rod's world X (rod is vertical)
       const rodWorldX = new Vector3(1, 0, 0).applyQuaternion(anchor.rotation).normalize()
       const sourceVec = new Vector3(0, isFlatEdge ? 1 : 0, isFlatEdge ? 0 : 1).applyQuaternion(baseRotation)
-      
+
       const correctionAxis = desiredDirection.clone().normalize()
       const projSrc = sourceVec.clone().projectOnPlane(correctionAxis).normalize()
       const projRodX = rodWorldX.clone().projectOnPlane(correctionAxis).normalize()
-      
+
       if (projSrc.lengthSq() > 0.001 && projRodX.lengthSq() > 0.001) {
-          const dot = Math.max(-1, Math.min(1, projSrc.dot(projRodX)))
-          const cross = new Vector3().crossVectors(projSrc, projRodX)
-          let angle = Math.acos(dot)
-          if (cross.dot(correctionAxis) < 0) angle = -angle
-          
-          const correctionQuat = new Quaternion().setFromAxisAngle(correctionAxis, angle)
-          baseRotation.premultiply(correctionQuat)
+        const dot = Math.max(-1, Math.min(1, projSrc.dot(projRodX)))
+        const cross = new Vector3().crossVectors(projSrc, projRodX)
+        let angle = Math.acos(dot)
+        if (cross.dot(correctionAxis) < 0) angle = -angle
+
+        const correctionQuat = new Quaternion().setFromAxisAngle(correctionAxis, angle)
+        baseRotation.premultiply(correctionQuat)
       }
     } else {
       // Rod being placed onto Connector.
@@ -304,7 +304,7 @@ function buildPlacementCandidate(
   )
 
   const finalRotation = twistRotation.clone().multiply(baseRotation).normalize()
-  
+
   const localPlacingPosition = new Vector3(
     placingPort.position[0],
     placingPort.position[1],
@@ -711,7 +711,7 @@ export function canonicalizeTopology(model: TopologyModel): TopologyModel {
 export function buildStateToTopology(
   parts: PartInstance[],
   connections: Connection[],
-  metadata?: Record<string, unknown>,
+  metadata?: TopologyModel['metadata'],
 ): TopologyModel {
   const topologyParts: TopologyPart[] = parts
     .map((part) => ({
@@ -813,25 +813,26 @@ export function solveTopology(
   const transforms = new Map<string, Transform>()
   const warnings: TopologyIssue[] = [...validationWarnings]
 
+  const [rx, ry, rz] = model.metadata?.world_rotation ?? [0, 0, 0]
+  const modelRotation = new Quaternion().setFromEuler(
+    new Euler(
+      MathUtils.degToRad(rx),
+      MathUtils.degToRad(ry),
+      MathUtils.degToRad(rz),
+      'XYZ'
+    )
+  )
+
   for (const root of sortedInstances) {
     if (transforms.has(root)) continue
 
     const loopClosingEdges: ResolvedConnection[] = []
 
     const componentIndex = componentIdByInstance.get(root) ?? 0
-    const [rx, ry, rz] = model.metadata?.world_rotation ?? [0, 0, 0]
-    const modelRotation = new Quaternion().setFromEuler(
-      new Euler(
-        MathUtils.degToRad(rx),
-        MathUtils.degToRad(ry),
-        MathUtils.degToRad(rz),
-        'XYZ'
-      )
-    )
 
     transforms.set(root, {
       position: new Vector3(componentIndex * componentSpacingMm, groundOffsetMm, 0),
-      rotation: modelRotation,
+      rotation: modelRotation.clone(),
     })
 
     const queue = [root]
@@ -984,11 +985,11 @@ export function solveTopology(
           // Report ALL failing edges, not just the first
           const issues = failingLoopEdges.map((edge) => {
             const residual = connectionResidual(edge, transforms, partsByInstance)
-            
+
             let message = ''
             const posFail = residual.distance > positionToleranceMm
             const angleFail = residual.angleDeg > angleToleranceDeg
-            
+
             if (posFail && angleFail) {
               message = `Loop cannot close: ${edge.key} gap is ${residual.distance.toFixed(1)}mm and ${residual.angleDeg.toFixed(1)}° off.`
             } else if (posFail) {
@@ -996,7 +997,7 @@ export function solveTopology(
             } else {
               message = `Loop cannot close: ports in ${edge.key} are misaligned by ${residual.angleDeg.toFixed(1)}° (limit: ${angleToleranceDeg}°).`
             }
-            
+
             let severity: 'error' | 'warning' | 'info' = 'error'
             if (residual.distance < positionToleranceMm * 3 && residual.angleDeg < angleToleranceDeg * 3) {
               severity = 'warning'
@@ -1206,7 +1207,7 @@ function snapRollAngles(
       const fromLocalPortPos = new Vector3(fromPort.position[0], fromPort.position[1], fromPort.position[2])
       fromTransform.rotation.premultiply(halfQuatInv).normalize()
       fromTransform.position.copy(fromPose.position).sub(fromLocalPortPos.applyQuaternion(fromTransform.rotation))
-      
+
     } else if (!toIsRoot) {
       const toLocalPortPos = new Vector3(toPort.position[0], toPort.position[1], toPort.position[2])
       toTransform.rotation.premultiply(correctionQuat).normalize()

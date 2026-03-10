@@ -95,27 +95,43 @@ function physicsJointType(
 // Collider sizing helpers
 // ---------------------------------------------------------------------------
 
+/** Padding (mm) added around each port position when computing collider bounds. */
+const PORT_COLLIDER_PADDING = 5
+/** Half-width (mm) of a connector for prismatic slide-limit clearance. */
+const CONNECTOR_HALF_WIDTH = 7.5
+/** Density assigned to lightweight dummy bodies (keeps solver stable without adding weight). */
+const DUMMY_DENSITY = 0.1
+/** Number of Rapier solver iterations per step (higher = stiffer constraints). */
+const SOLVER_ITERATIONS = 12
+/** Half-thickness (mm) of the ground slab; also the Y-offset so the surface sits at Y=0. */
+const GROUND_HALF_THICKNESS = 50
+
+/**
+ * Compute the axis-aligned bounding box of a connector/motor part
+ * from its port positions, padded by PORT_COLLIDER_PADDING.
+ */
+function portBoundingBox(def: KnexPartDef): { min: Vec3; max: Vec3 } {
+  let minX = -2, minY = -2, minZ = -2
+  let maxX = 2, maxY = 2, maxZ = 2
+  for (const port of def.ports) {
+    minX = Math.min(minX, port.position[0] - PORT_COLLIDER_PADDING)
+    maxX = Math.max(maxX, port.position[0] + PORT_COLLIDER_PADDING)
+    minY = Math.min(minY, port.position[1] - PORT_COLLIDER_PADDING)
+    maxY = Math.max(maxY, port.position[1] + PORT_COLLIDER_PADDING)
+    minZ = Math.min(minZ, port.position[2] - PORT_COLLIDER_PADDING)
+    maxZ = Math.max(maxZ, port.position[2] + PORT_COLLIDER_PADDING)
+  }
+  return { min: [minX, minY, minZ], max: [maxX, maxY, maxZ] }
+}
+
 function getColliderHalfExtents(def: KnexPartDef): Vec3 {
   if (def.category === 'rod') {
     const end2 = def.ports.find((p) => p.id === 'end2')
     const length = end2 ? end2.position[0] : 54
     return [length / 2, 2, 2]
   }
-  
-  // Connectors/motors: compute bounding box from all port positions
-  let minX = -2, minY = -2, minZ = -2
-  let maxX = 2, maxY = 2, maxZ = 2
-  
-  for (const port of def.ports) {
-    minX = Math.min(minX, port.position[0] - 5)
-    maxX = Math.max(maxX, port.position[0] + 5)
-    minY = Math.min(minY, port.position[1] - 5)
-    maxY = Math.max(maxY, port.position[1] + 5)
-    minZ = Math.min(minZ, port.position[2] - 5)
-    maxZ = Math.max(maxZ, port.position[2] + 5)
-  }
-  
-  return [(maxX - minX) / 2, (maxY - minY) / 2, (maxZ - minZ) / 2]
+  const { min, max } = portBoundingBox(def)
+  return [(max[0] - min[0]) / 2, (max[1] - min[1]) / 2, (max[2] - min[2]) / 2]
 }
 
 function getColliderOffset(def: KnexPartDef): Vec3 {
@@ -124,21 +140,8 @@ function getColliderOffset(def: KnexPartDef): Vec3 {
     const length = end2 ? end2.position[0] : 54
     return [length / 2, 0, 0]
   }
-
-  // Connectors: offset to the center of the port-based bounding box
-  let minX = -2, minY = -2, minZ = -2
-  let maxX = 2, maxY = 2, maxZ = 2
-  
-  for (const port of def.ports) {
-    minX = Math.min(minX, port.position[0] - 5)
-    maxX = Math.max(maxX, port.position[0] + 5)
-    minY = Math.min(minY, port.position[1] - 5)
-    maxY = Math.max(maxY, port.position[1] + 5)
-    minZ = Math.min(minZ, port.position[2] - 5)
-    maxZ = Math.max(maxZ, port.position[2] + 5)
-  }
-
-  return [(minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2]
+  const { min, max } = portBoundingBox(def)
+  return [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2]
 }
 
 // ---------------------------------------------------------------------------
@@ -173,15 +176,15 @@ export class RapierSimulator {
     // Earth gravity in mm/s² (positions are in mm)
     this.world = new RAPIER.World({ x: 0, y: -9810, z: 0 })
     this.world.timestep = 1 / 240 // 4 sub-steps at 60fps
-    
+
     // Increase solver iterations for stiffer, more stable constraints/collisions
-    this.world.integrationParameters.numSolverIterations = 12
-    this.world.integrationParameters.prediction = 0.5 // Higher prediction for small-scale stability
+    this.world.integrationParameters.numSolverIterations = SOLVER_ITERATIONS
+      ; (this.world.integrationParameters as any).prediction = 0.5 // Higher prediction for small-scale stability
 
     // --- Create static ground plane (thicker to prevent tunneling) ---
-    const groundDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(0, -50, 0)
+    const groundDesc = RAPIER.RigidBodyDesc.fixed().setTranslation(0, -GROUND_HALF_THICKNESS, 0)
     const groundBody = this.world.createRigidBody(groundDesc)
-    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(10000, 50, 10000)
+    const groundColliderDesc = RAPIER.ColliderDesc.cuboid(10000, GROUND_HALF_THICKNESS, 10000)
     this.world.createCollider(groundColliderDesc, groundBody)
 
     // --- Create rigid bodies ---
@@ -201,9 +204,9 @@ export class RapierSimulator {
       const bodyDesc = (isMotor || inst.is_pinned)
         ? RAPIER.RigidBodyDesc.fixed()
         : RAPIER.RigidBodyDesc.dynamic()
-            .setLinearDamping(0.5) // Increased for gravity stability
-            .setAngularDamping(0.5)
-            .setCanSleep(false)
+          .setLinearDamping(0.5) // Increased for gravity stability
+          .setAngularDamping(0.5)
+          .setCanSleep(false)
 
       bodyDesc
         .setTranslation(inst.position[0], inst.position[1], inst.position[2])
@@ -241,12 +244,12 @@ export class RapierSimulator {
     // 0x00020001 -> Member of group 1, interacts with group 0
     const groundCollider = groundBody.collider(0)
     if (groundCollider) {
-        groundCollider.setCollisionGroups(0x00020001)
+      groundCollider.setCollisionGroups(0x00020001)
     }
 
     // --- Pre-calculate rod occupancy for prismatic limits ---
     const rodOccupancy = new Map<string, number>()
-    
+
     // Initialize with rod ends for all rods in the build
     for (const inst of Object.values(parts)) {
       const def = partDefs.get(inst.part_id)
@@ -256,7 +259,7 @@ export class RapierSimulator {
         rodOccupancy.set(inst.instance_id, length)
       }
     }
-    
+
     // --- Create joints ---
     for (const conn of connections) {
       const fromBody = this.bodies.get(conn.from_instance)
@@ -281,15 +284,15 @@ export class RapierSimulator {
       let offset1 = 0
       let offset2 = 0
       if (physicsType === 'fixed') {
-          // If it's fixed (like center_tangent), the slide_offset determines the fixed position
-          if (fromPort.id.startsWith('center_tangent')) offset1 = conn.slide_offset ?? 0
-          if (toPort.id.startsWith('center_tangent')) offset2 = conn.slide_offset ?? 0
+        // If it's fixed (like center_tangent), the slide_offset determines the fixed position
+        if (fromPort.id.startsWith('center_tangent')) offset1 = conn.slide_offset ?? 0
+        if (toPort.id.startsWith('center_tangent')) offset2 = conn.slide_offset ?? 0
       } else if (physicsType === 'cylindrical') {
-          // For cylindrical, slide_offset determines the initial prismatic offset
-          if (fromPort.id.startsWith('center_axial')) offset1 = conn.slide_offset ?? 0
-          if (toPort.id.startsWith('center_axial')) offset2 = conn.slide_offset ?? 0
+        // For cylindrical, slide_offset determines the initial prismatic offset
+        if (fromPort.id.startsWith('center_axial')) offset1 = conn.slide_offset ?? 0
+        if (toPort.id.startsWith('center_axial')) offset2 = conn.slide_offset ?? 0
       }
-      
+
       const fromPos = [...fromPort.position] as Vec3
       const toPos = [...toPort.position] as Vec3
       fromPos[0] += offset1
@@ -317,18 +320,22 @@ export class RapierSimulator {
 
       if (physicsType === 'cylindrical') {
         const isFromRod = fromDef.category === 'rod'
-        const rodDef = isFromRod ? fromDef : toDef
         const rodInst = isFromRod ? fromInst : toInst
-        const connDef = isFromRod ? toDef : fromDef
+
         const connInst = isFromRod ? toInst : fromInst
         const rodBody = isFromRod ? fromBody : toBody
         const connBody = isFromRod ? toBody : fromBody
-        
+
         const rodAnchor = isFromRod ? a1 : a2
         const connAnchor = isFromRod ? a2 : a1
-        
+
         // --- 1. dummyP: Prismatic dummy co-aligned with the ROD ---
         // This dummy handles the sliding and follows the rod's rotation perfectly.
+        //
+        // Cylindrical dummies use lightweight sensor colliders (rather than
+        // matching the real part's inertia like revolute dummies) because the
+        // double-dummy chain already isolates prismatic and rotational DOFs.
+        // Heavy dummies here would over-constrain the solver and add drag.
         const dummyPDesc = RAPIER.RigidBodyDesc.dynamic()
           .setTranslation(pivotWorld[0], pivotWorld[1], pivotWorld[2])
           .setRotation(toRapierQuat(rodInst.rotation))
@@ -337,26 +344,25 @@ export class RapierSimulator {
           .setGravityScale(0) // Don't let the dummy pull the joint down
         const dummyP = this.world.createRigidBody(dummyPDesc)
 
-        // Give dummies enough mass to be stable
         const dummyPCollider = RAPIER.ColliderDesc.cuboid(2, 2, 2)
-          .setDensity(0.1)
+          .setDensity(DUMMY_DENSITY)
           .setSensor(true)
         this.world.createCollider(dummyPCollider, dummyP)
 
         // Prismatic: rod <-> dummyP (both rod-aligned)
-        const prismaticParams = RAPIER.JointData.prismatic(rodAnchor, {x:0, y:0, z:0}, {x:1, y:0, z:0})
+        const prismaticParams = RAPIER.JointData.prismatic(rodAnchor, { x: 0, y: 0, z: 0 }, { x: 1, y: 0, z: 0 })
         const prismaticJoint = this.world.createImpulseJoint(prismaticParams, rodBody, dummyP, true) as RAPIER.PrismaticImpulseJoint
-        
+
         // --- Calculate prismatic boundaries (rod ends only) ---
         const rodId = isFromRod ? conn.from_instance : conn.to_instance
         const rodPort = isFromRod ? fromPort : toPort
         const x_current = rodPort.position[0] + (conn.slide_offset ?? 0)
         const rodLength = rodOccupancy.get(rodId) ?? 54
-        
-        const halfWidth = 7.5
+
+        const halfWidth = CONNECTOR_HALF_WIDTH
         const limit_min = halfWidth - x_current
         const limit_max = (rodLength - halfWidth) - x_current
-        
+
         prismaticJoint.setLimits(Math.min(limit_min, 0), Math.max(limit_max, 0))
         prismaticJoint.setContactsEnabled(false)
 
@@ -371,7 +377,7 @@ export class RapierSimulator {
         const dummyR = this.world.createRigidBody(dummyRDesc)
 
         const dummyRCollider = RAPIER.ColliderDesc.cuboid(2, 2, 2)
-          .setDensity(0.1)
+          .setDensity(DUMMY_DENSITY)
           .setSensor(true)
         this.world.createCollider(dummyRCollider, dummyR)
 
@@ -381,8 +387,8 @@ export class RapierSimulator {
         // So: frame2 = connInst.rotation^-1 * rodInst.rotation
         const frame2 = quatMul(quatConj(connInst.rotation), rodInst.rotation)
         const fixedParams = RAPIER.JointData.fixed(
-          {x:0, y:0, z:0}, {w:1, x:0, y:0, z:0},
-          {x:0, y:0, z:0}, toRapierQuat(frame2)
+          { x: 0, y: 0, z: 0 }, { w: 1, x: 0, y: 0, z: 0 },
+          { x: 0, y: 0, z: 0 }, toRapierQuat(frame2)
         )
         const fixedJoint = this.world.createImpulseJoint(fixedParams, dummyP, dummyR, true)
         fixedJoint.setContactsEnabled(false)
@@ -392,10 +398,10 @@ export class RapierSimulator {
         // as expressed in the connector's local frame.
         const rodWorldX = quatApply(rodInst.rotation, [1, 0, 0])
         const rodXInConn = quatApply(quatConj(connInst.rotation), rodWorldX)
-        const mag = Math.sqrt(rodXInConn[0]**2 + rodXInConn[1]**2 + rodXInConn[2]**2)
-        const axis = mag > 1e-6 ? { x: rodXInConn[0]/mag, y: rodXInConn[1]/mag, z: rodXInConn[2]/mag } : { x: 1, y: 0, z: 0 }
-        
-        const revoluteParams = RAPIER.JointData.revolute({x:0, y:0, z:0}, connAnchor, axis)
+        const mag = Math.sqrt(rodXInConn[0] ** 2 + rodXInConn[1] ** 2 + rodXInConn[2] ** 2)
+        const axis = mag > 1e-6 ? { x: rodXInConn[0] / mag, y: rodXInConn[1] / mag, z: rodXInConn[2] / mag } : { x: 1, y: 0, z: 0 }
+
+        const revoluteParams = RAPIER.JointData.revolute({ x: 0, y: 0, z: 0 }, connAnchor, axis)
         const revoluteJoint = this.world.createImpulseJoint(revoluteParams, dummyR, connBody, true)
         revoluteJoint.setContactsEnabled(false)
 
@@ -511,18 +517,18 @@ export class RapierSimulator {
     // Check displacement
     const unstableParts: string[] = []
     const threshold = 15.0 // 15mm movement is considered a collapse
-    
+
     for (const [id, body] of this.bodies) {
       const start = initialPos.get(id)
       if (!start) continue
       const end = body.translation()
-      
+
       const dist = Math.sqrt(
         (end.x - start.x) ** 2 +
         (end.y - start.y) ** 2 +
         (end.z - start.z) ** 2
       )
-      
+
       if (dist > threshold) {
         unstableParts.push(id)
       }

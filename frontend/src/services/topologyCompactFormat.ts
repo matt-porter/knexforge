@@ -156,13 +156,14 @@ export function stringifyCompactTopology(model: TopologyModel): string {
   const canonical = canonicalizeTopology(model)
   const lines: string[] = []
   lines.push('# compact topology format')
-  lines.push('# part <instance_id> <part_id>')
-  lines.push('')
-
   if (model.metadata?.world_rotation) {
     const [rx, ry, rz] = model.metadata.world_rotation
     lines.push(`orient ${rx} ${ry} ${rz}`)
+    lines.push('')
   }
+
+  lines.push('# part <instance_id> <part_id>')
+  lines.push('')
 
   for (const part of canonical.parts) {
     lines.push(`part ${part.instance_id} ${part.part_id}`)
@@ -175,13 +176,13 @@ export function stringifyCompactTopology(model: TopologyModel): string {
   for (const connection of canonical.connections) {
     const operator = JOINT_TYPE_TO_OPERATOR[connection.joint_type ?? 'fixed'] ?? '--'
     let line = `${connection.from} ${operator} ${connection.to}`
-    
+
     if (connection.slide_offset) {
       line += ` @ ${connection.twist_deg ?? 0}${connection.fixed_roll ? '!' : ''} slide=${connection.slide_offset > 0 ? '+' : ''}${connection.slide_offset}`
     } else if (connection.twist_deg || connection.fixed_roll) {
       line += ` @ ${connection.twist_deg ?? 0}${connection.fixed_roll ? '!' : ''}`
     }
-    
+
     lines.push(line)
   }
 
