@@ -869,11 +869,13 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-10)**: Created full pipeline end-to-end unit and performance tests in `synthesisFlow.test.ts` (generator -> repo -> feedback) and `synthesisE2E.test.tsx` (panel UI -> state -> explorer UI -> loadBuild). Added explicit duration budgets for candidate extraction.
 - **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
-### [ ] Task 15.12: Release Readiness, Docs, and Rollout Controls
+### [x] Task 15.12: Release Readiness, Docs, and Rollout Controls
 - Document synthesis contracts, worker architecture, UI workflow, limitations, troubleshooting, and operator runbook.
 - Add feature flag + staged rollout controls (local dev, beta users, full release).
 - Publish final acceptance checklist and demo scenarios that prove Phase 15 success criteria.
 - **Files**: `docs/goal-driven-synthesis.md` (NEW), `docs/tasks/task-15-12-release-readiness.md` (NEW), `frontend/src/config/featureFlags.ts` (or equivalent), `frontend/src/services/__tests__/synthesisFeatureFlags.test.ts` (NEW).
 - **Completion Criteria (task is not done until all are true)**: typed rollout/docs implementation is complete and documented; comprehensive tests include feature-flag behavior and release-regression coverage; required test suites pass (`python -m pytest src/core/tests/ --cov` and `cd frontend && npm run test`); changes are committed cleanly with a Conventional Commit and pushed to the current feature branch.
+- **Status (2026-03-10)**: Created `goal-driven-synthesis.md` documenting architecture, modules, and limitations. Built a `FeatureFlagService` reading from Vite environment variables for safe rollout. Tested flag precedence in `synthesisFeatureFlags.test.ts`. Phase 15 is functionally complete.
+- **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
 ---
