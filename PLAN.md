@@ -851,12 +851,14 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-10)**: Built `CandidateExplorer.tsx` to visualize candidates, metrics, and scores. Wired import button directly to the existing `buildStore.loadBuild` action which safely handles snapshot undo/redo. Tested selection states and store interactions in `CandidateExplorer.test.tsx`.
 - **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
-### [ ] Task 15.10: Feedback Loop Persistence via Supabase
+### [x] Task 15.10: Feedback Loop Persistence via Supabase
 - Capture user actions on candidates (`accepted`, `rejected`, `edited_after_accept`) as structured events in the frontend.
 - Persist anonymized synthesis feedback to a Supabase `synthesis_feedback` table via client SDK and RLS policies.
 - Add opt-in/opt-out controls and documentation for telemetry behavior.
 - **Files**: `frontend/src/services/synthesisFeedback.ts` (NEW), `frontend/src/stores/synthesisStore.ts`, `frontend/src/services/cloudModels.ts`, `frontend/src/services/__tests__/synthesisFeedback.test.ts` (NEW), `docs/tasks/task-15-10-feedback-loop.md` (NEW).
 - **Completion Criteria (task is not done until all are true)**: typed feedback pipeline implementation is complete and documented; comprehensive tests include event correctness, privacy guardrails, Supabase write-path regressions, and telemetry-disabled mode; required test suites pass (`python -m pytest src/core/tests/ --cov` and `cd frontend && npm run test`); changes are committed cleanly with a Conventional Commit and pushed to the current feature branch.
+- **Status (2026-03-10)**: Created `synthesisFeedback.ts` bridging `getTopologyFingerprint` to `supabase` inserts. Supports opt-out telemetry controls and gracefully handles network errors. Tested using vitest mocks in `synthesisFeedback.test.ts`.
+- **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
 ### [ ] Task 15.11: End-to-End Reliability, Performance, and Regression Suite
 - Add full E2E tests from goal submission → candidate ranking → import → simulate/export.
