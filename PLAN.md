@@ -769,12 +769,14 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - Users can import a selected candidate into the current scene and continue normal editing/simulation/export flows.
 - End-to-end reliability is covered by comprehensive unit/integration/regression tests in frontend, with core regression suites still passing.
 
-### [ ] Task 15.1: Product Contract, Scope, and Shared TS Data Models
+### [~] Task 15.1: Product Contract, Scope, and Shared TS Data Models
 - Define `SynthesisGoal`, `SynthesisConstraintSet`, `SynthesisCandidate`, `SynthesisScoreBreakdown`, and `SynthesisJobStatus` models with strict typing in TypeScript.
 - Create explicit JSON contracts for worker messages and persistable candidate artifacts.
 - Add docs describing supported objective types, constraints, and rejection reasons.
 - **Files**: `frontend/src/types/synthesis.ts` (NEW), `frontend/src/services/synthesis/contracts.ts` (NEW), `docs/tasks/task-15-1-synthesis-contract.md` (NEW).
 - **Completion Criteria (task is not done until all are true)**: typed implementation is complete and documented; comprehensive tests include schema/model validation and backward-compatibility regression fixtures; required test suites pass (`python -m pytest src/core/tests/ --cov` and `cd frontend && npm run test`); changes are committed cleanly with a Conventional Commit and pushed to the current feature branch.
+- **Status (2026-03-10)**: Implemented shared synthesis type models, worker/persistence contracts with legacy normalization, and regression tests in `frontend/src/services/__tests__/synthesisContracts.test.ts`; added task spec doc `docs/tasks/task-15-1-synthesis-contract.md`.
+- **Blockers (2026-03-10)**: Full-suite completion gate is currently blocked by existing unrelated failures (`frontend`: `repro_user_bug.test.ts`, `topologyCompactFormat.test.ts`; `core`: `test_slide_offset.py::test_undo_redo_preserves_slide_metadata`) and missing `pytest-cov` plugin for `--cov` in this environment.
 
 ### [ ] Task 15.2: Web Worker Runtime and Async Job Lifecycle
 - Implement worker-based job orchestration with deterministic seeds, timeout handling, cancellation, and structured failure states.
