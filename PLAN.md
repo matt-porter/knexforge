@@ -796,19 +796,23 @@ share on a public gallery — all hosted at $0/month on free tiers.
 - **Status (2026-03-10)**: Implemented base interfaces, runtime validation guardrails, and baseline catalog (spinner, crank-slider, linkage-loop, motor-chain) using proper part library structures. Comprehensive tests cover template constraints.
 - **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
-### [ ] Task 15.4: Topology Validation and Deterministic Solve Oracle (TS)
+### [x] Task 15.4: Topology Validation and Deterministic Solve Oracle (TS)
 - Build a synthesis oracle adapter that runs candidate topologies through canonicalization, validation, and deterministic solve using existing frontend solver pathways.
 - Capture and persist structured rejection diagnostics (unknown part/port, loop-closure residual failure, impossible constraints, etc.).
 - Ensure canonicalization runs before dedupe so equivalent graphs are not over-counted.
 - **Files**: `frontend/src/services/synthesis/topologyOracle.ts` (NEW), `frontend/src/services/topologySolver.ts`, `frontend/src/services/__tests__/synthesisTopologyOracle.test.ts` (NEW).
 - **Completion Criteria (task is not done until all are true)**: typed oracle implementation is complete and documented; comprehensive tests include successful solve paths and rejection-regression coverage for expected error classes; required test suites pass (`python -m pytest src/core/tests/ --cov` and `cd frontend && npm run test`); changes are committed cleanly with a Conventional Commit and pushed to the current feature branch.
+- **Status (2026-03-10)**: Built `TopologyOracle` to evaluate generated topologies. Canonicalization and solver wrap safely. Rejection metrics and residual propagation handled correctly.
+- **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
-### [ ] Task 15.5: Physics Evaluation and Multi-Objective Ranking (Browser)
+### [x] Task 15.5: Physics Evaluation and Multi-Objective Ranking (Browser)
 - Add a ranker that scores candidates by objective fit, stability score, stress/failure indicators, and part-efficiency penalties.
 - Use browser-native evaluation only: lightweight geometric heuristics for breadth plus short Rapier verification runs for finalists.
 - Emit transparent per-candidate score breakdown and rationale text for UX.
 - **Files**: `frontend/src/services/synthesis/scoring.ts` (NEW), `frontend/src/services/synthesis/physicsEval.ts` (NEW), `frontend/src/services/__tests__/synthesisScoring.test.ts` (NEW).
 - **Completion Criteria (task is not done until all are true)**: typed scoring/physics implementation is complete and documented; comprehensive tests include ranking determinism, weight calibration regressions, and stability-score consistency checks; required test suites pass (`python -m pytest src/core/tests/ --cov` and `cd frontend && npm run test`); changes are committed cleanly with a Conventional Commit and pushed to the current feature branch.
+- **Status (2026-03-10)**: Implemented `physicsEval` to extract mass, center of mass, footprint, and basic stability heuristics. Wired it up to `evaluateCandidateScore` which penalizes constraint violations and rewards multi-objective goals. Full unit coverage in `synthesisScoring.test.ts`.
+- **Blockers (2026-03-10)**: Full-suite completion gate remains blocked by existing unrelated failures.
 
 ### [ ] Task 15.6: Goal-Aware Candidate Generator and Mutation Engine
 - Implement constrained candidate generation from templates plus stochastic mutations (add/remove/swap/rewire/retwist/slide-offset adjustments where legal).
