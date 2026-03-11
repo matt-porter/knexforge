@@ -7,6 +7,9 @@ import { BuildMenu } from './components/BuildMenu'
 import { TopologyEditor } from './components/TopologyEditor'
 import { AuthModal } from './components/Auth/AuthModal'
 import { ContextMenu } from './components/Viewer/ContextMenu'
+import { SynthesisPanel } from './components/Synthesis/SynthesisPanel'
+import { CandidateExplorer } from './components/Synthesis/CandidateExplorer'
+import { featureFlags } from './config/featureFlags'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useBuildStore } from './stores/buildStore'
 import { useUserStore } from './stores/userStore'
@@ -325,6 +328,7 @@ export default function App() {
   useKeyboardShortcuts()
   const [activeTab, setActiveTab] = useState<AppTab>('builder')
   const [partsPanelOpen, setPartsPanelOpen] = useState(true)
+  const aiSynthesisEnabled = featureFlags.get('enableAiSynthesis')
   const textEditorTransitioningRef = useRef(false)
   const setSidecarConnected = useBuildStore((s) => s.setSidecarConnected)
   const initializeUser = useUserStore((s) => s.initialize)
@@ -434,6 +438,29 @@ export default function App() {
           )}
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
             <KnexViewer loadDemoWhenEmpty={true} />
+            {aiSynthesisEnabled ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  left: 12,
+                  zIndex: 30,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  pointerEvents: 'none',
+                  maxHeight: 'calc(100% - 24px)',
+                  overflowY: 'auto',
+                }}
+              >
+                <div style={{ pointerEvents: 'auto' }}>
+                  <SynthesisPanel />
+                </div>
+                <div style={{ pointerEvents: 'auto' }}>
+                  <CandidateExplorer />
+                </div>
+              </div>
+            ) : null}
           </div>
           {/* Topology editor with toggle button when collapsed */}
           {(() => {

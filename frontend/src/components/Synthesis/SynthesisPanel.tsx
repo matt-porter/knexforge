@@ -21,18 +21,28 @@ export const SynthesisPanel: React.FC = () => {
     setConstraint,
     setCandidateCount,
     startGeneration,
+    stopGeneration,
+    setCandidates,
     getGoal
   } = useSynthesisStore()
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (isGenerating) return
+    
     startGeneration()
-    console.log('Would dispatch goal:', getGoal())
-    // Actual dispatch will go here when hooking up the runtime orchestrator
-    setTimeout(() => {
-      // Fake completion
-      useSynthesisStore.getState().stopGeneration()
-    }, 1000)
+    try {
+      const { getSynthesisRuntime } = await import('../../services/synthesis/runtime')
+      const runtime = getSynthesisRuntime()
+      const result = await runtime.startJob(getGoal())
+      
+      if (result.candidates) {
+        setCandidates(result.candidates)
+      }
+    } catch (err) {
+      console.error('Synthesis failed:', err)
+    } finally {
+      stopGeneration()
+    }
   }
 
   return (
