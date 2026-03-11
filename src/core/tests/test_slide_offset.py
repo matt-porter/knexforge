@@ -103,7 +103,7 @@ def test_multiple_connectors_collision(clean_part_library):
     assert len(b.connections) == 2
 
 def test_undo_redo_preserves_slide_metadata(clean_part_library):
-    """Category 6: Undo/redo action history preserves metadata"""
+    """Category 4: Undo/redo action history preserves metadata"""
     b = Build()
     r1 = PartInstance(instance_id="r1", part=clean_part_library.get("rod-128-red-v1"))
     c1 = PartInstance(instance_id="c1", part=clean_part_library.get("connector-1way-grey-v1"))
@@ -141,7 +141,9 @@ def test_undo_redo_preserves_slide_metadata(clean_part_library):
     assert redone_conn.slide_offset == 25.0
     assert redone_conn.twist_deg == 90.0
     assert redone_conn.fixed_roll is True
-    """Category 5: Physics"""
+
+def test_physics_slide_and_fixed(clean_part_library):
+    """Category 5: Physics - sliding and fixed offsets"""
     try:
         import pybullet as p
     except ImportError:

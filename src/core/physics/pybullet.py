@@ -43,7 +43,8 @@ class PyBulletSimulator:
     def __enter__(self):
         self.client = p.connect(p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath(), physicsClientId=self.client)
-        p.setGravity(0, 0, -9.81, physicsClientId=self.client)
+        # Gravity in mm/s^2 (Standard Earth gravity is ~9.81 m/s^2 = 9810 mm/s^2)
+        p.setGravity(0, 0, -9810, physicsClientId=self.client)
         # More solver iterations = stiffer constraints (default is 50).
         p.setPhysicsEngineParameter(
             numSolverIterations=200,
@@ -121,6 +122,10 @@ class PyBulletSimulator:
     def create_joints(self):
         """Creates joints between parts at validated ports."""
         cid = self.client
+        # Standard K'Nex joints are strong but not infinite.
+        # 100k force cap allows stress tracking and realistic breakage.
+        max_force = 100000.0
+
         # For each connection, create a constraint between the two part bodies at the port positions
         for conn in self.build.connections:
             if conn.from_instance not in self.part_bodies or conn.to_instance not in self.part_bodies:
@@ -169,11 +174,41 @@ class PyBulletSimulator:
             # (constraint_force × arm = resistive_torque).
             ARM_MM = 30.0
 
-            if is_cylindrical or joint_type == "revolute":
-                # Revolute/Cylindrical: 2 P2P along rotation axis — allows rotation around
+            if is_cylindrical:
+                # Cylindrical: Use a PRISMATIC constraint to allow sliding along the rod axis.
+                # In stability simulation, this lets parts fall if not supported.
+                axis_inst = from_inst
+                axis_port = from_port
+                if not from_port.id.startswith("center_axial") and to_port.id.startswith("center_axial"):
+                    axis_inst = to_inst
+                    axis_port = to_port
+                
+                axis_local = np.array(axis_port.direction, dtype=float)
+                axis_world = R.from_quat(axis_inst.quaternion).apply(axis_local)
+                axis_parent = from_rot.inv().apply(axis_world).tolist()
+                
+                anchor_parent = from_rot.inv().apply(pivot_world - from_origin).tolist()
+                anchor_child = to_rot.inv().apply(pivot_world - to_origin).tolist()
+
+                try:
+                    c_id = p.createConstraint(
+                        parent_body, -1, child_body, -1,
+                        p.JOINT_PRISMATIC, axis_parent,
+                        anchor_parent, anchor_child,
+                        physicsClientId=cid,
+                    )
+                    p.changeConstraint(c_id, maxForce=max_force, physicsClientId=cid)
+                    self.joint_constraints.append({
+                        "id": c_id,
+                        "parts": [from_inst.instance_id, to_inst.instance_id]
+                    })
+                except Exception:
+                    pass
+                continue # Skip the POINT2POINT loop for cylindrical joints
+
+            if joint_type == "revolute":
+                # Revolute: 2 P2P along rotation axis — allows rotation around
                 # that axis but locks translation + off-axis rotation.
-                # For stability simulation, we treat cylindrical joints (rods in holes)
-                # as revolute at their current slide_offset.
                 axis_inst = from_inst
                 axis_port = from_port
                 if from_port.mate_type != "rotational_hole" and to_port.mate_type == "rotational_hole":
@@ -188,8 +223,7 @@ class PyBulletSimulator:
 
                 anchors_world = [pivot_world, pivot_world + axis_world * ARM_MM]
             else:
-
-                # Fixed/prismatic: 3 P2P at non-collinear points to lock all 6 DOF
+                # Fixed: 3 P2P at non-collinear points to lock all 6 DOF
                 direction = from_rot.apply(np.array(from_port.direction, dtype=float))
                 d_norm = np.linalg.norm(direction)
                 if d_norm > 1e-8:
@@ -209,8 +243,6 @@ class PyBulletSimulator:
                 ]
 
             # Create POINT2POINT constraints for each anchor.
-            # Force must exceed any applied torque / arm distance to stay rigid.
-            max_force = 100000
             for anchor_world in anchors_world:
                 anchor_parent = from_rot.inv().apply(anchor_world - from_origin).tolist()
                 anchor_child = to_rot.inv().apply(anchor_world - to_origin).tolist()
