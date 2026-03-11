@@ -89,9 +89,15 @@ function AuthButton() {
 function TabBar({
   activeTab,
   onTabChange,
+  showSynthesis,
+  onToggleSynthesis,
+  aiSynthesisEnabled,
 }: {
   activeTab: AppTab
   onTabChange: (tab: AppTab) => void
+  showSynthesis: boolean
+  onToggleSynthesis: () => void
+  aiSynthesisEnabled: boolean
 }) {
   const tabs: { id: AppTab; label: string; icon: string }[] = [
     { id: 'builder', label: 'Builder', icon: '🔧' },
@@ -162,6 +168,37 @@ function TabBar({
           </button>
         )
       })}
+
+      {/* AI Synthesis Mode Toggle */}
+      {aiSynthesisEnabled && activeTab === 'builder' && (
+        <button
+          onClick={onToggleSynthesis}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 7,
+            padding: '0 20px',
+            background: showSynthesis ? TAB_BAR_COLORS.tabActive : 'transparent',
+            border: 'none',
+            borderRight: `1px solid ${TAB_BAR_COLORS.border}`,
+            borderBottom: showSynthesis ? `2px solid #a855f7` : '2px solid transparent',
+            color: showSynthesis ? '#e9d5ff' : TAB_BAR_COLORS.textInactive,
+            fontSize: 13,
+            fontWeight: showSynthesis ? 600 : 400,
+            cursor: 'pointer',
+            transition: 'color 0.1s, background 0.1s',
+          }}
+          onMouseEnter={(e) => {
+            if (!showSynthesis) e.currentTarget.style.background = TAB_BAR_COLORS.tabHover
+          }}
+          onMouseLeave={(e) => {
+            if (!showSynthesis) e.currentTarget.style.background = 'transparent'
+          }}
+        >
+          <span style={{ fontSize: 14 }}>✨</span>
+          AI Synthesis
+        </button>
+      )}
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
@@ -328,6 +365,7 @@ export default function App() {
   useKeyboardShortcuts()
   const [activeTab, setActiveTab] = useState<AppTab>('builder')
   const [partsPanelOpen, setPartsPanelOpen] = useState(true)
+  const [showSynthesis, setShowSynthesis] = useState(false)
   const aiSynthesisEnabled = featureFlags.get('enableAiSynthesis')
   const textEditorTransitioningRef = useRef(false)
   const setSidecarConnected = useBuildStore((s) => s.setSidecarConnected)
@@ -386,7 +424,13 @@ export default function App() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh' }}>
       {/* Top tab bar */}
-      <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabBar 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+        showSynthesis={showSynthesis}
+        onToggleSynthesis={() => setShowSynthesis(prev => !prev)}
+        aiSynthesisEnabled={aiSynthesisEnabled}
+      />
 
       {/* Tab content — use CSS visibility so both tabs stay mounted (preserves 3D state) */}
       <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -400,45 +444,49 @@ export default function App() {
             pointerEvents: activeTab === 'builder' ? 'auto' : 'none',
           }}
         >
-          {partsPanelOpen ? (
-            <PartPalette onHide={() => setPartsPanelOpen(false)} />
-          ) : (
-            <div
-              style={{
-                width: 42,
-                minWidth: 42,
-                maxWidth: 42,
-                flex: '0 0 42px',
-                flexShrink: 0,
-                borderRight: '1px solid #2a2a4a',
-                background: '#0f0f23',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <button
-                onClick={() => setPartsPanelOpen(true)}
-                style={{
-                  border: '1px solid #334155',
-                  background: '#111827',
-                  color: '#93c5fd',
-                  borderRadius: 4,
-                  padding: '6px 0',
-                  cursor: 'pointer',
-                  fontSize: 10,
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                }}
-                title="Show parts panel"
-              >
-                PRT
-              </button>
-            </div>
+          {!showSynthesis && (
+            <>
+              {partsPanelOpen ? (
+                <PartPalette onHide={() => setPartsPanelOpen(false)} />
+              ) : (
+                <div
+                  style={{
+                    width: 42,
+                    minWidth: 42,
+                    maxWidth: 42,
+                    flex: '0 0 42px',
+                    flexShrink: 0,
+                    borderRight: '1px solid #2a2a4a',
+                    background: '#0f0f23',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <button
+                    onClick={() => setPartsPanelOpen(true)}
+                    style={{
+                      border: '1px solid #334155',
+                      background: '#111827',
+                      color: '#93c5fd',
+                      borderRadius: 4,
+                      padding: '6px 0',
+                      cursor: 'pointer',
+                      fontSize: 10,
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap',
+                    }}
+                    title="Show parts panel"
+                  >
+                    PRT
+                  </button>
+                </div>
+              )}
+            </>
           )}
           <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
             <KnexViewer loadDemoWhenEmpty={true} />
-            {aiSynthesisEnabled ? (
+            {aiSynthesisEnabled && showSynthesis ? (
               <div
                 style={{
                   position: 'absolute',
@@ -463,11 +511,7 @@ export default function App() {
             ) : null}
           </div>
           {/* Topology editor with toggle button when collapsed */}
-          {(() => {
-            // We need to access the internal isExpanded state from TopologyEditor
-            // For now, we'll always render it and let it manage its own visibility
-            return <TopologyEditor />;
-          })()}
+          {!showSynthesis && <TopologyEditor />}
         </div>
 
         {/* My Models tab */}

@@ -46,7 +46,6 @@ export const CandidateExplorer: React.FC = () => {
       try {
         const defs = await loadAllPartDefs()
         const solved = solveTopology(cand.topology, defs)
-        console.log(`[CandidateExplorer] Solved preview for ${cand.candidate_id}:`, solved)
         if (typeof setPreviewBuild === 'function') {
           setPreviewBuild(solved)
         }
