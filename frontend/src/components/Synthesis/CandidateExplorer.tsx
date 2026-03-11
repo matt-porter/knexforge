@@ -7,7 +7,10 @@ export const CandidateExplorer: React.FC = () => {
   const { candidates, selectedCandidateId, setSelectedCandidate } = useSynthesisStore()
   const { loadBuild } = useBuildStore()
 
+  console.log('[CandidateExplorer] Rendering. Candidates count:', candidates?.length ?? 0)
+
   if (!candidates || candidates.length === 0) {
+    console.log('[CandidateExplorer] No candidates, returning null.')
     return null
   }
 
