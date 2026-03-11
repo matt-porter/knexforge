@@ -5,12 +5,29 @@ import { CandidateExplorer } from '../CandidateExplorer'
 import { useSynthesisStore } from '../../../stores/synthesisStore'
 import { useBuildStore } from '../../../stores/buildStore'
 import type { SynthesisCandidate } from '../../../types/synthesis'
+import { loadAllPartDefs } from '../../../hooks/usePartLibrary'
+import { solveTopology } from '../../../services/topologySolver'
 
 // Mock the alert to prevent it from cluttering the test output
 global.alert = vi.fn()
 
+vi.mock('../../../hooks/usePartLibrary', () => ({
+  loadAllPartDefs: vi.fn(),
+}))
+
+vi.mock('../../../services/topologySolver', () => ({
+  solveTopology: vi.fn(),
+}))
+
 describe('CandidateExplorer', () => {
   beforeEach(() => {
+    vi.mocked(loadAllPartDefs).mockResolvedValue(new Map())
+    vi.mocked(solveTopology).mockImplementation((topology, defs) => {
+      // Just return the fake solvedBuild we inject into the mock candidate
+      // We pass the candidate's solvedBuild through the topology property in tests
+      return (topology as any)._fakeSolvedBuild || { parts: [{ instance_id: 'p1', part_id: 'm1', position: [0,0,0], rotation: [0,0,0,1] }], connections: [] }
+    })
+
     // Reset stores
     act(() => {
       useSynthesisStore.setState({
@@ -20,8 +37,9 @@ describe('CandidateExplorer', () => {
       useBuildStore.setState({
         parts: {},
         connections: {},
-        stabilityScore: null
-      })
+        stabilityScore: null,
+        recalculateStability: vi.fn().mockResolvedValue(undefined)
+      } as any)
     })
     vi.clearAllMocks()
   })
@@ -88,7 +106,7 @@ describe('CandidateExplorer', () => {
     expect(buttons).toHaveLength(1)
   })
 
-  it('imports candidate into buildStore when button is clicked', () => {
+  it('imports candidate into buildStore when button is clicked', async () => {
     act(() => {
       useSynthesisStore.setState({ 
         candidates: [mockCand1],
@@ -98,7 +116,7 @@ describe('CandidateExplorer', () => {
     render(<CandidateExplorer />)
 
     const importBtn = screen.getByRole('button', { name: /Import into Scene/i })
-    act(() => {
+    await act(async () => {
       fireEvent.click(importBtn)
     })
 
@@ -106,6 +124,6 @@ describe('CandidateExplorer', () => {
     const buildState = useBuildStore.getState()
     expect(Object.keys(buildState.parts)).toHaveLength(1)
     expect(buildState.parts['p1'].part_id).toBe('m1')
-    expect(buildState.stabilityScore).toBe(0.8) // matches cand_1 score.stability
+    expect(buildState.stabilityScore).toBe(80) // matches cand_1 score.stability * 100
   })
 })

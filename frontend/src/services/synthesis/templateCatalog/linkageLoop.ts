@@ -5,7 +5,7 @@ export const linkageLoopTemplate: SynthesisTemplate = {
   id: 'linkage-loop-v1',
   name: 'Four-Bar Linkage',
   description: 'A classic 4-bar linkage mechanism forming a closed loop.',
-  generate: (params: TemplateParams): TopologyModel => {
+  generate: (_params: TemplateParams): TopologyModel => {
     const parts: TopologyPart[] = []
     const connections: TopologyConnection[] = []
 

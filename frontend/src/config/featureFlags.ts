@@ -34,7 +34,7 @@ class FeatureFlagService {
   private initFromEnvironment() {
     // In Vite, env vars are exposed on import.meta.env
     // We parse VITE_FF_ENABLE_AI_SYNTHESIS
-    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
+    if (typeof (globalThis as any).process !== 'undefined' && (globalThis as any).process.env?.NODE_ENV === 'test') {
       // Vitest environment defaults
       return
     }

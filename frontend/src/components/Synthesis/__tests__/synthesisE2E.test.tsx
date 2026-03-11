@@ -6,12 +6,28 @@ import { CandidateExplorer } from '../CandidateExplorer'
 import { useSynthesisStore } from '../../../stores/synthesisStore'
 import { useBuildStore } from '../../../stores/buildStore'
 import type { SynthesisCandidate } from '../../../types/synthesis'
+import { loadAllPartDefs } from '../../../hooks/usePartLibrary'
+import { solveTopology } from '../../../services/topologySolver'
 
 // Mock the alert to prevent it from cluttering the test output
 global.alert = vi.fn()
 
+vi.mock('../../../hooks/usePartLibrary', () => ({
+  loadAllPartDefs: vi.fn(),
+}))
+
+vi.mock('../../../services/topologySolver', () => ({
+  solveTopology: vi.fn(),
+}))
+
 describe('Synthesis E2E UI Flow', () => {
   beforeEach(() => {
+    vi.mocked(loadAllPartDefs).mockResolvedValue(new Map())
+    vi.mocked(solveTopology).mockReturnValue({
+      parts: [{ instance_id: 'p1', part_id: 'm1', position: [0,0,0], rotation: [0,0,0,1] }],
+      connections: []
+    } as any)
+
     act(() => {
       useSynthesisStore.setState({
         prompt: '',
@@ -25,8 +41,9 @@ describe('Synthesis E2E UI Flow', () => {
       useBuildStore.setState({
         parts: {},
         connections: {},
-        stabilityScore: null
-      })
+        stabilityScore: null,
+        recalculateStability: vi.fn().mockResolvedValue(undefined)
+      } as any)
     })
     vi.clearAllMocks()
     vi.useFakeTimers()
@@ -95,7 +112,7 @@ describe('Synthesis E2E UI Flow', () => {
 
     // 5. Import into Scene
     const importBtn = screen.getByRole('button', { name: /Import into Scene/i })
-    act(() => {
+    await act(async () => {
       fireEvent.click(importBtn)
     })
 
@@ -103,6 +120,6 @@ describe('Synthesis E2E UI Flow', () => {
     const buildState = useBuildStore.getState()
     expect(Object.keys(buildState.parts)).toHaveLength(1)
     expect(buildState.parts['p1'].part_id).toBe('m1')
-    expect(buildState.stabilityScore).toBe(0.8)
+    expect(buildState.stabilityScore).toBe(80)
   })
 })

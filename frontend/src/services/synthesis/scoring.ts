@@ -1,6 +1,6 @@
 import type { TopologyModel, SolvedTopologyBuild } from '../topologySolver'
 import type { SynthesisGoal, SynthesisScoreBreakdown, SynthesisScorePenalty } from '../../types/synthesis'
-import { evaluatePhysics, type PhysicsMetrics } from './physicsEval'
+import { evaluatePhysics } from './physicsEval'
 import type { KnexPartDef } from '../../types/parts'
 
 export function evaluateCandidateScore(
@@ -8,7 +8,7 @@ export function evaluateCandidateScore(
   build: SolvedTopologyBuild,
   goal: SynthesisGoal,
   partDefsById: Map<string, KnexPartDef>
-): SynthesisScoreBreakdown {
+): { score: SynthesisScoreBreakdown; dimensionsMm: { x: number; y: number; z: number } } {
   const physics = evaluatePhysics(build, partDefsById)
   
   const penalties: SynthesisScorePenalty[] = []
@@ -105,12 +105,15 @@ export function evaluateCandidateScore(
   totalScore = Math.max(0, totalScore - penaltySum)
 
   return {
-    total: totalScore,
-    objective_fit,
-    stability: physics.estimatedStabilityScore,
-    stress_resilience: physics.estimatedStressScore,
-    part_efficiency,
-    structural_simplicity,
-    penalties
+    score: {
+      total: totalScore,
+      objective_fit,
+      stability: physics.estimatedStabilityScore,
+      stress_resilience: physics.estimatedStressScore,
+      part_efficiency,
+      structural_simplicity,
+      penalties
+    },
+    dimensionsMm: physics.dimensionsMm
   }
 }

@@ -36,6 +36,35 @@ describe('CandidateRepository and Fingerprinting', () => {
     expect(hashA.length).toBe(64) // SHA-256 hex string length
   })
 
+  it('generates identical fingerprints even when instance IDs are renamed', async () => {
+    const topologyA = {
+      format_version: 'topology-v1' as const,
+      parts: [
+        { instance_id: 'rod_left', part_id: 'rod-54' },
+        { instance_id: 'joint_anchor', part_id: 'connector-2way' },
+      ],
+      connections: [
+        { from: 'rod_left.end1', to: 'joint_anchor.center', joint_type: 'fixed' as const },
+      ],
+    }
+
+    const topologyB = {
+      format_version: 'topology-v1' as const,
+      parts: [
+        { instance_id: 'p_9123', part_id: 'rod-54' },
+        { instance_id: 'q_0042', part_id: 'connector-2way' },
+      ],
+      connections: [
+        { from: 'p_9123.end1', to: 'q_0042.center', joint_type: 'fixed' as const },
+      ],
+    }
+
+    const hashA = await getTopologyFingerprint(topologyA)
+    const hashB = await getTopologyFingerprint(topologyB)
+
+    expect(hashA).toBe(hashB)
+  })
+
   it('generates different fingerprints for structurally different topologies', async () => {
     const topologyA = {
       format_version: 'topology-v1' as const,

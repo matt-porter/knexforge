@@ -14,7 +14,10 @@ export interface GenerationResult {
 export class CandidateGenerator {
   private oracle: TopologyOracle
 
-  constructor(private partDefsById: Map<string, KnexPartDef>) {
+  private partDefsById: Map<string, KnexPartDef>
+
+  constructor(partDefsById: Map<string, KnexPartDef>) {
+    this.partDefsById = partDefsById
     this.oracle = new TopologyOracle(partDefsById)
   }
 
@@ -35,7 +38,7 @@ export class CandidateGenerator {
     let candidateIdCounter = 1
 
     // We generate up to maxAttempts to find `candidateCount` valid ones
-    const maxAttempts = candidateCount * 10
+    const maxAttempts = candidateCount * 25
     let attempts = 0
 
     while (candidates.length < candidateCount && attempts < maxAttempts) {
@@ -53,11 +56,12 @@ export class CandidateGenerator {
       // Clone deeply to avoid mutating template output
       const model: TopologyModel = JSON.parse(JSON.stringify(baseModel))
 
-      // 2. Apply 0 to 3 random mutations
-      const mutationCount = random.nextInt(0, 3)
+      // 2. Structural Growth & Refinement Phase
+      // Apply 5 to 15 random mutations to actually grow the structure
+      const mutationCount = random.nextInt(5, 15)
       for (let i = 0; i < mutationCount; i++) {
         const mutation = random.pick(allMutations)
-        mutation(model, random)
+        mutation(model, random, this.partDefsById)
       }
 
       // 3. Oracle Check
@@ -74,7 +78,7 @@ export class CandidateGenerator {
       }
 
       // 4. Score Candidate
-      const score = evaluateCandidateScore(
+      const { score, dimensionsMm } = evaluateCandidateScore(
         oracleResult.canonicalTopology,
         oracleResult.solvedBuild,
         goal,
@@ -105,11 +109,9 @@ export class CandidateGenerator {
           part_count: oracleResult.solvedBuild.parts.length,
           connection_count: oracleResult.canonicalTopology.connections.length,
           estimated_envelope_mm: [
-            // Approximations from physics Eval could be cached, but let's recompute or just use dummy for now
-            // Actually score breakdown has no size info, so let's compute it quickly or rely on boundingBox
-            // But we didn't return boundingBox from evaluateCandidateScore.
-            // That's fine, we'll just populate some rough metrics.
-            0, 0, 0
+            Math.round(dimensionsMm.x),
+            Math.round(dimensionsMm.y),
+            Math.round(dimensionsMm.z)
           ],
           stability_score: score.stability
         }
