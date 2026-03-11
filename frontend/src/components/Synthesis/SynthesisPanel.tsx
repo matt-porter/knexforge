@@ -1,6 +1,7 @@
 import React from 'react'
 import { useSynthesisStore } from '../../stores/synthesisStore'
 import type { SynthesisObjective } from '../../types/synthesis'
+import { loadAllPartDefs } from '../../hooks/usePartLibrary'
 
 const OBJECTIVES: { value: SynthesisObjective, label: string }[] = [
   { value: 'stability', label: 'Stability' },
@@ -34,12 +35,17 @@ export const SynthesisPanel: React.FC = () => {
     
     startGeneration()
     try {
+      console.log('[SynthesisPanel] Loading part definitions...')
+      const partDefsMap = await loadAllPartDefs()
+      const partDefs = Object.fromEntries(partDefsMap.entries())
+
       console.log('[SynthesisPanel] Importing runtime...')
       const { getSynthesisRuntime } = await import('../../services/synthesis/runtime')
       const runtime = getSynthesisRuntime()
       
       console.log('[SynthesisPanel] Dispatching job to runtime...')
       const result = await runtime.startJob(goal, {
+        partDefs,
         onProgress: (status) => {
           console.log(`[SynthesisPanel] Job progress [${status.job_id}]: ${status.state}`, status.progress)
         }

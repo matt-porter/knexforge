@@ -5,6 +5,7 @@ import {
   SYNTHESIS_WORKER_CONTRACT_VERSION,
   parseSynthesisWorkerRequest,
 } from '../services/synthesis/contracts'
+import { CandidateGenerator } from '../services/synthesis/generator'
 
 interface ActiveJob {
   requestId: string
@@ -13,6 +14,7 @@ interface ActiveJob {
   timeoutTimer?: ReturnType<typeof setTimeout>
   cancelled: boolean
   done: boolean
+  partDefs: Record<string, any>
 }
 
 const workerScope = self as DedicatedWorkerGlobalScope
@@ -126,15 +128,24 @@ async function runLifecycle(job: ActiveJob): Promise<void> {
     return
   }
 
-  setStatus(job, {
-    state: 'complete',
-    stage: 'complete',
-    progress: 1,
-    candidates: [],
-    rejections: [],
-  })
-  postResult(job.requestId, job.status)
-  finalizeJob(job)
+  try {
+    const generator = new CandidateGenerator(new Map(Object.entries(job.partDefs)))
+    const result = generator.generate(job.status.goal)
+
+    setStatus(job, {
+      state: 'complete',
+      stage: 'complete',
+      progress: 1,
+      candidates: result.candidates,
+      rejections: result.rejections,
+    })
+    postResult(job.requestId, job.status)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    failActiveJob(job, 'generation_error', message)
+  } finally {
+    finalizeJob(job)
+  }
 }
 
 function cancelActiveJob(job: ActiveJob, reasonMessage: string): void {
@@ -170,7 +181,7 @@ function failActiveJob(job: ActiveJob, code: string, message: string): void {
   finalizeJob(job)
 }
 
-function startJob(requestId: string, goal: SynthesisGoal): void {
+function startJob(requestId: string, goal: SynthesisGoal, partDefs: Record<string, any>): void {
   const now = new Date().toISOString()
   const jobId = buildJobId(requestId)
 
@@ -190,6 +201,7 @@ function startJob(requestId: string, goal: SynthesisGoal): void {
     timers: [],
     cancelled: false,
     done: false,
+    partDefs,
   }
 
   jobsById.set(jobId, job)
@@ -217,7 +229,7 @@ workerScope.addEventListener('message', (event: MessageEvent<unknown>) => {
   }
 
   if (request.type === 'synthesis.generate') {
-    startJob(request.request_id, request.goal)
+    startJob(request.request_id, request.goal, request.part_defs)
     return
   }
 

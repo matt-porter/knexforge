@@ -48,6 +48,7 @@ export interface SynthesisWorkerGenerateRequest {
   contract_version: typeof SYNTHESIS_WORKER_CONTRACT_VERSION
   request_id: string
   goal: SynthesisGoal
+  part_defs: Record<string, any>
 }
 
 export interface SynthesisWorkerCancelRequest {
@@ -453,6 +454,7 @@ export function parseSynthesisWorkerRequest(value: unknown): SynthesisWorkerRequ
       contract_version: SYNTHESIS_WORKER_CONTRACT_VERSION,
       request_id: requestId,
       goal: parseSynthesisGoal(value.goal),
+      part_defs: isRecord(value.part_defs) ? value.part_defs : {},
     }
   }
 

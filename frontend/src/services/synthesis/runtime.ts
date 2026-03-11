@@ -16,6 +16,7 @@ export interface StartSynthesisJobOptions {
   timeoutMs?: number
   signal?: AbortSignal
   onProgress?: (status: SynthesisJobStatus) => void
+  partDefs?: Record<string, any>
 }
 
 export interface WorkerLike {
@@ -73,6 +74,8 @@ export class SynthesisRuntime {
     const requestId = createRequestId()
     const timeoutMs = options.timeoutMs ?? goal.constraints.max_generation_time_ms ?? this.defaultTimeoutMs
 
+    const partDefs = options.partDefs ?? {}
+
     return new Promise<SynthesisJobStatus>((resolve, reject) => {
       if (options.signal?.aborted) {
         reject(new Error('Synthesis request aborted before start'))
@@ -104,6 +107,7 @@ export class SynthesisRuntime {
         contract_version: SYNTHESIS_WORKER_CONTRACT_VERSION,
         request_id: requestId,
         goal,
+        part_defs: partDefs,
       })
     })
   }
