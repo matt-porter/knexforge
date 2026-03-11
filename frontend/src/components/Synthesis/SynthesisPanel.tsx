@@ -29,18 +29,34 @@ export const SynthesisPanel: React.FC = () => {
   const handleGenerate = async () => {
     if (isGenerating) return
     
+    const goal = getGoal()
+    console.log('[SynthesisPanel] Starting generation with goal:', goal)
+    
     startGeneration()
     try {
+      console.log('[SynthesisPanel] Importing runtime...')
       const { getSynthesisRuntime } = await import('../../services/synthesis/runtime')
       const runtime = getSynthesisRuntime()
-      const result = await runtime.startJob(getGoal())
       
-      if (result.candidates) {
+      console.log('[SynthesisPanel] Dispatching job to runtime...')
+      const result = await runtime.startJob(goal, {
+        onProgress: (status) => {
+          console.log(`[SynthesisPanel] Job progress [${status.job_id}]: ${status.state}`, status.progress)
+        }
+      })
+      
+      console.log('[SynthesisPanel] Job completed successfully:', result)
+      
+      if (result.candidates && result.candidates.length > 0) {
+        console.log(`[SynthesisPanel] Received ${result.candidates.length} candidates. Updating store...`)
         setCandidates(result.candidates)
+      } else {
+        console.warn('[SynthesisPanel] Job completed but no candidates were returned.')
       }
     } catch (err) {
-      console.error('Synthesis failed:', err)
+      console.error('[SynthesisPanel] Synthesis failed with error:', err)
     } finally {
+      console.log('[SynthesisPanel] Generation process finished.')
       stopGeneration()
     }
   }
