@@ -30,7 +30,7 @@ export interface SynthesisState {
   getGoal: () => SynthesisGoal
 }
 
-export const useSynthesisStore = create<SynthesisState>((set, get) => ({
+export const useSynthesisStore = create<SynthesisState>()((set, get) => ({
   prompt: '',
   objectives: ['stability'],
   constraints: {

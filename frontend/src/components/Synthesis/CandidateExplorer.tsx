@@ -17,19 +17,27 @@ const PANEL_COLORS = {
 } as const
 
 export const CandidateExplorer: React.FC = () => {
-  const { candidates, selectedCandidateId, setSelectedCandidate, setPreviewBuild } = useSynthesisStore()
-  const { loadBuild } = useBuildStore()
+  const candidates = useSynthesisStore(s => s.candidates)
+  const selectedCandidateId = useSynthesisStore(s => s.selectedCandidateId)
+  const setSelectedCandidate = useSynthesisStore(s => s.setSelectedCandidate)
+  const setPreviewBuild = useSynthesisStore(s => s.setPreviewBuild)
+  
+  const loadBuild = useBuildStore(s => s.loadBuild)
 
   // Update preview when selection changes
   useEffect(() => {
     if (!selectedCandidateId) {
-      setPreviewBuild(null)
+      if (typeof setPreviewBuild === 'function') {
+        setPreviewBuild(null)
+      }
       return
     }
 
     const cand = candidates.find(c => c.candidate_id === selectedCandidateId)
     if (!cand) {
-      setPreviewBuild(null)
+      if (typeof setPreviewBuild === 'function') {
+        setPreviewBuild(null)
+      }
       return
     }
 
@@ -39,10 +47,14 @@ export const CandidateExplorer: React.FC = () => {
         const defs = await loadAllPartDefs()
         const solved = solveTopology(cand.topology, defs)
         console.log(`[CandidateExplorer] Solved preview for ${cand.candidate_id}:`, solved)
-        setPreviewBuild(solved)
+        if (typeof setPreviewBuild === 'function') {
+          setPreviewBuild(solved)
+        }
       } catch (err) {
         console.error('[CandidateExplorer] Failed to solve candidate for preview:', err)
-        setPreviewBuild(null)
+        if (typeof setPreviewBuild === 'function') {
+          setPreviewBuild(null)
+        }
       }
     }
 
@@ -59,8 +71,12 @@ export const CandidateExplorer: React.FC = () => {
       const solved = solveTopology(cand.topology, defs)
       loadBuild(solved.parts, solved.connections, cand.score.stability)
       // Clear selection after import
-      setSelectedCandidate(null)
-      setPreviewBuild(null)
+      if (typeof setSelectedCandidate === 'function') {
+        setSelectedCandidate(null)
+      }
+      if (typeof setPreviewBuild === 'function') {
+        setPreviewBuild(null)
+      }
     } catch (err) {
       console.error('[CandidateExplorer] Failed to import candidate:', err)
       alert('Failed to import candidate topology.')
@@ -105,7 +121,11 @@ export const CandidateExplorer: React.FC = () => {
                 transition: 'border-color 0.2s, background-color 0.2s',
                 cursor: 'pointer',
               }}
-              onClick={() => setSelectedCandidate(cand.candidate_id)}
+              onClick={() => {
+                if (typeof setSelectedCandidate === 'function') {
+                  setSelectedCandidate(cand.candidate_id)
+                }
+              }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                 <h3 style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>
