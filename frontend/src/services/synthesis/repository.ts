@@ -1,6 +1,6 @@
 import type { SynthesisJobStore } from './jobStore'
 import type { SynthesisCandidate } from '../../types/synthesis'
-import { canonicalizeTopology, TopologyModel } from '../topologySolver'
+import { canonicalizeTopology, type TopologyModel } from '../topologySolver'
 
 // Standard hashing mechanism (simple string hash or SHA-256 for browser)
 async function hashString(str: string): Promise<string> {
@@ -41,6 +41,12 @@ export class CandidateRepository {
   public async deduplicate(newCandidates: SynthesisCandidate[], existingHashes: Set<string> = new Set()): Promise<SynthesisCandidate[]> {
     const uniqueCandidates: SynthesisCandidate[] = []
     
+    // Populate hashes from previously saved jobs for cross-run deduplication
+    const allExisting = await this.getAllCandidates()
+    for (const cand of allExisting) {
+      existingHashes.add(await getTopologyFingerprint(cand.topology))
+    }
+
     for (const candidate of newCandidates) {
       const fingerprint = await getTopologyFingerprint(candidate.topology)
       if (!existingHashes.has(fingerprint)) {

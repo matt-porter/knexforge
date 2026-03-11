@@ -46,7 +46,8 @@ export function evaluatePhysics(
 
   // Avoid division by zero
   const maxDim = Math.max(dimensionsMm.x, dimensionsMm.y, dimensionsMm.z, 1)
-  const minDim = Math.min(dimensionsMm.x, dimensionsMm.y, dimensionsMm.z, 1)
+  const actualMinDim = Math.min(dimensionsMm.x, dimensionsMm.y, dimensionsMm.z)
+  const minDim = Math.max(actualMinDim, 1)
   const aspectRatio = maxDim / minDim
 
   // Heuristic for support polygon area:
