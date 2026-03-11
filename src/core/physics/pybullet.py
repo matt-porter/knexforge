@@ -122,6 +122,10 @@ class PyBulletSimulator:
     def create_joints(self):
         """Creates joints between parts at validated ports."""
         cid = self.client
+        # Standard K'Nex joints are strong but not infinite.
+        # 100k force cap allows stress tracking and realistic breakage.
+        max_force = 100000.0
+
         # For each connection, create a constraint between the two part bodies at the port positions
         for conn in self.build.connections:
             if conn.from_instance not in self.part_bodies or conn.to_instance not in self.part_bodies:
