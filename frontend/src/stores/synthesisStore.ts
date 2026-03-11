@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { SynthesisGoal, SynthesisObjective, SynthesisConstraintSet, SynthesisCandidate } from '../types/synthesis'
+import type { SolvedTopologyBuild } from '../services/topologySolver'
 
 export interface SynthesisState {
   // Goal authoring
@@ -12,6 +13,7 @@ export interface SynthesisState {
   // Results
   candidates: SynthesisCandidate[]
   selectedCandidateId: string | null
+  previewBuild: SolvedTopologyBuild | null
   
   // Actions
   setPrompt: (prompt: string) => void
@@ -22,6 +24,7 @@ export interface SynthesisState {
   stopGeneration: () => void
   setCandidates: (candidates: SynthesisCandidate[]) => void
   setSelectedCandidate: (id: string | null) => void
+  setPreviewBuild: (build: SolvedTopologyBuild | null) => void
   
   // Helpers
   getGoal: () => SynthesisGoal
@@ -38,6 +41,7 @@ export const useSynthesisStore = create<SynthesisState>((set, get) => ({
   isGenerating: false,
   candidates: [],
   selectedCandidateId: null,
+  previewBuild: null,
 
   setPrompt: (prompt) => set({ prompt }),
   
@@ -64,8 +68,9 @@ export const useSynthesisStore = create<SynthesisState>((set, get) => ({
   startGeneration: () => set({ isGenerating: true }),
   stopGeneration: () => set({ isGenerating: false }),
   
-  setCandidates: (candidates) => set({ candidates, selectedCandidateId: null }),
+  setCandidates: (candidates) => set({ candidates, selectedCandidateId: null, previewBuild: null }),
   setSelectedCandidate: (id) => set({ selectedCandidateId: id }),
+  setPreviewBuild: (build) => set({ previewBuild: build }),
 
   getGoal: () => {
     const state = get()

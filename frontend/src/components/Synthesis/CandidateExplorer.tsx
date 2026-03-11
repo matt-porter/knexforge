@@ -1,70 +1,126 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useSynthesisStore } from '../../stores/synthesisStore'
 import { useBuildStore } from '../../stores/buildStore'
+import { solveTopology } from '../../services/topologySolver'
+import { loadAllPartDefs } from '../../hooks/usePartLibrary'
 import type { SynthesisCandidate } from '../../types/synthesis'
 
+const PANEL_COLORS = {
+  bg: '#0f172a',
+  border: '#1e293b',
+  cardBg: '#1e293b',
+  cardHover: '#334155',
+  cardActive: '#1d4ed8',
+  text: '#f1f5f9',
+  textMuted: '#94a3b8',
+  accent: '#3b82f6',
+} as const
+
 export const CandidateExplorer: React.FC = () => {
-  const { candidates, selectedCandidateId, setSelectedCandidate } = useSynthesisStore()
+  const { candidates, selectedCandidateId, setSelectedCandidate, setPreviewBuild } = useSynthesisStore()
   const { loadBuild } = useBuildStore()
 
-  console.log('[CandidateExplorer] Rendering. Candidates count:', candidates?.length ?? 0)
+  // Update preview when selection changes
+  useEffect(() => {
+    if (!selectedCandidateId) {
+      setPreviewBuild(null)
+      return
+    }
+
+    const cand = candidates.find(c => c.candidate_id === selectedCandidateId)
+    if (!cand) {
+      setPreviewBuild(null)
+      return
+    }
+
+    // Solve topology for preview
+    const updatePreview = async () => {
+      try {
+        const defs = await loadAllPartDefs()
+        const solved = solveTopology(cand.topology, defs)
+        console.log(`[CandidateExplorer] Solved preview for ${cand.candidate_id}:`, solved)
+        setPreviewBuild(solved)
+      } catch (err) {
+        console.error('[CandidateExplorer] Failed to solve candidate for preview:', err)
+        setPreviewBuild(null)
+      }
+    }
+
+    void updatePreview()
+  }, [selectedCandidateId, candidates, setPreviewBuild])
 
   if (!candidates || candidates.length === 0) {
-    console.log('[CandidateExplorer] No candidates, returning null.')
     return null
   }
 
-  const handleImport = (cand: SynthesisCandidate) => {
-    // For now, assume candidates come with a solvedBuild in their metrics/metadata?
-    // Oh wait, SynthesisCandidate has 'topology' but we need parts/connections to load into buildStore.
-    // In our generator we have the solvedBuild, we should probably add it to the candidate payload 
-    // or run solveTopology on import.
-    // For this UI mockup task, we'll just log or assume it exists in a full integration.
-    // If it's missing, we'll just alert.
-    if ((cand as any).solvedBuild) {
-       loadBuild((cand as any).solvedBuild.parts, (cand as any).solvedBuild.connections, cand.score.stability)
-    } else {
-       console.log('Would import candidate topology:', cand.topology)
-       // Let's assume we dispatch an event that does the solve, or we just pass the topology.
-       // The buildStore expects Parts and Connections.
-       alert('Importing candidate: ' + cand.candidate_id)
+  const handleImport = async (cand: SynthesisCandidate) => {
+    try {
+      const defs = await loadAllPartDefs()
+      const solved = solveTopology(cand.topology, defs)
+      loadBuild(solved.parts, solved.connections, cand.score.stability)
+      // Clear selection after import
+      setSelectedCandidate(null)
+      setPreviewBuild(null)
+    } catch (err) {
+      console.error('[CandidateExplorer] Failed to import candidate:', err)
+      alert('Failed to import candidate topology.')
     }
   }
 
   return (
-    <div className="candidate-explorer p-4 bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 w-80 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
-      <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 border-b border-zinc-200 dark:border-zinc-700 pb-2">
+    <div 
+      className="candidate-explorer"
+      style={{
+        padding: '16px',
+        background: PANEL_COLORS.bg,
+        borderRadius: '8px',
+        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+        border: `1px solid ${PANEL_COLORS.border}`,
+        width: '320px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        maxHeight: '60vh',
+        overflowY: 'auto',
+        pointerEvents: 'auto',
+        color: PANEL_COLORS.text
+      }}
+    >
+      <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, borderBottom: `1px solid ${PANEL_COLORS.border}`, paddingBottom: '8px' }}>
         Generated Candidates
       </h2>
 
-      <div className="flex flex-col gap-4">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {candidates.map((cand) => {
           const isSelected = cand.candidate_id === selectedCandidateId
           
           return (
             <div 
               key={cand.candidate_id}
-              className={`p-3 border rounded-md transition-colors cursor-pointer ${
-                isSelected 
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
-                  : 'border-zinc-200 dark:border-zinc-700 hover:border-blue-300 dark:hover:border-blue-600'
-              }`}
+              style={{
+                padding: '12px',
+                border: `1px solid ${isSelected ? PANEL_COLORS.accent : PANEL_COLORS.border}`,
+                borderRadius: '6px',
+                background: isSelected ? `${PANEL_COLORS.accent}1a` : PANEL_COLORS.cardBg,
+                transition: 'border-color 0.2s, background-color 0.2s',
+                cursor: 'pointer',
+              }}
               onClick={() => setSelectedCandidate(cand.candidate_id)}
             >
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                <h3 style={{ margin: 0, fontWeight: 600, fontSize: '14px' }}>
                   {cand.summary || `Candidate ${cand.candidate_id.split('_')[1]}`}
                 </h3>
-                <div className="text-xs font-mono font-bold px-2 py-1 bg-zinc-100 dark:bg-zinc-900 rounded text-zinc-600 dark:text-zinc-300">
+                <div style={{ fontSize: '10px', fontWeight: 'bold', padding: '2px 6px', background: '#000', borderRadius: '4px', color: PANEL_COLORS.accent }}>
                   Score: {(cand.score.total * 100).toFixed(0)}
                 </div>
               </div>
 
-              <div className="text-xs text-zinc-600 dark:text-zinc-400 grid grid-cols-2 gap-1 mb-3">
+              <div style={{ fontSize: '11px', color: PANEL_COLORS.textMuted, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginBottom: '12px' }}>
                 <div>Parts: {cand.metrics.part_count}</div>
-                <div>Stability: {(cand.score.stability * 100).toFixed(0)}</div>
-                <div>Efficiency: {(cand.score.part_efficiency * 100).toFixed(0)}</div>
-                <div>Fit: {(cand.score.objective_fit * 100).toFixed(0)}</div>
+                <div>Stability: {(cand.score.stability * 100).toFixed(0)}%</div>
+                <div>Efficiency: {(cand.score.part_efficiency * 100).toFixed(0)}%</div>
+                <div>Fit: {(cand.score.objective_fit * 100).toFixed(0)}%</div>
               </div>
 
               {isSelected && (
@@ -73,7 +129,20 @@ export const CandidateExplorer: React.FC = () => {
                     e.stopPropagation()
                     handleImport(cand)
                   }}
-                  className="w-full py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded shadow transition-colors"
+                  style={{
+                    width: '100%',
+                    padding: '6px 0',
+                    background: '#10b981',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#059669'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#10b981'}
                 >
                   Import into Scene
                 </button>

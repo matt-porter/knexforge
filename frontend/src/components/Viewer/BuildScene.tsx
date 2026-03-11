@@ -3,6 +3,7 @@ import type { Connection, KnexPartDef, PartInstance } from '../../types/parts'
 import { usePartDefs, preloadAllMeshes } from '../../hooks/usePartLibrary'
 import { useBuildStore } from '../../stores/buildStore'
 import { useInteractionStore } from '../../stores/interactionStore'
+import { useSynthesisStore } from '../../stores/synthesisStore'
 import { PartMesh } from './PartMesh'
 import { InstancedParts } from './InstancedParts'
 import { GhostPreview } from './GhostPreview'
@@ -25,11 +26,15 @@ const INSTANCING_THRESHOLD = 4
 function ConnectionLines({ 
   connections, 
   parts, 
-  defs 
+  defs,
+  color = "#4488ff",
+  opacity = 0.4
 }: { 
   connections: Connection[], 
   parts: Record<string, PartInstance>, 
-  defs: Map<string, KnexPartDef> 
+  defs: Map<string, KnexPartDef>,
+  color?: string,
+  opacity?: number
 }) {
   const lines = useMemo(() => {
     const result: { start: Vector3; end: Vector3; key: string }[] = []
@@ -69,10 +74,10 @@ function ConnectionLines({
         <Line
           key={line.key}
           points={[line.start, line.end]}
-          color="#4488ff"
+          color={color}
           lineWidth={1.5}
           transparent
-          opacity={0.4}
+          opacity={opacity}
         />
       ))}
     </group>
@@ -158,6 +163,39 @@ function GhostLayer({ defs }: { defs: Map<string, KnexPartDef> }) {
   if (!def) return null
 
   return <GhostPreview def={def} />
+}
+
+/**
+ * Renders a ghosted preview of a synthesis candidate.
+ */
+function PreviewLayer({ defs }: { defs: Map<string, KnexPartDef> }) {
+  const previewBuild = useSynthesisStore((s) => s.previewBuild)
+  
+  if (!previewBuild) return null
+
+  return (
+    <group>
+      {previewBuild.parts.map((inst) => {
+        const def = defs.get(inst.part_id)
+        if (!def) return null
+        return (
+          <PartMesh 
+            key={`preview-${inst.instance_id}`} 
+            instance={{...inst, color: '#4488ff'}} 
+            def={def} 
+            opacity={0.3}
+          />
+        )
+      })}
+      <ConnectionLines 
+        connections={previewBuild.connections} 
+        parts={Object.fromEntries(previewBuild.parts.map(p => [p.instance_id, p]))} 
+        defs={defs} 
+        color="#3b82f6"
+        opacity={0.2}
+      />
+    </group>
+  )
 }
 
 interface BuildSceneProps {
@@ -291,6 +329,7 @@ export function BuildScene({ loadDemoWhenEmpty = true }: BuildSceneProps) {
     <Suspense fallback={<LoadingIndicator />}>
       <BuildSceneInner parts={partsList} defs={defs} selectedPartId={selectedPartId} />
       <ConnectionLines connections={storeConnections} parts={storeParts} defs={defs} />
+      <PreviewLayer defs={defs} />
       <GhostLayer defs={defs} />
       {/* Visual slide range guide */}
       <SlideGuide defs={defs} />

@@ -453,7 +453,6 @@ export default function App() {
                   overflowY: 'auto',
                 }}
               >
-                {console.log('[App] Rendering AI synthesis components...')}
                 <div style={{ pointerEvents: 'auto' }}>
                   <SynthesisPanel />
                 </div>

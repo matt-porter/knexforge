@@ -10,6 +10,16 @@ const OBJECTIVES: { value: SynthesisObjective, label: string }[] = [
   { value: 'structural_simplicity', label: 'Structural Simplicity' },
 ]
 
+const PANEL_COLORS = {
+  bg: '#0f172a',
+  border: '#1e293b',
+  inputBg: '#020617',
+  text: '#f1f5f9',
+  textMuted: '#94a3b8',
+  accent: '#3b82f6',
+  accentDark: '#1d4ed8',
+} as const
+
 export const SynthesisPanel: React.FC = () => {
   const {
     prompt,
@@ -68,32 +78,63 @@ export const SynthesisPanel: React.FC = () => {
   }
 
   return (
-    <div className="synthesis-panel p-4 bg-white dark:bg-zinc-800 rounded-lg shadow-sm border border-zinc-200 dark:border-zinc-700 w-80 flex flex-col gap-4">
-      <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">AI Mechanism Synthesis</h2>
+    <div 
+      className="synthesis-panel"
+      style={{
+        padding: '16px',
+        background: PANEL_COLORS.bg,
+        borderRadius: '8px',
+        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+        border: `1px solid ${PANEL_COLORS.border}`,
+        width: '320px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        pointerEvents: 'auto',
+        color: PANEL_COLORS.text
+      }}
+    >
+      <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>AI Mechanism Synthesis</h2>
       
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Goal Prompt</label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <label style={{ fontSize: '13px', fontWeight: 500, color: PANEL_COLORS.textMuted }}>Goal Prompt</label>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="e.g. A spinning sign post mechanism..."
-          className="p-2 text-sm bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          style={{
+            padding: '8px',
+            fontSize: '13px',
+            background: PANEL_COLORS.inputBg,
+            border: `1px solid ${PANEL_COLORS.border}`,
+            borderRadius: '4px',
+            resize: 'none',
+            outline: 'none',
+            color: PANEL_COLORS.text,
+            minHeight: '60px'
+          }}
           rows={3}
         />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Optimization Objectives</label>
-        <div className="flex flex-wrap gap-2">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <label style={{ fontSize: '13px', fontWeight: 500, color: PANEL_COLORS.textMuted }}>Optimization Objectives</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {OBJECTIVES.map(obj => (
             <button
               key={obj.value}
               onClick={() => toggleObjective(obj.value)}
-              className={`px-2 py-1 text-xs rounded-full border transition-colors ${
-                objectives.includes(obj.value)
-                  ? 'bg-blue-100 border-blue-300 text-blue-800 dark:bg-blue-900/30 dark:border-blue-500/50 dark:text-blue-300'
-                  : 'bg-zinc-100 border-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-              }`}
+              style={{
+                padding: '4px 10px',
+                fontSize: '11px',
+                borderRadius: '999px',
+                border: '1px solid',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                background: objectives.includes(obj.value) ? `${PANEL_COLORS.accent}33` : 'transparent',
+                borderColor: objectives.includes(obj.value) ? PANEL_COLORS.accent : PANEL_COLORS.border,
+                color: objectives.includes(obj.value) ? PANEL_COLORS.accent : PANEL_COLORS.textMuted
+              }}
             >
               {obj.label}
             </button>
@@ -101,60 +142,107 @@ export const SynthesisPanel: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Constraints</label>
-        <label className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <label style={{ fontSize: '13px', fontWeight: 500, color: PANEL_COLORS.textMuted }}>Constraints</label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: PANEL_COLORS.textMuted, cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={constraints.require_motor ?? false}
             onChange={(e) => setConstraint('require_motor', e.target.checked)}
-            className="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500"
+            style={{ accentColor: PANEL_COLORS.accent }}
           />
           Require Motor
         </label>
         
-        <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-          <label className="flex-1">Max Parts:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: PANEL_COLORS.textMuted }}>
+          <label style={{ flex: 1 }}>Max Parts:</label>
           <input
             type="number"
             min={1}
             max={200}
             value={constraints.max_parts ?? 50}
             onChange={(e) => setConstraint('max_parts', parseInt(e.target.value, 10))}
-            className="w-16 p-1 bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style={{
+              width: '64px',
+              padding: '4px',
+              background: PANEL_COLORS.inputBg,
+              border: `1px solid ${PANEL_COLORS.border}`,
+              borderRadius: '4px',
+              textAlign: 'center',
+              outline: 'none',
+              color: PANEL_COLORS.text
+            }}
           />
         </div>
       </div>
 
-      <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-        <label className="flex-1">Candidates to Generate:</label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: PANEL_COLORS.textMuted }}>
+        <label style={{ flex: 1 }}>Candidates to Generate:</label>
         <input
           type="number"
           min={1}
           max={10}
           value={candidateCount}
           onChange={(e) => setCandidateCount(parseInt(e.target.value, 10))}
-          className="w-16 p-1 bg-zinc-50 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-600 rounded text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+          style={{
+            width: '64px',
+            padding: '4px',
+            background: PANEL_COLORS.inputBg,
+            border: `1px solid ${PANEL_COLORS.border}`,
+            borderRadius: '4px',
+            textAlign: 'center',
+            outline: 'none',
+            color: PANEL_COLORS.text
+          }}
         />
       </div>
 
       <button
         onClick={handleGenerate}
         disabled={isGenerating || prompt.trim().length === 0}
-        className="mt-2 w-full py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded shadow transition-colors flex items-center justify-center"
+        style={{
+          marginTop: '8px',
+          width: '100%',
+          padding: '10px 0',
+          background: PANEL_COLORS.accent,
+          color: '#fff',
+          fontWeight: 600,
+          border: 'none',
+          borderRadius: '4px',
+          cursor: isGenerating || prompt.trim().length === 0 ? 'default' : 'pointer',
+          opacity: isGenerating || prompt.trim().length === 0 ? 0.6 : 1,
+          transition: 'background-color 0.2s',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px'
+        }}
+        onMouseEnter={(e) => {
+          if (!isGenerating && prompt.trim().length > 0) e.currentTarget.style.background = PANEL_COLORS.accentDark
+        }}
+        onMouseLeave={(e) => {
+          if (!isGenerating && prompt.trim().length > 0) e.currentTarget.style.background = PANEL_COLORS.accent
+        }}
       >
         {isGenerating ? (
-          <span className="flex items-center gap-2">
-            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          <>
+            <svg style={{ animation: 'spin 1s linear infinite', height: '16px', width: '16px' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             Generating...
-          </span>
+          </>
         ) : (
           'Synthesize'
         )}
       </button>
+
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }
