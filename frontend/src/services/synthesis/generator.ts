@@ -3,7 +3,7 @@ import type { SynthesisGoal, SynthesisCandidate, SynthesisCandidateRejection } f
 import { DeterministicRandom, pickWeightedMutation } from './mutations'
 import { TopologyOracle } from './topologyOracle'
 import { evaluateCandidateScore } from './scoring'
-import { templateCatalog } from './templateCatalog'
+import { selectTemplateByPrompt } from './promptMatcher'
 import type { KnexPartDef } from '../../types/parts'
 
 export interface GenerationResult {
@@ -29,22 +29,20 @@ export class CandidateGenerator {
     const rejections: SynthesisCandidateRejection[] = []
     const candidateCount = goal.candidate_count ?? 3
 
-    // 1. Pick a base template that matches hard constraints
-    const availableTemplates = Object.values(templateCatalog)
-    if (availableTemplates.length === 0) {
-      throw new Error('No templates available for generation')
-    }
+    // Templates are now selected by prompt affinity (see promptMatcher.ts)
 
     let candidateIdCounter = 1
 
-    // We generate up to maxAttempts to find `candidateCount` valid ones
-    const maxAttempts = candidateCount * 25
+    // Prompt weighting can intentionally explore harder templates, which increases
+    // rejection rates under strict constraints. Keep a larger cap so we still
+    // reliably satisfy requested candidate counts in deterministic runs.
+    const maxAttempts = candidateCount * 50
     let attempts = 0
 
     while (candidates.length < candidateCount && attempts < maxAttempts) {
       attempts++
 
-      const template = random.pick(availableTemplates)
+      const template = selectTemplateByPrompt(goal.prompt, random)
       
       // Basic generation params
       const baseModel = template.generate({

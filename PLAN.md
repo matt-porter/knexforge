@@ -22,6 +22,17 @@
 
 ---
 
+## Phase 16 — Synthesis Panel Improvements
+
+### [x] Task 16.4: Prompt-Guided Template Selection
+- Implemented prompt-guided template affinity scoring and weighted selection in `frontend/src/services/synthesis/promptMatcher.ts`.
+- Fixed stemming edge cases (`spinning` → `spin`) without breaking singular keyword matches such as `ferris` and `windmill`.
+- Added/updated matcher regression coverage in `frontend/src/services/__tests__/synthesisPromptMatcher.test.ts`, including deterministic weighted-selection behavior and random fallback spread checks.
+- Increased generator attempt budget in `frontend/src/services/synthesis/generator.ts` to preserve candidate-count reliability under prompt-biased sampling.
+- Updated stale regression expectations in `frontend/src/services/__tests__/repro_user_bug.test.ts` and `frontend/src/services/__tests__/topologyCompactFormat.test.ts` to match current side-clip orientation and default `slide_offset`/metadata normalization behavior.
+- **Status (2026-03-12)**: `cd frontend && npx vitest run` passes (`42` files, `366` tests).
+
+
 ## Phase 4 — Scan-to-Build Computer Vision Pipeline
 
 ### ✅ Task 4.1: Synthetic Training Data Generator
