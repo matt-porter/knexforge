@@ -1,6 +1,6 @@
 import type { TopologyModel } from '../topologySolver'
 import type { SynthesisGoal, SynthesisCandidate, SynthesisCandidateRejection } from '../../types/synthesis'
-import { DeterministicRandom, allMutations } from './mutations'
+import { DeterministicRandom, pickWeightedMutation } from './mutations'
 import { TopologyOracle } from './topologyOracle'
 import { evaluateCandidateScore } from './scoring'
 import { templateCatalog } from './templateCatalog'
@@ -57,10 +57,10 @@ export class CandidateGenerator {
       const model: TopologyModel = JSON.parse(JSON.stringify(baseModel))
 
       // 2. Structural Growth & Refinement Phase
-      // Apply 5 to 15 random mutations to actually grow the structure
-      const mutationCount = random.nextInt(5, 15)
+      // Apply 15 to 40 weighted mutations (Phase 16.2/16.3: compound growth + scaled count)
+      const mutationCount = random.nextInt(15, 40)
       for (let i = 0; i < mutationCount; i++) {
-        const mutation = random.pick(allMutations)
+        const mutation = pickWeightedMutation(random)
         mutation(model, random, this.partDefsById)
       }
 
