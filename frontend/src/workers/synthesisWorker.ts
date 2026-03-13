@@ -5,7 +5,7 @@ import {
   SYNTHESIS_WORKER_CONTRACT_VERSION,
   parseSynthesisWorkerRequest,
 } from '../services/synthesis/contracts'
-import { CandidateGenerator } from '../services/synthesis/generator'
+import { EvolutionaryGenerator } from '../services/synthesis/evolutionaryGenerator'
 
 interface ActiveJob {
   requestId: string
@@ -104,33 +104,56 @@ function waitForStep(job: ActiveJob, delayMs: number): Promise<void> {
 
 async function runLifecycle(job: ActiveJob): Promise<void> {
   const delay = seededDelayMs(job.status.goal)
-  const steps: Array<{ stage: SynthesisJobStatus['stage']; progress: number }> = [
-    { stage: 'generating', progress: 0.25 },
-    { stage: 'validating', progress: 0.5 },
-    { stage: 'scoring', progress: 0.75 },
-    { stage: 'ranking', progress: 0.9 },
-  ]
 
-  for (const step of steps) {
-    if (job.cancelled || job.done) {
-      return
-    }
-    setStatus(job, {
-      state: 'running',
-      stage: step.stage,
-      progress: step.progress,
-    })
-    postProgress(job.requestId, job.status)
-    await waitForStep(job, delay)
+  if (job.cancelled || job.done) {
+    return
   }
+
+  setStatus(job, {
+    state: 'running',
+    stage: 'generating',
+    progress: 0.05,
+  })
+  postProgress(job.requestId, job.status)
+  await waitForStep(job, delay)
 
   if (job.cancelled || job.done) {
     return
   }
 
   try {
-    const generator = new CandidateGenerator(new Map(Object.entries(job.partDefs)))
-    const result = generator.generate(job.status.goal)
+    const generator = new EvolutionaryGenerator(new Map(Object.entries(job.partDefs)))
+    const result = generator.generate(job.status.goal, {
+      onProgress: ({ generation, totalGenerations }) => {
+        if (job.cancelled || job.done) {
+          return
+        }
+
+        const progress = totalGenerations > 0 ? generation / totalGenerations : 0
+        setStatus(job, {
+          state: 'running',
+          stage: 'evolving',
+          progress,
+        })
+        postProgress(job.requestId, job.status)
+      },
+    })
+
+    if (job.cancelled || job.done) {
+      return
+    }
+
+    setStatus(job, {
+      state: 'running',
+      stage: 'ranking',
+      progress: 1,
+    })
+    postProgress(job.requestId, job.status)
+    await waitForStep(job, delay)
+
+    if (job.cancelled || job.done) {
+      return
+    }
 
     setStatus(job, {
       state: 'complete',
@@ -207,7 +230,7 @@ function startJob(requestId: string, goal: SynthesisGoal, partDefs: Record<strin
   jobsById.set(jobId, job)
   postProgress(requestId, job.status)
 
-  const timeoutMs = goal.constraints.max_generation_time_ms ?? 30_000
+  const timeoutMs = goal.constraints.max_generation_time_ms ?? 120_000
   job.timeoutTimer = setTimeout(() => {
     failActiveJob(job, 'worker_timeout', `Synthesis worker exceeded ${timeoutMs}ms budget`)
   }, timeoutMs)

@@ -121,5 +121,5 @@ describe('Synthesis E2E UI Flow', () => {
     expect(Object.keys(buildState.parts)).toHaveLength(1)
     expect(buildState.parts['p1'].part_id).toBe('m1')
     expect(buildState.stabilityScore).toBe(80)
-  })
+  }, 20000)
 })

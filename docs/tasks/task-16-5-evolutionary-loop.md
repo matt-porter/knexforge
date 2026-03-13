@@ -102,10 +102,10 @@ Tests:
 
 ### Completion Criteria
 
-- [ ] `EvolutionaryGenerator` implemented
-- [ ] Worker uses evolutionary generator
-- [ ] `'evolving'` stage added to types
-- [ ] Default timeout increased
-- [ ] Evolutionary tests pass
-- [ ] Existing worker/runtime tests still pass
-- [ ] Changes committed
+- [x] `EvolutionaryGenerator` implemented
+- [x] Worker uses evolutionary generator
+- [x] `'evolving'` stage added to types
+- [x] Default timeout increased
+- [x] Evolutionary tests pass
+- [x] Existing worker/runtime tests still pass
+- [x] Changes committed

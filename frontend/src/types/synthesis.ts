@@ -16,6 +16,7 @@ export type SynthesisJobState = 'queued' | 'running' | 'complete' | 'failed' | '
 export type SynthesisJobStage =
   | 'queued'
   | 'generating'
+  | 'evolving'
   | 'validating'
   | 'scoring'
   | 'ranking'
@@ -32,6 +33,10 @@ export interface SynthesisConstraintSet {
   required_part_ids?: string[]
   banned_part_ids?: string[]
   max_generation_time_ms?: number
+  population_size?: number
+  survivor_count?: number
+  children_per_survivor?: number
+  generation_count?: number
 }
 
 export interface SynthesisGoal {

@@ -32,6 +32,13 @@
 - Updated stale regression expectations in `frontend/src/services/__tests__/repro_user_bug.test.ts` and `frontend/src/services/__tests__/topologyCompactFormat.test.ts` to match current side-clip orientation and default `slide_offset`/metadata normalization behavior.
 - **Status (2026-03-12)**: `cd frontend && npx vitest run` passes (`42` files, `366` tests).
 
+### [x] Task 16.5: Evolutionary Generation Loop
+- Implemented `EvolutionaryGenerator` with deterministic seeded behavior, configurable population/survivor/children/generation controls, and per-generation survivor-driven evolution in `frontend/src/services/synthesis/evolutionaryGenerator.ts`.
+- Integrated worker execution with explicit `'evolving'` progress events and extended default synthesis timeout window in `frontend/src/workers/synthesisWorker.ts`.
+- Extended synthesis contract/type normalization to support evolutionary config fields and both snake_case/camelCase compatibility in `frontend/src/services/synthesis/contracts.ts` and `frontend/src/types/synthesis.ts`.
+- Added fast mock-based evolutionary unit coverage in `frontend/src/services/__tests__/synthesisEvolutionary.test.ts` and stabilized full-suite synthesis expectations in `frontend/src/services/__tests__/synthesisFlow.test.ts` plus `frontend/src/components/Synthesis/__tests__/synthesisE2E.test.tsx`.
+- **Status (2026-03-13)**: `cd frontend && npx vitest run` passes (`43` files, `372` tests).
+
 
 ## Phase 4 — Scan-to-Build Computer Vision Pipeline
 

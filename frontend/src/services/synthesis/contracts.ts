@@ -35,6 +35,7 @@ const JOB_STATES: SynthesisJobState[] = ['queued', 'running', 'complete', 'faile
 const JOB_STAGES: SynthesisJobStage[] = [
   'queued',
   'generating',
+  'evolving',
   'validating',
   'scoring',
   'ranking',
@@ -199,6 +200,22 @@ function normalizeConstraintSet(value: unknown): SynthesisConstraintSet {
     value.max_generation_time_ms ?? value.maxGenerationTimeMs,
     'constraints.max_generation_time_ms',
   )
+  const populationSize = asFiniteNumber(
+    value.population_size ?? value.populationSize,
+    'constraints.population_size',
+  )
+  const survivorCount = asFiniteNumber(
+    value.survivor_count ?? value.survivorCount,
+    'constraints.survivor_count',
+  )
+  const childrenPerSurvivor = asFiniteNumber(
+    value.children_per_survivor ?? value.childrenPerSurvivor,
+    'constraints.children_per_survivor',
+  )
+  const generationCount = asFiniteNumber(
+    value.generation_count ?? value.generationCount,
+    'constraints.generation_count',
+  )
 
   return {
     max_parts: maxParts,
@@ -209,6 +226,10 @@ function normalizeConstraintSet(value: unknown): SynthesisConstraintSet {
     required_part_ids: requiredPartIds,
     banned_part_ids: bannedPartIds,
     max_generation_time_ms: maxGenerationTime,
+    population_size: populationSize,
+    survivor_count: survivorCount,
+    children_per_survivor: childrenPerSurvivor,
+    generation_count: generationCount,
   }
 }
 
