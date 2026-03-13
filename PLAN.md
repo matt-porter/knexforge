@@ -39,6 +39,17 @@
 - Added fast mock-based evolutionary unit coverage in `frontend/src/services/__tests__/synthesisEvolutionary.test.ts` and stabilized full-suite synthesis expectations in `frontend/src/services/__tests__/synthesisFlow.test.ts` plus `frontend/src/components/Synthesis/__tests__/synthesisE2E.test.tsx`.
 - **Status (2026-03-13)**: `cd frontend && npx vitest run` passes (`43` files, `372` tests).
 
+### [x] Task 16.6: Rapier Physics Post-Filter
+- Implemented `evaluateRapierFitness()` in `frontend/src/services/synthesis/rapierFitnessEval.ts` — lightweight Rapier.js evaluator for synthesis candidates.
+- Evaluator creates a minimal physics world with gravity, dynamic rigid bodies, and fixed/revolute joints. Real colliders enable ground contact for stability measurement.
+- Scoring: `stabilityScore` (COM height preservation), `jointIntegrity` (anchor displacement), `isStable` (combined threshold).
+- Added `generateWithRapier()` async method to `EvolutionaryGenerator` that runs Rapier evaluation on top survivors after each generation.
+- Rapier stability blended into total score: 50/50 with geometric stability when `stability` objective is set, 30/70 otherwise.
+- Candidates with `jointIntegrity < 0.3` are rejected (structural failure detection).
+- Extended `SynthesisCandidateMetrics` with optional `rapier_stability_score` and `rapier_joint_integrity` fields.
+- Tests in `frontend/src/services/__tests__/synthesisRapierFitness.test.ts` (8 tests): stable frame integrity, unstable build detection, cantilever stress, cleanup, empty/single-part handling, timing.
+- **Status (2026-03-13)**: `cd frontend && npx vitest run` passes (`44` files, `380` tests).
+
 
 ## Phase 4 — Scan-to-Build Computer Vision Pipeline
 

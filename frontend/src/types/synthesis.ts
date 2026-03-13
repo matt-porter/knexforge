@@ -80,6 +80,10 @@ export interface SynthesisCandidateMetrics {
   connection_count: number
   estimated_envelope_mm: [number, number, number]
   stability_score?: number
+  /** Rapier physics stability score (0-1) if evaluated */
+  rapier_stability_score?: number
+  /** Rapier joint integrity score (0-1) if evaluated */
+  rapier_joint_integrity?: number
 }
 
 export interface SynthesisCandidate {
