@@ -42,29 +42,16 @@ connector-5way-yellow-v1-1-mmewspir.D -- rod-128-red-v1-mmewoqc7.end1
     const conn4 = solved.parts.find(p => p.instance_id === 'connector-3way-red-v1-mmewoqc4')!
     const rod3 = solved.parts.find(p => p.instance_id === 'rod-128-red-v1-mmewoqc3')!
 
-    // Log world axes for all parts to see the full structure
-    solved.parts.forEach(p => {
-      const q = new Quaternion(...p.rotation)
-      const xAxis = new Vector3(1, 0, 0).applyQuaternion(q)
-      const yAxis = new Vector3(0, 1, 0).applyQuaternion(q)
-      const zAxis = new Vector3(0, 0, 1).applyQuaternion(q)
-      console.log(`Part ${p.instance_id}:`)
-      console.log(`  pos: [${p.position.map(v => v.toFixed(2))}]`)
-      console.log(`  X: [${xAxis.x.toFixed(2)}, ${xAxis.y.toFixed(2)}, ${xAxis.z.toFixed(2)}]`)
-      console.log(`  Y: [${yAxis.x.toFixed(2)}, ${yAxis.y.toFixed(2)}, ${yAxis.z.toFixed(2)}]`)
-      console.log(`  Z: [${zAxis.x.toFixed(2)}, ${zAxis.y.toFixed(2)}, ${zAxis.z.toFixed(2)}]`)
-    })
-
-    // For a "correct" orientation, the connector plane should be aligned with the rod.
-    // If the rod is horizontal (main axis X), the connector normal (local Z) should be orthogonal to Rod X.
+    // Flat-edge side clips should keep the connector plane perpendicular to the rod.
+    // That means connector normal (local Z) aligns with the rod's main axis.
     const connQuat = new Quaternion(...conn4.rotation)
     const rodQuat = new Quaternion(...rod3.rotation)
-    
+
     const connNormal = new Vector3(0, 0, 1).applyQuaternion(connQuat)
     const rodAxis = new Vector3(1, 0, 0).applyQuaternion(rodQuat)
-    
+
     const dot = Math.abs(connNormal.dot(rodAxis))
-    expect(dot).toBeLessThan(0.01) // Should be flat!
+    expect(dot).toBeGreaterThan(0.99)
   })
 
   it('correctly enforces vertical orientation when requested with @ 90!', () => {

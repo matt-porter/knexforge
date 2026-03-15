@@ -4,6 +4,7 @@ import type {
   SynthesisCandidateMetrics,
   SynthesisConstraintSet,
   SynthesisDiagnostic,
+  SynthesisEvolutionProgress,
   SynthesisGoal,
   SynthesisJobError,
   SynthesisJobStage,
@@ -35,6 +36,7 @@ const JOB_STATES: SynthesisJobState[] = ['queued', 'running', 'complete', 'faile
 const JOB_STAGES: SynthesisJobStage[] = [
   'queued',
   'generating',
+  'evolving',
   'validating',
   'scoring',
   'ranking',
@@ -129,7 +131,10 @@ function asStringArray(value: unknown, fieldName: string): string[] | undefined 
   return value
 }
 
-function normalizeEnvelope(value: unknown, fieldName: string): [number, number, number] | undefined {
+function normalizeEnvelope(
+  value: unknown,
+  fieldName: string,
+): [number, number, number] | undefined {
   if (value === undefined) return undefined
   if (
     !Array.isArray(value) ||
@@ -148,7 +153,10 @@ function normalizeObjectives(value: unknown): SynthesisObjective[] {
 
   const normalized: SynthesisObjective[] = []
   for (const objective of value) {
-    if (typeof objective !== 'string' || !SYNTHESIS_OBJECTIVES.includes(objective as SynthesisObjective)) {
+    if (
+      typeof objective !== 'string' ||
+      !SYNTHESIS_OBJECTIVES.includes(objective as SynthesisObjective)
+    ) {
       throw new Error(`Unsupported synthesis objective: ${String(objective)}`)
     }
     normalized.push(objective as SynthesisObjective)
@@ -171,7 +179,10 @@ function normalizeConstraintSet(value: unknown): SynthesisConstraintSet {
     value.allow_disconnected ?? value.allowDisconnected,
     'constraints.allow_disconnected',
   )
-  const requireMotor = asBoolean(value.require_motor ?? value.requireMotor, 'constraints.require_motor')
+  const requireMotor = asBoolean(
+    value.require_motor ?? value.requireMotor,
+    'constraints.require_motor',
+  )
   const requiredPartIds = asStringArray(
     value.required_part_ids ?? value.requiredPartIds,
     'constraints.required_part_ids',
@@ -199,6 +210,22 @@ function normalizeConstraintSet(value: unknown): SynthesisConstraintSet {
     value.max_generation_time_ms ?? value.maxGenerationTimeMs,
     'constraints.max_generation_time_ms',
   )
+  const populationSize = asFiniteNumber(
+    value.population_size ?? value.populationSize,
+    'constraints.population_size',
+  )
+  const survivorCount = asFiniteNumber(
+    value.survivor_count ?? value.survivorCount,
+    'constraints.survivor_count',
+  )
+  const childrenPerSurvivor = asFiniteNumber(
+    value.children_per_survivor ?? value.childrenPerSurvivor,
+    'constraints.children_per_survivor',
+  )
+  const generationCount = asFiniteNumber(
+    value.generation_count ?? value.generationCount,
+    'constraints.generation_count',
+  )
 
   return {
     max_parts: maxParts,
@@ -209,6 +236,10 @@ function normalizeConstraintSet(value: unknown): SynthesisConstraintSet {
     required_part_ids: requiredPartIds,
     banned_part_ids: bannedPartIds,
     max_generation_time_ms: maxGenerationTime,
+    population_size: populationSize,
+    survivor_count: survivorCount,
+    children_per_survivor: childrenPerSurvivor,
+    generation_count: generationCount,
   }
 }
 
@@ -233,7 +264,8 @@ function normalizeTopologyConnection(value: unknown): TopologyConnection {
     from: asString(value.from, 'topology.connections[].from'),
     to: asString(value.to, 'topology.connections[].to'),
     joint_type:
-      typeof value.joint_type === 'string' && JOINT_TYPES.includes(value.joint_type as (typeof JOINT_TYPES)[number])
+      typeof value.joint_type === 'string' &&
+      JOINT_TYPES.includes(value.joint_type as (typeof JOINT_TYPES)[number])
         ? (value.joint_type as 'fixed' | 'revolute' | 'prismatic')
         : undefined,
     twist_deg: asFiniteNumber(value.twist_deg, 'topology.connections[].twist_deg'),
@@ -266,17 +298,15 @@ function normalizeDiagnostics(value: unknown): SynthesisDiagnostic[] {
     return []
   }
 
-  return value
-    .filter(isRecord)
-    .map((diagnostic) => ({
-      code: asString(diagnostic.code, 'diagnostics[].code'),
-      message: asString(diagnostic.message, 'diagnostics[].message'),
-      severity:
-        diagnostic.severity === 'warning' || diagnostic.severity === 'info'
-          ? diagnostic.severity
-          : 'error',
-      details: isRecord(diagnostic.details) ? diagnostic.details : undefined,
-    }))
+  return value.filter(isRecord).map((diagnostic) => ({
+    code: asString(diagnostic.code, 'diagnostics[].code'),
+    message: asString(diagnostic.message, 'diagnostics[].message'),
+    severity:
+      diagnostic.severity === 'warning' || diagnostic.severity === 'info'
+        ? diagnostic.severity
+        : 'error',
+    details: isRecord(diagnostic.details) ? diagnostic.details : undefined,
+  }))
 }
 
 function normalizeScore(value: unknown): SynthesisScoreBreakdown {
@@ -290,15 +320,14 @@ function normalizeScore(value: unknown): SynthesisScoreBreakdown {
     stability: asFiniteNumber(value.stability, 'score.stability') ?? 0,
     stress_resilience: asFiniteNumber(value.stress_resilience, 'score.stress_resilience') ?? 0,
     part_efficiency: asFiniteNumber(value.part_efficiency, 'score.part_efficiency') ?? 0,
-    structural_simplicity: asFiniteNumber(value.structural_simplicity, 'score.structural_simplicity') ?? 0,
+    structural_simplicity:
+      asFiniteNumber(value.structural_simplicity, 'score.structural_simplicity') ?? 0,
     penalties: Array.isArray(value.penalties)
-      ? value.penalties
-          .filter(isRecord)
-          .map((penalty) => ({
-            code: asString(penalty.code, 'score.penalties[].code'),
-            value: asFiniteNumber(penalty.value, 'score.penalties[].value') ?? 0,
-            reason: asString(penalty.reason, 'score.penalties[].reason'),
-          }))
+      ? value.penalties.filter(isRecord).map((penalty) => ({
+          code: asString(penalty.code, 'score.penalties[].code'),
+          value: asFiniteNumber(penalty.value, 'score.penalties[].value') ?? 0,
+          reason: asString(penalty.reason, 'score.penalties[].reason'),
+        }))
       : [],
   }
 }
@@ -311,8 +340,10 @@ function normalizeMetrics(value: unknown): SynthesisCandidateMetrics {
   return {
     part_count: asFiniteNumber(value.part_count, 'metrics.part_count') ?? 0,
     connection_count: asFiniteNumber(value.connection_count, 'metrics.connection_count') ?? 0,
-    estimated_envelope_mm:
-      normalizeEnvelope(value.estimated_envelope_mm, 'metrics.estimated_envelope_mm') ?? [0, 0, 0],
+    estimated_envelope_mm: normalizeEnvelope(
+      value.estimated_envelope_mm,
+      'metrics.estimated_envelope_mm',
+    ) ?? [0, 0, 0],
     stability_score: asFiniteNumber(value.stability_score, 'metrics.stability_score'),
   }
 }
@@ -325,7 +356,10 @@ function normalizeCandidate(value: unknown): SynthesisCandidate {
   return {
     format_version: SYNTHESIS_CANDIDATE_FORMAT_VERSION,
     candidate_id: asString(value.candidate_id ?? value.id, 'candidate.candidate_id'),
-    summary: asString(value.summary ?? value.rationale ?? 'Generated candidate', 'candidate.summary'),
+    summary: asString(
+      value.summary ?? value.rationale ?? 'Generated candidate',
+      'candidate.summary',
+    ),
     topology: normalizeTopologyModel(value.topology),
     score: normalizeScore(value.score),
     diagnostics: normalizeDiagnostics(value.diagnostics),
@@ -363,22 +397,82 @@ function normalizeProgress(value: unknown): number {
   return Math.max(0, Math.min(1, value))
 }
 
+function normalizeEvolutionProgress(value: unknown): SynthesisEvolutionProgress | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const totalGenerations = Math.max(
+    1,
+    Math.round(
+      asFiniteNumber(
+        value.total_generations ?? value.totalGenerations,
+        'status.evolution.total_generations',
+      ) ?? 1,
+    ),
+  )
+  const currentGeneration = Math.max(
+    0,
+    Math.min(
+      totalGenerations,
+      Math.round(
+        asFiniteNumber(
+          value.current_generation ?? value.currentGeneration,
+          'status.evolution.current_generation',
+        ) ?? 0,
+      ),
+    ),
+  )
+  const bestScore =
+    asFiniteNumber(value.best_score ?? value.bestScore, 'status.evolution.best_score') ?? 0
+  const candidateCount = Math.max(
+    0,
+    Math.round(
+      asFiniteNumber(
+        value.candidate_count ?? value.candidateCount,
+        'status.evolution.candidate_count',
+      ) ?? 0,
+    ),
+  )
+  const evaluatedCandidates = Math.max(
+    0,
+    Math.round(
+      asFiniteNumber(
+        value.evaluated_candidates ?? value.evaluatedCandidates,
+        'status.evolution.evaluated_candidates',
+      ) ?? 0,
+    ),
+  )
+
+  return {
+    current_generation: currentGeneration,
+    total_generations: totalGenerations,
+    best_score: bestScore,
+    candidate_count: candidateCount,
+    evaluated_candidates: evaluatedCandidates,
+  }
+}
+
 function normalizeRejections(value: unknown): SynthesisCandidateRejection[] {
   if (!Array.isArray(value)) {
     return []
   }
 
-  return value
-    .filter(isRecord)
-    .map((rejection) => ({
-      candidate_id: asString(rejection.candidate_id ?? rejection.id ?? 'unknown', 'rejections[].candidate_id'),
-      reason_code: asString(rejection.reason_code ?? rejection.code ?? 'unknown_reason', 'rejections[].reason_code'),
-      reason_message: asString(
-        rejection.reason_message ?? rejection.message ?? 'No reason provided',
-        'rejections[].reason_message',
-      ),
-      diagnostics: normalizeDiagnostics(rejection.diagnostics),
-    }))
+  return value.filter(isRecord).map((rejection) => ({
+    candidate_id: asString(
+      rejection.candidate_id ?? rejection.id ?? 'unknown',
+      'rejections[].candidate_id',
+    ),
+    reason_code: asString(
+      rejection.reason_code ?? rejection.code ?? 'unknown_reason',
+      'rejections[].reason_code',
+    ),
+    reason_message: asString(
+      rejection.reason_message ?? rejection.message ?? 'No reason provided',
+      'rejections[].reason_message',
+    ),
+    diagnostics: normalizeDiagnostics(rejection.diagnostics),
+  }))
 }
 
 function normalizeJobError(value: unknown): SynthesisJobError | undefined {
@@ -410,6 +504,9 @@ export function parseSynthesisJobStatus(value: unknown): SynthesisJobStatus {
       ? value.candidates.map((candidate) => normalizeCandidate(candidate))
       : [],
     rejections: normalizeRejections(value.rejections),
+    evolution: normalizeEvolutionProgress(
+      value.evolution ?? value.progress_meta ?? value.progressMeta,
+    ),
     error: normalizeJobError(value.error),
   }
 }
@@ -428,7 +525,10 @@ export function parseSynthesisGoal(value: unknown): SynthesisGoal {
     prompt,
     objectives,
     constraints,
-    candidate_count: asFiniteNumber(value.candidate_count ?? value.candidateCount, 'goal.candidate_count'),
+    candidate_count: asFiniteNumber(
+      value.candidate_count ?? value.candidateCount,
+      'goal.candidate_count',
+    ),
     seed: asFiniteNumber(value.seed ?? value.random_seed, 'goal.seed'),
     metadata: isRecord(value.metadata) ? value.metadata : undefined,
   }
@@ -535,7 +635,10 @@ export function parsePersistedSynthesisCandidateRecord(
 
   return {
     schema_version: SYNTHESIS_PERSISTED_RECORD_VERSION,
-    saved_at: normalizeISODate(value.saved_at ?? value.savedAt ?? value.created_at, 'record.saved_at'),
+    saved_at: normalizeISODate(
+      value.saved_at ?? value.savedAt ?? value.created_at,
+      'record.saved_at',
+    ),
     goal: parseSynthesisGoal(goalPayload),
     candidates: candidatesPayload.map((candidate) => normalizeCandidate(candidate)),
   }

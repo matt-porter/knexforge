@@ -43,7 +43,7 @@ describe('Physics Evaluation & Scoring', () => {
       constraints: { max_parts: 2 } // spinner takes >2 parts
     }
 
-    const score = evaluateCandidateScore(validModel, solvedBuild, goal, partDefsById)
+    const { score } = evaluateCandidateScore(validModel, solvedBuild, goal, partDefsById)
     
     expect(score.penalties).toContainEqual(
       expect.objectContaining({
@@ -61,7 +61,7 @@ describe('Physics Evaluation & Scoring', () => {
       constraints: {}
     }
 
-    const score = evaluateCandidateScore(validModel, solvedBuild, goal, partDefsById)
+    const { score } = evaluateCandidateScore(validModel, solvedBuild, goal, partDefsById)
     // Spinner is a tree, connection count = part count - 1
     expect(score.structural_simplicity).toBe(1.0)
   })
@@ -76,7 +76,7 @@ describe('Physics Evaluation & Scoring', () => {
       }
     }
 
-    const score = evaluateCandidateScore(validModel, solvedBuild, goal, partDefsById)
+    const { score } = evaluateCandidateScore(validModel, solvedBuild, goal, partDefsById)
     
     expect(score.penalties).toContainEqual(
       expect.objectContaining({
@@ -102,8 +102,8 @@ describe('Physics Evaluation & Scoring', () => {
       constraints: {}
     }
 
-    const score1 = evaluateCandidateScore(validModel, solvedBuild, goalWithoutStability, partDefsById)
-    const score2 = evaluateCandidateScore(validModel, solvedBuild, goalWithStability, partDefsById)
+    const score1 = evaluateCandidateScore(validModel, solvedBuild, goalWithoutStability, partDefsById).score
+    const score2 = evaluateCandidateScore(validModel, solvedBuild, goalWithStability, partDefsById).score
 
     // With different objective priorities, the overall scores should vary (unless physics is completely neutral)
     // Since spinner has a specific stability score, emphasizing it should shift total.

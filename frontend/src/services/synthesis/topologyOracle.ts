@@ -24,7 +24,11 @@ export interface OracleRejection {
 export type OracleResult = OracleSuccess | OracleRejection
 
 export class TopologyOracle {
-  constructor(private partDefsById: Map<string, KnexPartDef>) {}
+  private partDefsById: Map<string, KnexPartDef>
+
+  constructor(partDefsById: Map<string, KnexPartDef>) {
+    this.partDefsById = partDefsById
+  }
 
   public evaluate(model: TopologyModel): OracleResult {
     // 1. Canonicalize the input model so equivalent graphs hash to the same structure

@@ -16,6 +16,7 @@ export type SynthesisJobState = 'queued' | 'running' | 'complete' | 'failed' | '
 export type SynthesisJobStage =
   | 'queued'
   | 'generating'
+  | 'evolving'
   | 'validating'
   | 'scoring'
   | 'ranking'
@@ -32,6 +33,10 @@ export interface SynthesisConstraintSet {
   required_part_ids?: string[]
   banned_part_ids?: string[]
   max_generation_time_ms?: number
+  population_size?: number
+  survivor_count?: number
+  children_per_survivor?: number
+  generation_count?: number
 }
 
 export interface SynthesisGoal {
@@ -75,6 +80,10 @@ export interface SynthesisCandidateMetrics {
   connection_count: number
   estimated_envelope_mm: [number, number, number]
   stability_score?: number
+  /** Rapier physics stability score (0-1) if evaluated */
+  rapier_stability_score?: number
+  /** Rapier joint integrity score (0-1) if evaluated */
+  rapier_joint_integrity?: number
 }
 
 export interface SynthesisCandidate {
@@ -100,6 +109,14 @@ export interface SynthesisJobError {
   retriable: boolean
 }
 
+export interface SynthesisEvolutionProgress {
+  current_generation: number
+  total_generations: number
+  best_score: number
+  candidate_count: number
+  evaluated_candidates: number
+}
+
 export interface SynthesisJobStatus {
   job_id: string
   goal: SynthesisGoal
@@ -110,5 +127,6 @@ export interface SynthesisJobStatus {
   updated_at: string
   candidates: SynthesisCandidate[]
   rejections: SynthesisCandidateRejection[]
+  evolution?: SynthesisEvolutionProgress
   error?: SynthesisJobError
 }

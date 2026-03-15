@@ -191,17 +191,57 @@ class PyBulletSimulator:
                 anchor_child = to_rot.inv().apply(pivot_world - to_origin).tolist()
 
                 try:
-                    c_id = p.createConstraint(
-                        parent_body, -1, child_body, -1,
+                    # PyBullet lacks a native JOINT_CYLINDRICAL for createConstraint.
+                    # We create a dummy intermediate body to chain Prismatic + Revolute.
+                    dummy_col = p.createCollisionShape(p.GEOM_SPHERE, radius=0.1, physicsClientId=cid)
+                    dummy_id = p.createMultiBody(
+                        baseMass=0.1,
+                        baseCollisionShapeIndex=dummy_col,
+                        basePosition=pivot_world.tolist(),
+                        baseOrientation=from_inst.quaternion,
+                        physicsClientId=cid
+                    )
+                    # Disable collisions for the dummy body
+                    p.setCollisionFilterGroupMask(dummy_id, -1, 0, 0, physicsClientId=cid)
+                    # Keep dummy body awake
+                    self.part_bodies[f"dummy_{from_inst.instance_id}_{to_inst.instance_id}"] = dummy_id
+
+                    # 1. Prismatic: parent -> dummy (allows sliding along axis)
+                    # Since dummy is aligned with parent (from_inst), axis_parent is correct in dummy frame too.
+                    c_id1 = p.createConstraint(
+                        parent_body, -1, dummy_id, -1,
                         p.JOINT_PRISMATIC, axis_parent,
-                        anchor_parent, anchor_child,
+                        anchor_parent, [0, 0, 0],
                         physicsClientId=cid,
                     )
-                    p.changeConstraint(c_id, maxForce=max_force, physicsClientId=cid)
+                    p.changeConstraint(c_id1, maxForce=max_force, physicsClientId=cid)
                     self.joint_constraints.append({
-                        "id": c_id,
+                        "id": c_id1,
                         "parts": [from_inst.instance_id, to_inst.instance_id]
                     })
+
+                    # 2. Revolute: dummy -> child (allows rotation around axis)
+                    # PyBullet createConstraint does not support JOINT_REVOLUTE natively for floating bodies.
+                    # We use 2 P2P constraints along the axis.
+                    axis_norm = np.linalg.norm(axis_world)
+                    axis_dir = (axis_world / axis_norm) if axis_norm > 1e-8 else np.array([0.0, 0.0, 1.0])
+                    anchors_world = [pivot_world, pivot_world + axis_dir * ARM_MM]
+                    
+                    for w_pt in anchors_world:
+                        p_anchor = from_rot.inv().apply(w_pt - pivot_world).tolist()
+                        c_anchor = to_rot.inv().apply(w_pt - to_origin).tolist()
+                        
+                        c_id2 = p.createConstraint(
+                            dummy_id, -1, child_body, -1,
+                            p.JOINT_POINT2POINT, [0, 0, 0],
+                            p_anchor, c_anchor,
+                            physicsClientId=cid,
+                        )
+                        p.changeConstraint(c_id2, maxForce=max_force, physicsClientId=cid)
+                        self.joint_constraints.append({
+                            "id": c_id2,
+                            "parts": [from_inst.instance_id, to_inst.instance_id]
+                        })
                 except Exception:
                     pass
                 continue # Skip the POINT2POINT loop for cylindrical joints

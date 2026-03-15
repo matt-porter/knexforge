@@ -195,3 +195,58 @@ def test_physics_slide_and_fixed(clean_part_library):
         # c1 should have moved significantly down Z axis (gravity)
         dist1 = sum((f - i)**2 for f, i in zip(pos1_end, pos1_start))**0.5
         assert dist1 > 3.0
+
+def test_physics_cylindrical_joint_allows_rotation(clean_part_library):
+    """Category 6: Physics - center_axial joints should preserve rotational DOF."""
+    try:
+        import pybullet as p
+    except ImportError:
+        pytest.skip("pybullet not installed")
+
+    b = Build()
+
+    # Keep the rod fixed and elevated so we test joint DOF, not ground collisions.
+    rod = PartInstance(
+        instance_id="r1",
+        part=clean_part_library.get("rod-128-red-v1"),
+        position=(0, 0, 140),
+        is_pinned=True,
+    )
+    b.parts["r1"] = rod
+
+    conn = PartInstance(instance_id="c1", part=clean_part_library.get("connector-1way-grey-v1"))
+    pos, q = align_part_to_port(conn, "A", rod, "center_axial_1", slide_offset=0)
+    conn = conn.model_copy(update={"position": pos, "quaternion": q})
+    b.parts["c1"] = conn
+    b.connections.add(
+        Connection(
+            from_instance="c1",
+            from_port="A",
+            to_instance="r1",
+            to_port="center_axial_1",
+            slide_offset=0,
+        )
+    )
+
+    with PyBulletSimulator(b) as sim:
+        sim.part_bodies["r1"] = sim.load_part_mesh(rod)
+        sim.part_bodies["c1"] = sim.load_part_mesh(conn)
+        sim.create_joints()
+
+        c1_body = sim.part_bodies["c1"]
+        max_spin_x = 0.0
+
+        for _ in range(240):
+            p.applyExternalTorque(
+                c1_body,
+                -1,
+                [2.5e7, 0.0, 0.0],
+                p.WORLD_FRAME,
+                physicsClientId=sim.client,
+            )
+            p.stepSimulation(physicsClientId=sim.client)
+            _, angular_velocity = p.getBaseVelocity(c1_body, physicsClientId=sim.client)
+            max_spin_x = max(max_spin_x, abs(angular_velocity[0]))
+
+        # A center-axial connection should spin around the rod axis under torque.
+        assert max_spin_x > 0.5

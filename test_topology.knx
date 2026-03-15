@@ -1,0 +1,3 @@
+part base_mount connector-2way-orange-v1
+part r1 rod-54-blue-v1
+r1.end1 -- base_mount.center

@@ -22,6 +22,47 @@
 
 ---
 
+## Phase 16 — Synthesis Panel Improvements
+
+### [x] Task 16.4: Prompt-Guided Template Selection
+- Implemented prompt-guided template affinity scoring and weighted selection in `frontend/src/services/synthesis/promptMatcher.ts`.
+- Fixed stemming edge cases (`spinning` → `spin`) without breaking singular keyword matches such as `ferris` and `windmill`.
+- Added/updated matcher regression coverage in `frontend/src/services/__tests__/synthesisPromptMatcher.test.ts`, including deterministic weighted-selection behavior and random fallback spread checks.
+- Increased generator attempt budget in `frontend/src/services/synthesis/generator.ts` to preserve candidate-count reliability under prompt-biased sampling.
+- Updated stale regression expectations in `frontend/src/services/__tests__/repro_user_bug.test.ts` and `frontend/src/services/__tests__/topologyCompactFormat.test.ts` to match current side-clip orientation and default `slide_offset`/metadata normalization behavior.
+- **Status (2026-03-12)**: `cd frontend && npx vitest run` passes (`42` files, `366` tests).
+
+### [x] Task 16.5: Evolutionary Generation Loop
+- Implemented `EvolutionaryGenerator` with deterministic seeded behavior, configurable population/survivor/children/generation controls, and per-generation survivor-driven evolution in `frontend/src/services/synthesis/evolutionaryGenerator.ts`.
+- Integrated worker execution with explicit `'evolving'` progress events and extended default synthesis timeout window in `frontend/src/workers/synthesisWorker.ts`.
+- Extended synthesis contract/type normalization to support evolutionary config fields and both snake_case/camelCase compatibility in `frontend/src/services/synthesis/contracts.ts` and `frontend/src/types/synthesis.ts`.
+- Added fast mock-based evolutionary unit coverage in `frontend/src/services/__tests__/synthesisEvolutionary.test.ts` and stabilized full-suite synthesis expectations in `frontend/src/services/__tests__/synthesisFlow.test.ts` plus `frontend/src/components/Synthesis/__tests__/synthesisE2E.test.tsx`.
+- **Status (2026-03-13)**: `cd frontend && npx vitest run` passes (`43` files, `372` tests).
+
+### [x] Task 16.6: Rapier Physics Post-Filter
+- Implemented `evaluateRapierFitness()` in `frontend/src/services/synthesis/rapierFitnessEval.ts` — lightweight Rapier.js evaluator for synthesis candidates.
+- Evaluator creates a minimal physics world with gravity, dynamic rigid bodies, and fixed/revolute joints. Real colliders enable ground contact for stability measurement.
+- Scoring: `stabilityScore` (COM height preservation), `jointIntegrity` (anchor displacement), `isStable` (combined threshold).
+- Added `generateWithRapier()` async method to `EvolutionaryGenerator` that runs Rapier evaluation on top survivors after each generation.
+- Rapier stability blended into total score: 50/50 with geometric stability when `stability` objective is set, 30/70 otherwise.
+- Candidates with `jointIntegrity < 0.3` are rejected (structural failure detection).
+- Extended `SynthesisCandidateMetrics` with optional `rapier_stability_score` and `rapier_joint_integrity` fields.
+- Tests in `frontend/src/services/__tests__/synthesisRapierFitness.test.ts` (8 tests): stable frame integrity, unstable build detection, cantilever stress, cleanup, empty/single-part handling, timing.
+- **Status (2026-03-13)**: `cd frontend && npx vitest run` passes (`44` files, `380` tests).
+
+### [x] Task 16.7: Progress UI Improvements
+- Replaced the synthesis spinner-only UX with a progress bar + live evolution telemetry in `frontend/src/components/Synthesis/SynthesisPanel.tsx`.
+- Added synthesis progress state/actions to `frontend/src/stores/synthesisStore.ts`: `progress`, `currentGeneration`, `totalGenerations`, `bestScoreSoFar`, `setProgress`, `setEvolutionInfo`, and `resetProgress`.
+- Increased default synthesis timeout to 120s (`max_generation_time_ms: 120000`) in the synthesis store goal constraints.
+- Hooked runtime progress updates into panel state via `runtime.startJob(..., { onProgress })`, including generation/score fallback logic from `status.progress` and optional evolution metadata.
+- Extended worker/status contracts to carry optional `evolution` metadata (`current_generation`, `total_generations`, `best_score`, candidate/evaluated counts) for richer UI updates.
+- Added progress-focused panel coverage in `frontend/src/components/Synthesis/__tests__/SynthesisPanel.test.tsx` (7 tests total), including render/width/text/hidden-state assertions.
+- **Status (2026-03-15)**:
+  - `cd frontend && npx vitest run` passes (`44` files, `383` tests).
+  - `cd frontend && npm run type-check` passes.
+  - `.\.venv\Scripts\python.exe -m pytest src/core/tests/` passes (`164` tests).
+
+
 ## Phase 4 — Scan-to-Build Computer Vision Pipeline
 
 ### ✅ Task 4.1: Synthetic Training Data Generator

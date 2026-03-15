@@ -1,9 +1,9 @@
 import type { TopologyModel } from '../topologySolver'
 import type { SynthesisGoal, SynthesisCandidate, SynthesisCandidateRejection } from '../../types/synthesis'
-import { DeterministicRandom, allMutations } from './mutations'
+import { DeterministicRandom, pickWeightedMutation } from './mutations'
 import { TopologyOracle } from './topologyOracle'
 import { evaluateCandidateScore } from './scoring'
-import { templateCatalog } from './templateCatalog'
+import { selectTemplateByPrompt } from './promptMatcher'
 import type { KnexPartDef } from '../../types/parts'
 
 export interface GenerationResult {
@@ -14,7 +14,10 @@ export interface GenerationResult {
 export class CandidateGenerator {
   private oracle: TopologyOracle
 
-  constructor(private partDefsById: Map<string, KnexPartDef>) {
+  private partDefsById: Map<string, KnexPartDef>
+
+  constructor(partDefsById: Map<string, KnexPartDef>) {
+    this.partDefsById = partDefsById
     this.oracle = new TopologyOracle(partDefsById)
   }
 
@@ -26,22 +29,20 @@ export class CandidateGenerator {
     const rejections: SynthesisCandidateRejection[] = []
     const candidateCount = goal.candidate_count ?? 3
 
-    // 1. Pick a base template that matches hard constraints
-    const availableTemplates = Object.values(templateCatalog)
-    if (availableTemplates.length === 0) {
-      throw new Error('No templates available for generation')
-    }
+    // Templates are now selected by prompt affinity (see promptMatcher.ts)
 
     let candidateIdCounter = 1
 
-    // We generate up to maxAttempts to find `candidateCount` valid ones
-    const maxAttempts = candidateCount * 10
+    // Prompt weighting can intentionally explore harder templates, which increases
+    // rejection rates under strict constraints. Keep a larger cap so we still
+    // reliably satisfy requested candidate counts in deterministic runs.
+    const maxAttempts = candidateCount * 50
     let attempts = 0
 
     while (candidates.length < candidateCount && attempts < maxAttempts) {
       attempts++
 
-      const template = random.pick(availableTemplates)
+      const template = selectTemplateByPrompt(goal.prompt, random)
       
       // Basic generation params
       const baseModel = template.generate({
@@ -53,11 +54,12 @@ export class CandidateGenerator {
       // Clone deeply to avoid mutating template output
       const model: TopologyModel = JSON.parse(JSON.stringify(baseModel))
 
-      // 2. Apply 0 to 3 random mutations
-      const mutationCount = random.nextInt(0, 3)
+      // 2. Structural Growth & Refinement Phase
+      // Apply 15 to 40 weighted mutations (Phase 16.2/16.3: compound growth + scaled count)
+      const mutationCount = random.nextInt(15, 40)
       for (let i = 0; i < mutationCount; i++) {
-        const mutation = random.pick(allMutations)
-        mutation(model, random)
+        const mutation = pickWeightedMutation(random)
+        mutation(model, random, this.partDefsById)
       }
 
       // 3. Oracle Check
@@ -74,7 +76,7 @@ export class CandidateGenerator {
       }
 
       // 4. Score Candidate
-      const score = evaluateCandidateScore(
+      const { score, dimensionsMm } = evaluateCandidateScore(
         oracleResult.canonicalTopology,
         oracleResult.solvedBuild,
         goal,
@@ -105,11 +107,9 @@ export class CandidateGenerator {
           part_count: oracleResult.solvedBuild.parts.length,
           connection_count: oracleResult.canonicalTopology.connections.length,
           estimated_envelope_mm: [
-            // Approximations from physics Eval could be cached, but let's recompute or just use dummy for now
-            // Actually score breakdown has no size info, so let's compute it quickly or rely on boundingBox
-            // But we didn't return boundingBox from evaluateCandidateScore.
-            // That's fine, we'll just populate some rough metrics.
-            0, 0, 0
+            Math.round(dimensionsMm.x),
+            Math.round(dimensionsMm.y),
+            Math.round(dimensionsMm.z)
           ],
           stability_score: score.stability
         }

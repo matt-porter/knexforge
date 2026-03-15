@@ -40,8 +40,8 @@ describe('Synthesis Templates', () => {
         const { valid: valid3, errors: err3 } = validateTemplateOutput(model3, partDefsById)
         expect(err3).toEqual([])
         expect(valid3).toBe(true)
-        // 1 base, 1 motor, 3 rods, 3 connectors = 8 parts
-        expect(model3.parts.length).toBe(8)
+        // 1 base, 1 base_mount_rod, 1 motor, 3 rods, 3 connectors = 9 parts
+        expect(model3.parts.length).toBe(9)
       })
     }
   })

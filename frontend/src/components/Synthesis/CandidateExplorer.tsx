@@ -68,7 +68,8 @@ export const CandidateExplorer: React.FC = () => {
     try {
       const defs = await loadAllPartDefs()
       const solved = solveTopology(cand.topology, defs)
-      loadBuild(solved.parts, solved.connections, cand.score.stability)
+      console.log('IMPORT', cand.score.stability, cand.score.stability * 100)
+      loadBuild(solved.parts, solved.connections, cand.score.stability * 100)
       // Clear selection after import
       if (typeof setSelectedCandidate === 'function') {
         setSelectedCandidate(null)

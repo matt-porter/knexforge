@@ -16,8 +16,8 @@ m1.drive_axle ~~ r1.end2
     const model = parseCompactTopology(text)
     expect(model.parts).toHaveLength(3)
     expect(model.connections).toEqual([
-      { from: 'c1.A', to: 'r1.end1', joint_type: 'fixed', twist_deg: 0, fixed_roll: false },
-      { from: 'm1.drive_axle', to: 'r1.end2', joint_type: 'revolute', twist_deg: 0, fixed_roll: false },
+      { from: 'c1.A', to: 'r1.end1', joint_type: 'fixed', twist_deg: 0, fixed_roll: false, slide_offset: 0 },
+      { from: 'm1.drive_axle', to: 'r1.end2', joint_type: 'revolute', twist_deg: 0, fixed_roll: false, slide_offset: 0 },
     ])
   })
 
@@ -54,7 +54,8 @@ wr_1.end2 -- rc3_2.C
         { instance_id: 'c1', part_id: 'connector-4way-green-v1' },
         { instance_id: 'r1', part_id: 'rod-128-red-v1' },
       ],
-      connections: [{ from: 'c1.A', to: 'r1.end1', joint_type: 'fixed', twist_deg: 0, fixed_roll: false }],
+      connections: [{ from: 'c1.A', to: 'r1.end1', joint_type: 'fixed', twist_deg: 0, fixed_roll: false, slide_offset: 0 }],
+      metadata: undefined,
     })
   })
 
