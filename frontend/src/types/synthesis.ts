@@ -109,6 +109,14 @@ export interface SynthesisJobError {
   retriable: boolean
 }
 
+export interface SynthesisEvolutionProgress {
+  current_generation: number
+  total_generations: number
+  best_score: number
+  candidate_count: number
+  evaluated_candidates: number
+}
+
 export interface SynthesisJobStatus {
   job_id: string
   goal: SynthesisGoal
@@ -119,5 +127,6 @@ export interface SynthesisJobStatus {
   updated_at: string
   candidates: SynthesisCandidate[]
   rejections: SynthesisCandidateRejection[]
+  evolution?: SynthesisEvolutionProgress
   error?: SynthesisJobError
 }

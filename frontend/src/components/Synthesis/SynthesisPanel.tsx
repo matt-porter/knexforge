@@ -3,7 +3,16 @@ import { useSynthesisStore } from '../../stores/synthesisStore'
 import type { SynthesisObjective } from '../../types/synthesis'
 import { loadAllPartDefs } from '../../hooks/usePartLibrary'
 
-const OBJECTIVES: { value: SynthesisObjective, label: string }[] = [
+const DEFAULT_TOTAL_GENERATIONS = 5
+
+function clampProgress(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+  return Math.max(0, Math.min(1, value))
+}
+
+const OBJECTIVES: { value: SynthesisObjective; label: string }[] = [
   { value: 'stability', label: 'Stability' },
   { value: 'compactness', label: 'Compactness' },
   { value: 'part_efficiency', label: 'Part Efficiency' },
@@ -27,33 +36,93 @@ export const SynthesisPanel: React.FC = () => {
     constraints,
     candidateCount,
     isGenerating,
+    progress,
+    currentGeneration,
+    totalGenerations,
+    bestScoreSoFar,
     setPrompt,
     toggleObjective,
     setConstraint,
     setCandidateCount,
     startGeneration,
     stopGeneration,
+    setProgress,
+    setEvolutionInfo,
+    resetProgress,
     setCandidates,
-    getGoal
+    getGoal,
   } = useSynthesisStore()
 
   const handleGenerate = async () => {
     if (isGenerating) return
-    
+
     const goal = getGoal()
     startGeneration()
-    
+    resetProgress()
+
     try {
       const partDefsMap = await loadAllPartDefs()
       const partDefs = Object.fromEntries(partDefsMap.entries())
 
       const { getSynthesisRuntime } = await import('../../services/synthesis/runtime')
       const runtime = getSynthesisRuntime()
-      
+
       const result = await runtime.startJob(goal, {
         partDefs,
+        onProgress: (status) => {
+          const normalizedProgress = clampProgress(status.progress)
+          setProgress(normalizedProgress)
+
+          const progressMeta = status.evolution
+          const resolvedTotalGenerations = Math.max(
+            1,
+            Math.round(
+              progressMeta?.total_generations ??
+                status.goal.constraints.generation_count ??
+                DEFAULT_TOTAL_GENERATIONS,
+            ),
+          )
+          const resolvedCurrentGeneration = Math.max(
+            0,
+            Math.min(
+              resolvedTotalGenerations,
+              Math.round(
+                progressMeta?.current_generation ?? normalizedProgress * resolvedTotalGenerations,
+              ),
+            ),
+          )
+          const highestStoreScore = useSynthesisStore.getState().bestScoreSoFar
+          const scoreFromCandidates = status.candidates.reduce(
+            (best, candidate) => Math.max(best, candidate.score.total),
+            0,
+          )
+          const bestScore = Math.max(
+            highestStoreScore,
+            progressMeta?.best_score ?? 0,
+            scoreFromCandidates,
+          )
+
+          setEvolutionInfo(resolvedCurrentGeneration, resolvedTotalGenerations, bestScore)
+        },
       })
-      
+
+      const finalTotalGenerations = Math.max(
+        1,
+        Math.round(
+          result.evolution?.total_generations ??
+            result.goal.constraints.generation_count ??
+            DEFAULT_TOTAL_GENERATIONS,
+        ),
+      )
+      const finalCurrentGeneration = result.evolution?.current_generation ?? finalTotalGenerations
+      const finalBestScore = Math.max(
+        useSynthesisStore.getState().bestScoreSoFar,
+        result.evolution?.best_score ?? 0,
+        result.candidates.reduce((best, candidate) => Math.max(best, candidate.score.total), 0),
+      )
+      setProgress(1)
+      setEvolutionInfo(finalCurrentGeneration, finalTotalGenerations, finalBestScore)
+
       if (result.candidates && result.candidates.length > 0) {
         setCandidates(result.candidates)
       }
@@ -65,7 +134,7 @@ export const SynthesisPanel: React.FC = () => {
   }
 
   return (
-    <div 
+    <div
       className="synthesis-panel"
       style={{
         padding: '16px',
@@ -78,13 +147,15 @@ export const SynthesisPanel: React.FC = () => {
         flexDirection: 'column',
         gap: '16px',
         pointerEvents: 'auto',
-        color: PANEL_COLORS.text
+        color: PANEL_COLORS.text,
       }}
     >
       <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>AI Mechanism Synthesis</h2>
-      
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <label style={{ fontSize: '13px', fontWeight: 500, color: PANEL_COLORS.textMuted }}>Goal Prompt</label>
+        <label style={{ fontSize: '13px', fontWeight: 500, color: PANEL_COLORS.textMuted }}>
+          Goal Prompt
+        </label>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -98,16 +169,18 @@ export const SynthesisPanel: React.FC = () => {
             resize: 'none',
             outline: 'none',
             color: PANEL_COLORS.text,
-            minHeight: '60px'
+            minHeight: '60px',
           }}
           rows={3}
         />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: 500, color: PANEL_COLORS.textMuted }}>Optimization Objectives</label>
+        <label style={{ fontSize: '13px', fontWeight: 500, color: PANEL_COLORS.textMuted }}>
+          Optimization Objectives
+        </label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {OBJECTIVES.map(obj => (
+          {OBJECTIVES.map((obj) => (
             <button
               key={obj.value}
               onClick={() => toggleObjective(obj.value)}
@@ -118,9 +191,15 @@ export const SynthesisPanel: React.FC = () => {
                 border: '1px solid',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                background: objectives.includes(obj.value) ? `${PANEL_COLORS.accent}33` : 'transparent',
-                borderColor: objectives.includes(obj.value) ? PANEL_COLORS.accent : PANEL_COLORS.border,
-                color: objectives.includes(obj.value) ? PANEL_COLORS.accent : PANEL_COLORS.textMuted
+                background: objectives.includes(obj.value)
+                  ? `${PANEL_COLORS.accent}33`
+                  : 'transparent',
+                borderColor: objectives.includes(obj.value)
+                  ? PANEL_COLORS.accent
+                  : PANEL_COLORS.border,
+                color: objectives.includes(obj.value)
+                  ? PANEL_COLORS.accent
+                  : PANEL_COLORS.textMuted,
               }}
             >
               {obj.label}
@@ -130,8 +209,19 @@ export const SynthesisPanel: React.FC = () => {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <label style={{ fontSize: '13px', fontWeight: 500, color: PANEL_COLORS.textMuted }}>Constraints</label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: PANEL_COLORS.textMuted, cursor: 'pointer' }}>
+        <label style={{ fontSize: '13px', fontWeight: 500, color: PANEL_COLORS.textMuted }}>
+          Constraints
+        </label>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '13px',
+            color: PANEL_COLORS.textMuted,
+            cursor: 'pointer',
+          }}
+        >
           <input
             type="checkbox"
             checked={constraints.require_motor ?? false}
@@ -140,8 +230,16 @@ export const SynthesisPanel: React.FC = () => {
           />
           Require Motor
         </label>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: PANEL_COLORS.textMuted }}>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '13px',
+            color: PANEL_COLORS.textMuted,
+          }}
+        >
           <label style={{ flex: 1 }}>Max Parts:</label>
           <input
             type="number"
@@ -157,13 +255,21 @@ export const SynthesisPanel: React.FC = () => {
               borderRadius: '4px',
               textAlign: 'center',
               outline: 'none',
-              color: PANEL_COLORS.text
+              color: PANEL_COLORS.text,
             }}
           />
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: PANEL_COLORS.textMuted }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          color: PANEL_COLORS.textMuted,
+        }}
+      >
         <label style={{ flex: 1 }}>Candidates to Generate:</label>
         <input
           type="number"
@@ -179,7 +285,7 @@ export const SynthesisPanel: React.FC = () => {
             borderRadius: '4px',
             textAlign: 'center',
             outline: 'none',
-            color: PANEL_COLORS.text
+            color: PANEL_COLORS.text,
           }}
         />
       </div>
@@ -202,34 +308,56 @@ export const SynthesisPanel: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '8px'
+          gap: '8px',
         }}
         onMouseEnter={(e) => {
-          if (!isGenerating && prompt.trim().length > 0) e.currentTarget.style.background = PANEL_COLORS.accentDark
+          if (!isGenerating && prompt.trim().length > 0)
+            e.currentTarget.style.background = PANEL_COLORS.accentDark
         }}
         onMouseLeave={(e) => {
-          if (!isGenerating && prompt.trim().length > 0) e.currentTarget.style.background = PANEL_COLORS.accent
+          if (!isGenerating && prompt.trim().length > 0)
+            e.currentTarget.style.background = PANEL_COLORS.accent
         }}
       >
-        {isGenerating ? (
-          <>
-            <svg style={{ animation: 'spin 1s linear infinite', height: '16px', width: '16px' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Generating...
-          </>
-        ) : (
-          'Synthesize'
-        )}
+        {isGenerating ? 'Generating...' : 'Synthesize'}
       </button>
 
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+      {isGenerating && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div
+            role="progressbar"
+            aria-label="Synthesis Generation Progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(progress * 100)}
+            style={{
+              width: '100%',
+              height: '10px',
+              borderRadius: '999px',
+              background: PANEL_COLORS.inputBg,
+              border: `1px solid ${PANEL_COLORS.border}`,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              data-testid="synthesis-progress-fill"
+              style={{
+                width: `${Math.round(progress * 100)}%`,
+                height: '100%',
+                background: PANEL_COLORS.accent,
+                transition: 'width 180ms ease-out',
+              }}
+            />
+          </div>
+          <div
+            data-testid="synthesis-progress-text"
+            style={{ fontSize: '12px', color: PANEL_COLORS.textMuted }}
+          >
+            Generation {Math.max(0, currentGeneration)} / {Math.max(1, totalGenerations)} • Best
+            Score: {bestScoreSoFar.toFixed(2)}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

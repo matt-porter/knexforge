@@ -18,6 +18,7 @@ interface ActiveJob {
 }
 
 const workerScope = self as DedicatedWorkerGlobalScope
+const DEFAULT_GENERATION_COUNT = 5
 
 const jobsById = new Map<string, ActiveJob>()
 
@@ -37,6 +38,20 @@ function seededDelayMs(goal: SynthesisGoal): number {
 
 function buildJobId(requestId: string): string {
   return `job-${requestId}`
+}
+
+function resolveTotalGenerations(goal: SynthesisGoal): number {
+  if (!Number.isFinite(goal.constraints.generation_count)) {
+    return DEFAULT_GENERATION_COUNT
+  }
+  return Math.max(1, Math.round(goal.constraints.generation_count ?? DEFAULT_GENERATION_COUNT))
+}
+
+function getBestCandidateScore(candidates: SynthesisJobStatus['candidates']): number {
+  if (candidates.length === 0) {
+    return 0
+  }
+  return candidates.reduce((best, candidate) => Math.max(best, candidate.score.total), 0)
 }
 
 function postProgress(requestId: string, status: SynthesisJobStatus): void {
@@ -104,6 +119,7 @@ function waitForStep(job: ActiveJob, delayMs: number): Promise<void> {
 
 async function runLifecycle(job: ActiveJob): Promise<void> {
   const delay = seededDelayMs(job.status.goal)
+  const totalGenerations = resolveTotalGenerations(job.status.goal)
 
   if (job.cancelled || job.done) {
     return
@@ -113,6 +129,13 @@ async function runLifecycle(job: ActiveJob): Promise<void> {
     state: 'running',
     stage: 'generating',
     progress: 0.05,
+    evolution: {
+      current_generation: 0,
+      total_generations: totalGenerations,
+      best_score: 0,
+      candidate_count: 0,
+      evaluated_candidates: 0,
+    },
   })
   postProgress(job.requestId, job.status)
   await waitForStep(job, delay)
@@ -124,16 +147,29 @@ async function runLifecycle(job: ActiveJob): Promise<void> {
   try {
     const generator = new EvolutionaryGenerator(new Map(Object.entries(job.partDefs)))
     const result = generator.generate(job.status.goal, {
-      onProgress: ({ generation, totalGenerations }) => {
+      onProgress: ({
+        generation,
+        totalGenerations: iterationTotalGenerations,
+        bestScore,
+        candidateCount,
+        evaluatedCandidates,
+      }) => {
         if (job.cancelled || job.done) {
           return
         }
 
-        const progress = totalGenerations > 0 ? generation / totalGenerations : 0
+        const progress = iterationTotalGenerations > 0 ? generation / iterationTotalGenerations : 0
         setStatus(job, {
           state: 'running',
           stage: 'evolving',
           progress,
+          evolution: {
+            current_generation: generation,
+            total_generations: iterationTotalGenerations,
+            best_score: bestScore,
+            candidate_count: candidateCount,
+            evaluated_candidates: evaluatedCandidates,
+          },
         })
         postProgress(job.requestId, job.status)
       },
@@ -147,6 +183,13 @@ async function runLifecycle(job: ActiveJob): Promise<void> {
       state: 'running',
       stage: 'ranking',
       progress: 1,
+      evolution: {
+        current_generation: totalGenerations,
+        total_generations: totalGenerations,
+        best_score: getBestCandidateScore(result.candidates),
+        candidate_count: result.candidates.length,
+        evaluated_candidates: job.status.evolution?.evaluated_candidates ?? 0,
+      },
     })
     postProgress(job.requestId, job.status)
     await waitForStep(job, delay)
@@ -161,6 +204,13 @@ async function runLifecycle(job: ActiveJob): Promise<void> {
       progress: 1,
       candidates: result.candidates,
       rejections: result.rejections,
+      evolution: {
+        current_generation: totalGenerations,
+        total_generations: totalGenerations,
+        best_score: getBestCandidateScore(result.candidates),
+        candidate_count: result.candidates.length,
+        evaluated_candidates: job.status.evolution?.evaluated_candidates ?? 0,
+      },
     })
     postResult(job.requestId, job.status)
   } catch (error) {
@@ -207,6 +257,7 @@ function failActiveJob(job: ActiveJob, code: string, message: string): void {
 function startJob(requestId: string, goal: SynthesisGoal, partDefs: Record<string, any>): void {
   const now = new Date().toISOString()
   const jobId = buildJobId(requestId)
+  const totalGenerations = resolveTotalGenerations(goal)
 
   const job: ActiveJob = {
     requestId,
@@ -220,6 +271,13 @@ function startJob(requestId: string, goal: SynthesisGoal, partDefs: Record<strin
       updated_at: now,
       candidates: [],
       rejections: [],
+      evolution: {
+        current_generation: 0,
+        total_generations: totalGenerations,
+        best_score: 0,
+        candidate_count: 0,
+        evaluated_candidates: 0,
+      },
     },
     timers: [],
     cancelled: false,
@@ -258,7 +316,11 @@ workerScope.addEventListener('message', (event: MessageEvent<unknown>) => {
 
   const active = jobsById.get(request.job_id)
   if (!active) {
-    postError(request.request_id, 'job_not_found', `No active synthesis job found for ${request.job_id}`)
+    postError(
+      request.request_id,
+      'job_not_found',
+      `No active synthesis job found for ${request.job_id}`,
+    )
     return
   }
 

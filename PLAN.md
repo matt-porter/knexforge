@@ -50,6 +50,18 @@
 - Tests in `frontend/src/services/__tests__/synthesisRapierFitness.test.ts` (8 tests): stable frame integrity, unstable build detection, cantilever stress, cleanup, empty/single-part handling, timing.
 - **Status (2026-03-13)**: `cd frontend && npx vitest run` passes (`44` files, `380` tests).
 
+### [x] Task 16.7: Progress UI Improvements
+- Replaced the synthesis spinner-only UX with a progress bar + live evolution telemetry in `frontend/src/components/Synthesis/SynthesisPanel.tsx`.
+- Added synthesis progress state/actions to `frontend/src/stores/synthesisStore.ts`: `progress`, `currentGeneration`, `totalGenerations`, `bestScoreSoFar`, `setProgress`, `setEvolutionInfo`, and `resetProgress`.
+- Increased default synthesis timeout to 120s (`max_generation_time_ms: 120000`) in the synthesis store goal constraints.
+- Hooked runtime progress updates into panel state via `runtime.startJob(..., { onProgress })`, including generation/score fallback logic from `status.progress` and optional evolution metadata.
+- Extended worker/status contracts to carry optional `evolution` metadata (`current_generation`, `total_generations`, `best_score`, candidate/evaluated counts) for richer UI updates.
+- Added progress-focused panel coverage in `frontend/src/components/Synthesis/__tests__/SynthesisPanel.test.tsx` (7 tests total), including render/width/text/hidden-state assertions.
+- **Status (2026-03-15)**:
+  - `cd frontend && npx vitest run` passes (`44` files, `383` tests).
+  - `cd frontend && npm run type-check` passes.
+  - `.\.venv\Scripts\python.exe -m pytest src/core/tests/` passes (`164` tests).
+
 
 ## Phase 4 — Scan-to-Build Computer Vision Pipeline
 
